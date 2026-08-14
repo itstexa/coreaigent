@@ -45,7 +45,8 @@ def document(item):
 
 def assert_mock(item, service, payload, local):
     if service == "ocr": assert payload["text"] == item["text"]
-    if service == "analysis": assert payload["classification"] == item["classification"]
+    if service == "classification": assert payload["classification"] == item["classification"]
+    if service == "validation": assert bool(payload["missingFields"]) == (item["classification"] == "needs_information")
     if service == "rag": assert bool(payload["results"]) == item["retrieval"]
     if service == "llm": assert payload["output"]["draft"] == item["draft"]
     if service == "workflow":
@@ -56,12 +57,13 @@ def assert_mock(item, service, payload, local):
 def run(item, mode, local):
     doc = document(item)
     ocr, ocr_header = call("ocr", doc)
-    analysis, analysis_header = call("analysis", ocr)
-    trace = {k: analysis[k] for k in ("schemaVersion", "requestId", "documentId", "workflowId")}
-    rag, rag_header = call("rag", trace | {"query": analysis["summary"] or item["title"], "documentType": analysis["documentType"]})
+    classification, classification_header = call("classification", ocr)
+    validation, validation_header = call("validation", classification)
+    trace = {k: classification[k] for k in ("schemaVersion", "requestId", "documentId", "workflowId")}
+    rag, rag_header = call("rag", trace | {"query": classification["summary"] or item["title"], "documentType": classification["documentType"]})
     llm, llm_header = call("llm", trace | {"task": "draft_reply", "prompt": item["text"], "context": [r["excerpt"] for r in rag["results"]]})
     workflow, workflow_header = call("workflow", doc)
-    responses = {"ocr": (ocr, ocr_header), "analysis": (analysis, analysis_header), "rag": (rag, rag_header), "llm": (llm, llm_header), "workflow": (workflow, workflow_header)}
+    responses = {"ocr": (ocr, ocr_header), "classification": (classification, classification_header), "validation": (validation, validation_header), "rag": (rag, rag_header), "llm": (llm, llm_header), "workflow": (workflow, workflow_header)}
     for service, (payload, header) in responses.items():
         valid(MANIFEST[service]["response"], payload)
         must_be_mock = mode == "mock" or (mode == "development" and service != local)

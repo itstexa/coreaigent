@@ -18,26 +18,31 @@ services:
     image: coreaigent/ocr-mock:1.0
     environment: { MOCK_SERVICE: ocr }
     ports: ["8081:8080"]
-  analysis:
+  classification:
     <<: *mock
-    image: coreaigent/analysis-mock:1.0
-    environment: { MOCK_SERVICE: analysis }
+    image: coreaigent/classification-mock:1.0
+    environment: { MOCK_SERVICE: classification }
     ports: ["8082:8080"]
+  validation:
+    <<: *mock
+    image: coreaigent/validation-mock:1.0
+    environment: { MOCK_SERVICE: validation }
+    ports: ["8083:8080"]
   rag:
     <<: *mock
     image: coreaigent/rag-mock:1.0
     environment: { MOCK_SERVICE: rag }
-    ports: ["8083:8080"]
+    ports: ["8084:8080"]
   llm:
     <<: *mock
     image: coreaigent/llm-mock:1.0
     environment: { MOCK_SERVICE: llm }
-    ports: ["8084:8080"]
+    ports: ["8085:8080"]
   workflow:
     <<: *mock
     image: coreaigent/workflow-mock:1.0
     environment: { MOCK_SERVICE: workflow }
-    ports: ["8085:8080"]
+    ports: ["8086:8080"]
   contract-tests:
     build:
       context: .
@@ -46,7 +51,8 @@ services:
     profiles: ["tests"]
     depends_on:
       ocr: { condition: service_healthy }
-      analysis: { condition: service_healthy }
+      classification: { condition: service_healthy }
+      validation: { condition: service_healthy }
       rag: { condition: service_healthy }
       llm: { condition: service_healthy }
       workflow: { condition: service_healthy }

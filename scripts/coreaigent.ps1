@@ -8,7 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$Services = @("ocr", "analysis", "rag", "llm", "workflow")
+$Services = @("ocr", "classification", "validation", "rag", "llm", "workflow")
 Set-Location $Root
 
 function Assert-Service([string]$Name) {
@@ -46,7 +46,7 @@ switch ($Command) {
     $Local = $args[0]
     if ($Mode -notin @("mock", "development", "integration", "e2e")) { throw "Usage: test mock | test development <service> | test integration <service> | test e2e" }
     $Files = @("compose.yaml")
-    $TestArgs = @("--profile", "tests", "run", "--rm", "contract-tests")
+    $TestArgs = @("--profile", "tests", "run", "--build", "--rm", "contract-tests")
     if ($Mode -eq "mock") { $TestArgs += @("--mode", "mock") }
     elseif ($Mode -eq "development") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "development", "--local", $Local) }
     elseif ($Mode -eq "integration") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; $Files += "compose.integration.yaml", ".compose.local.generated.yml"; $TestArgs += @("--mode", "real") }

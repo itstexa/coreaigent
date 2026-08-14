@@ -30,15 +30,17 @@ def result(payload, item):
     trace = tracing(payload)
     if SERVICE == "ocr":
         return trace | {"text": item["text"], "language": "tr", "confidence": 0.91, "pages": 1, "warnings": []}
-    if SERVICE == "analysis":
+    if SERVICE == "classification":
+        return trace | {"documentType": item["documentType"], "classification": item["classification"], "extractedFields": {"scenario": item["id"]}, "summary": item["title"]}
+    if SERVICE == "validation":
         missing = [] if item["classification"] != "needs_information" else ["required_attachment"]
-        return trace | {"documentType": item["documentType"], "classification": item["classification"], "extractedFields": {"scenario": item["id"]}, "missingFields": missing, "summary": item["title"]}
+        return trace | {"missingFields": missing}
     if SERVICE == "rag":
         results = [] if not item["retrieval"] else [{"id": "regulation-" + item["id"], "title": "İlgili kamu mevzuatı", "excerpt": item["title"], "score": 0.9}]
         return trace | {"results": results, "searchedAt": "2026-01-01T00:00:00Z"}
     if SERVICE == "llm":
         return trace | {"output": {"draft": item["draft"], "department": item["department"], "confidence": 0.9}, "model": "mock-deterministic-v1"}
-    steps = [{"service": name, "status": "completed" if item["status"] == "completed" or name == "workflow" else "skipped", "timestamp": "2026-01-01T00:00:00Z"} for name in ("ocr", "analysis", "rag", "llm", "workflow")]
+    steps = [{"service": name, "status": "completed" if item["status"] == "completed" or name == "workflow" else "skipped", "timestamp": "2026-01-01T00:00:00Z"} for name in ("ocr", "classification", "validation", "rag", "llm", "workflow")]
     return trace | {"status": item["status"], "documentType": item["documentType"], "department": item["department"], "draft": item["draft"], "steps": steps, "error": None}
 
 
@@ -51,12 +53,13 @@ def request(service, payload):
 
 def workflow_result(payload, item):
     ocr = request("ocr", payload)
-    analysis = request("analysis", ocr)
-    trace = {key: analysis[key] for key in ("schemaVersion", "requestId", "documentId", "workflowId")}
-    rag = request("rag", trace | {"query": analysis["summary"] or item["title"], "documentType": analysis["documentType"]})
+    classification = request("classification", ocr)
+    validation = request("validation", classification)
+    trace = {key: classification[key] for key in ("schemaVersion", "requestId", "documentId", "workflowId")}
+    rag = request("rag", trace | {"query": classification["summary"] or item["title"], "documentType": classification["documentType"]})
     llm = request("llm", trace | {"task": "draft_reply", "prompt": payload["content"] or item["text"], "context": [entry["excerpt"] for entry in rag["results"]]})
-    steps = [{"service": name, "status": "completed", "timestamp": "2026-01-01T00:00:00Z"} for name in ("ocr", "analysis", "rag", "llm", "workflow")]
-    return trace | {"status": item["status"], "documentType": analysis["documentType"], "department": llm["output"]["department"], "draft": llm["output"]["draft"], "steps": steps, "error": None}
+    steps = [{"service": name, "status": "completed", "timestamp": "2026-01-01T00:00:00Z"} for name in ("ocr", "classification", "validation", "rag", "llm", "workflow")]
+    return trace | {"status": item["status"], "documentType": classification["documentType"], "department": llm["output"]["department"], "draft": llm["output"]["draft"], "steps": steps, "error": None}
 
 
 def matches(schema, value):

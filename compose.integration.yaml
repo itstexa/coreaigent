@@ -2,7 +2,8 @@
 # `scripts/coreaigent.ps1 integration <service>` applies a final local override.
 services:
   ocr: { image: "${OCR_IMAGE:?Set OCR_IMAGE to an immutable tag in .env}", build: null }
-  analysis: { image: "${ANALYSIS_IMAGE:?Set ANALYSIS_IMAGE to an immutable tag in .env}", build: null }
+  classification: { image: "${CLASSIFICATION_IMAGE:?Set CLASSIFICATION_IMAGE to an immutable tag in .env}", build: null }
+  validation: { image: "${VALIDATION_IMAGE:?Set VALIDATION_IMAGE to an immutable tag in .env}", build: null }
   rag: { image: "${RAG_IMAGE:?Set RAG_IMAGE to an immutable tag in .env}", build: null }
   llm: { image: "${LLM_IMAGE:?Set LLM_IMAGE to an immutable tag in .env}", build: null }
   workflow: { image: "${WORKFLOW_IMAGE:?Set WORKFLOW_IMAGE to an immutable tag in .env}", build: null }

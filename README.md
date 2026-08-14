@@ -7,12 +7,13 @@ Logical service names and addresses are permanent:
 | Service | Address | Responsibility |
 | --- | --- | --- |
 | `ocr` | `http://ocr:8080` | document text extraction |
-| `analysis` | `http://analysis:8080` | document analysis/classification/extraction |
+| `classification` | `http://classification:8080` | document type and classification |
+| `validation` | `http://validation:8080` | missing information detection |
 | `rag` | `http://rag:8080` | regulation/knowledge retrieval |
 | `llm` | `http://llm:8080` | structured generation |
 | `workflow` | `http://workflow:8080` | draft, routing and final workflow result |
 
-The initial boundaries above are the only assumptions made from the competition workflow. If the team chooses to merge or split one of them, change the corresponding contract before implementations are started.
+The initial boundaries above are the only assumptions made from the competition workflow. The document flow is `ocr -> classification -> validation -> rag -> llm`. If the team chooses to merge or split one of them, change the corresponding contract before implementations are started.
 
 ## Quick start
 
