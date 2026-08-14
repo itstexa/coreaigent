@@ -1,0 +1,2 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"llm-request","type":"object","additionalProperties":false,"required":["schemaVersion","requestId","documentId","workflowId","task","prompt"],"properties":{"schemaVersion":{"const":"1.0"},"requestId":{"type":"string","minLength":1},"documentId":{"type":"string","minLength":1},"workflowId":{"type":"string","minLength":1},"task":{"enum":["draft_reply","route_document","summarize"]},"prompt":{"type":"string","minLength":1},"context":{"type":"array","items":{"type":"string"}}}}
+

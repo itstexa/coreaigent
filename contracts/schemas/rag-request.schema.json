@@ -1,0 +1,2 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"rag-request","type":"object","additionalProperties":false,"required":["schemaVersion","requestId","documentId","workflowId","query"],"properties":{"schemaVersion":{"const":"1.0"},"requestId":{"type":"string","minLength":1},"documentId":{"type":"string","minLength":1},"workflowId":{"type":"string","minLength":1},"query":{"type":"string","minLength":1},"documentType":{"type":["string","null"]}}}
+

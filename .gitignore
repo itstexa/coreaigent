@@ -1,0 +1,5 @@
+.env
+.compose.local.generated.yml
+__pycache__/
+*.pyc
+
