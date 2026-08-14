@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "services": {
+    "ocr": {"path": "/v1/ocr", "request": "document-input", "response": "ocr-result"},
+    "classification": {"path": "/v1/classify", "request": "ocr-result", "response": "classification-result"},
+    "validation": {"path": "/v1/validate", "request": "classification-result", "response": "validation-result"},
+    "rag": {"path": "/v1/retrieve", "request": "rag-request", "response": "rag-result"},
+    "llm": {"path": "/v1/generate", "request": "llm-request", "response": "llm-response"},
+    "workflow": {"path": "/v1/workflows/document", "request": "document-input", "response": "workflow-result"}
+  },
+  "errorResponse": "standard-error"
+}
