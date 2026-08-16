@@ -54,4 +54,23 @@ Test scope is intentionally limited: service-owned unit tests, JSON Schema contr
 
 Until an implementation Dockerfile exists, `dev` and `integration` stop with a clear message rather than presenting a mock as a real service. The useful first check today is `docker compose up --build -d` followed by `.\scripts\coreaigent.ps1 test mock`.
 
-See [contracts/README.md](contracts/README.md), [docs/service-implementation.md](docs/service-implementation.md), and [docs/ci.md](docs/ci.md).
+See [contracts/README.md](contracts/README.md), [docs/service-implementation.md](docs/service-implementation.md), [docs/ci.md](docs/ci.md), and the evaluation dataset pack under [evaluation/README.md](evaluation/README.md) plus [datasets/README.md](datasets/README.md).
+
+## Dataset and evaluation assets
+
+The repository includes a fixed public-document evaluation set for rule-engine, retrieval, and end-to-end pipeline comparison:
+
+- [evaluation/golden_dataset_v0.1.json](evaluation/golden_dataset_v0.1.json)
+- [evaluation/README.md](evaluation/README.md)
+- [datasets/README.md](datasets/README.md)
+- [datasets/annotation_schema.json](datasets/annotation_schema.json)
+- [datasets/evaluation_split.json](datasets/evaluation_split.json)
+- [scripts/run_dataset_benchmark.py](scripts/run_dataset_benchmark.py)
+
+This first release intentionally uses a single evaluation split and is not intended for model training.
+
+Run the benchmark from the repo root with:
+
+```bash
+python scripts/run_dataset_benchmark.py
+```

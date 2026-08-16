@@ -1,0 +1,32 @@
+{
+  "version": "0.1",
+  "split_name": "evaluation_only",
+  "description": "İlk değerlendirme aşaması için tek sabit split. Bu sürümde ayrı train/validation/test seti yoktur.",
+  "sets": {
+    "evaluation": [
+      "EVR-001",
+      "EVR-002",
+      "EVR-003",
+      "EVR-004",
+      "EVR-005",
+      "EVR-006",
+      "EVR-007",
+      "EVR-008",
+      "EVR-009",
+      "EVR-010",
+      "EVR-011",
+      "EVR-012",
+      "EVR-013",
+      "EVR-014",
+      "EVR-015",
+      "EVR-016",
+      "EVR-017",
+      "EVR-018",
+      "EVR-019",
+      "EVR-020"
+    ],
+    "train": [],
+    "validation": [],
+    "test": []
+  }
+}
