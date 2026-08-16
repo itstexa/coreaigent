@@ -1,0 +1,9 @@
+{"query": "Dilekçe hakkının amacı nedir?", "expected": [{"kanun_no": "3071", "madde_no": 1}]}
+{"query": "Dilekçede hangi bilgilerin bulunması zorunludur?", "expected": [{"kanun_no": "3071", "madde_no": 4}]}
+{"query": "Dilekçe konusuyla ilgili olmayan bir makama verilirse ne yapılır?", "expected": [{"kanun_no": "3071", "madde_no": 5}]}
+{"query": "TBMM Dilekçe Komisyonu başvuruları kaç gün içinde sonuçlandırır?", "expected": [{"kanun_no": "3071", "madde_no": 8}]}
+{"query": "Hangi dilekçeler incelenemez?", "expected": [{"kanun_no": "3071", "madde_no": 6}]}
+{"query": "Başvurunun sonucu vatandaşa kaç gün içinde bildirilir?", "expected": [{"kanun_no": "3071", "madde_no": 7}]}
+{"query": "Yabancılar dilekçe hakkından hangi şartlarla yararlanabilir?", "expected": [{"kanun_no": "3071", "madde_no": 3}]}
+{"query": "Resmi yazışmalarda kullanılacak kağıt boyutu nedir?", "expected": [{"kanun_no": "2646", "madde_no": 5}]}
+{"query": "Üst yazının ekleri farklı ebatlarda hazırlanabilir mi?", "expected": [{"kanun_no": "2646", "madde_no": 5}]}

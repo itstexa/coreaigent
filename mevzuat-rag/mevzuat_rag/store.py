@@ -1,0 +1,84 @@
+"""Qdrant-backed storage for legislation chunks.
+
+Same collection shape as ``insangram/src/rag/embed.py``: a single unnamed
+1024-d cosine vector per point, no sparse/hybrid fusion. Supports either a
+remote Qdrant server (``QDRANT_URL``, used by ``compose.yaml``'s ``qdrant``
+service) or an embedded on-disk client (``QDRANT_LOCAL_PATH``, useful for the
+smoke test and local dev without Docker) — same fallback Insangram uses.
+"""
+from __future__ import annotations
+
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
+
+from mevzuat_rag.models import ChunkMetadata, LegislationChunk, RetrievalResult
+
+VECTOR_SIZE = 1024
+
+
+class QdrantStore:
+    def __init__(self, collection: str, url: str | None = None, local_path: str | None = None):
+        self.collection = collection
+        self.client = QdrantClient(url=url) if url else QdrantClient(path=local_path)
+        self._ensure_collection()
+
+    def _ensure_collection(self) -> None:
+        names = [c.name for c in self.client.get_collections().collections]
+        if self.collection not in names:
+            self.client.create_collection(
+                collection_name=self.collection,
+                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+            )
+
+    def upsert_chunks(self, chunks: list[LegislationChunk], vectors: list[list[float]]) -> None:
+        points = [
+            PointStruct(
+                id=chunk.id,
+                vector=vector,
+                payload={
+                    "text": chunk.text,
+                    "citation": chunk.citation,
+                    "kanun_no": chunk.metadata.kanun_no,
+                    "kanun_adi": chunk.metadata.kanun_adi,
+                    "madde_no": chunk.metadata.madde_no,
+                    "fikra_no": chunk.metadata.fikra_no,
+                    "bent": chunk.metadata.bent,
+                    "kaynak_url": chunk.metadata.kaynak_url,
+                    "source_hash": chunk.metadata.source_hash,
+                },
+            )
+            for chunk, vector in zip(chunks, vectors)
+        ]
+        if points:
+            self.client.upsert(collection_name=self.collection, points=points)
+
+    def existing_source_hashes(self, chunk_ids: list[str]) -> dict[str, str]:
+        """Maps chunk id -> already-indexed source_hash, for the ids that exist.
+
+        Used to skip re-embedding chunks whose text hasn't changed since the
+        last ingest run (see engine.index_chunks).
+        """
+        if not chunk_ids:
+            return {}
+        points = self.client.retrieve(collection_name=self.collection, ids=chunk_ids, with_payload=["source_hash"])
+        return {str(point.id): point.payload.get("source_hash", "") for point in points}
+
+    def delete_by_kanun_no(self, kanun_no: str) -> None:
+        self.client.delete(
+            collection_name=self.collection,
+            points_selector=Filter(must=[FieldCondition(key="kanun_no", match=MatchValue(value=kanun_no))]),
+        )
+
+    def search(self, query_vector: list[float], top_k: int) -> list[RetrievalResult]:
+        hits = self.client.query_points(collection_name=self.collection, query=query_vector, limit=top_k, with_payload=True).points
+        results = []
+        for hit in hits:
+            payload = hit.payload
+            metadata = ChunkMetadata(
+                kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
+                fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
+                source_hash=payload.get("source_hash", ""),
+            )
+            chunk = LegislationChunk(id=str(hit.id), text=payload["text"], metadata=metadata, citation=payload["citation"])
+            results.append(RetrievalResult(chunk=chunk, score=hit.score))
+        return results

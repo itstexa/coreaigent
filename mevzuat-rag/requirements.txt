@@ -1,0 +1,8 @@
+qdrant-client>=1.11
+sentence-transformers>=3
+torch
+httpx
+beautifulsoup4
+feedparser
+openai>=1.0
+
