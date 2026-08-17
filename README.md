@@ -30,6 +30,43 @@ docker compose up --build -d
 `docker compose up --build -d` builds and starts all mock services. The test
 command validates the contracts and runs the golden scenarios against them.
 
+## Docker test commands
+
+The mock suite is the baseline Docker verification for this repository. It
+starts the six contract mocks, waits for their health checks, validates the
+JSON Schemas, and runs all 58 golden scenarios end to end. It does not require
+real service implementations or the image variables in `.env`.
+
+Run these commands from the repository root on Linux, macOS, or Windows with
+Docker Desktop/Compose v2 available:
+
+```bash
+# Validate the resolved Compose configuration.
+docker compose config --quiet
+
+# Build and start the OCR, classification, validation, RAG, LLM, and workflow mocks.
+docker compose up --build -d
+
+# Run schema checks, invalid-request checks, and the 58-scenario mock E2E suite.
+docker compose --profile tests run --build --rm contract-tests --mode mock
+
+# Inspect service health or follow logs when troubleshooting.
+docker compose ps
+docker compose logs --follow --tail 100
+
+# Stop the local stack and remove its Compose resources.
+docker compose down --volumes --remove-orphans
+```
+
+The PowerShell wrapper provides the equivalent mock test command on Windows:
+
+```powershell
+.\scripts\coreaigent.ps1 test mock
+```
+
+Pull requests run this same Docker mock suite automatically in GitHub Actions;
+see [the PR workflow](.github/workflows/pr-contract-tests.yml).
+
 When a real service implementation exists under `services/<service>/`, use the
 following workflows:
 
