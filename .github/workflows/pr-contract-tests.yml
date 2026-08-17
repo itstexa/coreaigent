@@ -3,6 +3,11 @@ name: PR contract mock tests
 on:
   pull_request:
 
+# A new push to the same pull request makes the in-flight run obsolete.
+concurrency:
+  group: pr-contract-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -22,12 +27,26 @@ jobs:
       - name: Build and start contract mocks
         run: docker compose up --build -d
 
+      - name: Show started mock services
+        run: docker compose ps
+
       - name: Run contract and mock E2E tests
         run: docker compose --profile tests run --build --rm contract-tests --mode mock
 
-      - name: Print Compose logs after a failure
+      - name: Collect Compose diagnostics after a failure
         if: failure()
-        run: docker compose logs --no-color
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color | tee compose.log
+
+      - name: Upload Compose diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-diagnostics
+          path: compose.log
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Clean up Docker resources
         if: always()
