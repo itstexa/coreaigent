@@ -8,6 +8,7 @@ or initialize the real CUDA model.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import threading
@@ -21,6 +22,7 @@ from fastapi.responses import JSONResponse
 MODEL_ID = "serda-dev/Jamba2-3B-Turkish"
 MODEL_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 MAX_PROMPT_TOKENS = 1024
+LOGGER = logging.getLogger("coreaigent.llm")
 
 
 class ModelNotReadyError(RuntimeError):
@@ -44,6 +46,12 @@ class RuntimeConfig:
     temperature: float = 0.7
     top_p: float = 0.9
     deadline_seconds: float = 60.0
+
+    @property
+    def hf_cache_dir(self) -> str:
+        """Return the Hub cache directory inside the persistent HF volume."""
+
+        return os.path.join(self.hf_home, "hub")
 
     @classmethod
     def from_env(cls) -> "RuntimeConfig":
@@ -118,7 +126,7 @@ class RealJambaLoader:
         model_config = AutoConfig.from_pretrained(
             config.model_id,
             revision=config.model_revision,
-            cache_dir=config.hf_home,
+            cache_dir=config.hf_cache_dir,
             trust_remote_code=True,
         )
         if hasattr(model_config, "use_mamba_kernels"):
@@ -129,7 +137,7 @@ class RealJambaLoader:
         tokenizer = AutoTokenizer.from_pretrained(
             config.model_id,
             revision=config.model_revision,
-            cache_dir=config.hf_home,
+            cache_dir=config.hf_cache_dir,
             trust_remote_code=True,
         )
         if tokenizer.pad_token is None:
@@ -138,9 +146,9 @@ class RealJambaLoader:
         model = AutoModelForCausalLM.from_pretrained(
             config.model_id,
             revision=config.model_revision,
-            cache_dir=config.hf_home,
+            cache_dir=config.hf_cache_dir,
             config=model_config,
-            device_map="auto",
+            device_map={"": "cuda:0"},
             torch_dtype=torch.bfloat16,
             attn_implementation="sdpa",
             trust_remote_code=True,
@@ -213,6 +221,7 @@ class JambaService:
             self.model_loaded = True
             self.accepting_inference = True
         except Exception:
+            LOGGER.exception("Jamba model initialization failed")
             self.readiness_code = "model_not_ready"
 
     @property
@@ -311,6 +320,7 @@ def create_app(
         except ModelNotReadyError:
             return service.readiness_error()
         except Exception:
+            LOGGER.exception("Jamba generation failed")
             return error_response(500, "generation_failed", "model generation failed")
         return JSONResponse(status_code=200, content={"model": runtime_config.model_id, "response": response})
 

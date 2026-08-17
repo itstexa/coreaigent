@@ -1,0 +1,12 @@
+services:
+  llm:
+    gpus: all
+    environment:
+      MODEL_ID: "${MODEL_ID:-serda-dev/Jamba2-3B-Turkish}"
+      MODEL_REVISION: "${MODEL_REVISION:-<PINNED_HF_COMMIT_SHA>}"
+      HF_HOME: "/var/cache/huggingface"
+    volumes:
+      - llm-hf-cache:/var/cache/huggingface
+
+volumes:
+  llm-hf-cache:

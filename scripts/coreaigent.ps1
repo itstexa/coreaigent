@@ -30,17 +30,22 @@ function Invoke-Compose([string[]]$ComposeFiles, [string[]]$ComposeArguments) {
   $fileArgs = @(); foreach ($file in $ComposeFiles) { $fileArgs += "-f"; $fileArgs += $file }
   & docker compose @fileArgs @ComposeArguments
 }
-
 switch ($Command) {
   "dev" {
     Assert-Service $Service; Assert-Dockerfile $Service; Write-LocalOverride $Service
-    Invoke-Compose -ComposeFiles @("compose.yaml", ".compose.local.generated.yml") -ComposeArguments @("up", "--build", "-d")
+    $Files = @("compose.yaml")
+    if ($Service -eq "llm") { $Files += "compose.llm.yaml" }
+    $Files += ".compose.local.generated.yml"
+    Invoke-Compose -ComposeFiles $Files -ComposeArguments @("up", "--build", "-d")
   }
   "integration" {
     Assert-Service $Service; Assert-Dockerfile $Service; Write-LocalOverride $Service
-    Invoke-Compose -ComposeFiles @("compose.yaml", "compose.integration.yaml", ".compose.local.generated.yml") -ComposeArguments @("up", "--build", "-d")
+    $Files = @("compose.yaml", "compose.integration.yaml")
+    if ($Service -eq "llm") { $Files += "compose.llm.yaml" }
+    $Files += ".compose.local.generated.yml"
+    Invoke-Compose -ComposeFiles $Files -ComposeArguments @("up", "--build", "-d")
   }
-  "e2e" { Invoke-Compose -ComposeFiles @("compose.yaml", "compose.integration.yaml") -ComposeArguments @("up", "-d") }
+  "e2e" { Invoke-Compose -ComposeFiles @("compose.yaml", "compose.integration.yaml", "compose.llm.yaml") -ComposeArguments @("up", "-d") }
   "test" {
     $Mode = $Service
     $Local = $args[0]
@@ -48,9 +53,9 @@ switch ($Command) {
     $Files = @("compose.yaml")
     $TestArgs = @("--profile", "tests", "run", "--build", "--rm", "contract-tests")
     if ($Mode -eq "mock") { $TestArgs += @("--mode", "mock") }
-    elseif ($Mode -eq "development") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "development", "--local", $Local) }
-    elseif ($Mode -eq "integration") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; $Files += "compose.integration.yaml", ".compose.local.generated.yml"; $TestArgs += @("--mode", "real") }
-    else { $Files += "compose.integration.yaml"; $TestArgs += @("--mode", "real") }
+    elseif ($Mode -eq "development") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; if ($Local -eq "llm") { $Files += "compose.llm.yaml" }; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "development", "--local", $Local) }
+    elseif ($Mode -eq "integration") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; $Files += "compose.integration.yaml"; if ($Local -eq "llm") { $Files += "compose.llm.yaml" }; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "real") }
+    else { $Files += "compose.integration.yaml", "compose.llm.yaml"; $TestArgs += @("--mode", "real") }
     Invoke-Compose -ComposeFiles $Files -ComposeArguments $TestArgs
   }
   "logs" { Invoke-Compose -ComposeFiles @("compose.yaml") -ComposeArguments @("logs", "-f", "--tail", "100") }
