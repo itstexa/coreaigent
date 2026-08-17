@@ -6,18 +6,18 @@
 
 ## Active Entry
 
-- **Status**: Pending Approval
+- **Status**: Approved
 - **Stage**: Implementation
 - **Session Started**: 2026-08-17
 - **Related Doc(s)**: `docs/design/DESIGN.md` (approved input); `docs/architecture/ARCHITECTURE.md`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Implementation pass: US-102 Türkçe Jamba inference API in the existing `llm` service.
+  - Implementation pass: US-103 GPU and SSM-compatible runtime for the existing `llm` service.
   - Places Jamba in the existing `llm` Compose service and changes the real-service route to `/generate` per Issue #363 priority.
   - Defines liveness/readiness, singleton loader, serialized inference, error-envelope, cache/revision, and CUDA/SSM runtime predicates.
   - Selects the reference-derived CUDA 12.1 / PyTorch 2.5.1+cu121 / Mamba compatibility baseline with GPU smoke validation.
   - Selects a FastAPI/Uvicorn API process and a CPU-test-double/GPU-real-model verification split.
-- **Pass Status**: Complete; awaiting human implementation approval; branch `feature/llm-jamba-inference`
+- **Pass Status**: Complete; branch `feature/llm-jamba-inference`
 - **Open Questions Resolved This Session**:
   - OQ-102 — fixed `llm` service and `/generate` route.
   - OQ-103 — `/health` liveness plus `/ready` readiness semantics.
@@ -28,8 +28,8 @@
   - OQ-108 — HTTP status/error envelope mapping.
   - OQ-109 — loader test double as singleton proof.
   - OQ-110 — CPU CI/GPU smoke/final E2E verification split.
-- **Approved By**:
-- **Approval Date**:
+- **Approved By**: Serda
+- **Approval Date**: 17.08.2026
 
 ---
 
@@ -50,3 +50,16 @@
   - OQ-102 through OQ-110 — resolutions recorded in `docs/design/DESIGN.md`.
 - **Approved By**: Serda
 - **Approval Date**: 17.08.2026 - 0555AM
+
+### Implementation — US-102 Türkçe Jamba inference API
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-17
+- **Related Doc(s)**: `docs/design/DESIGN.md`, `docs/architecture/ARCHITECTURE.md`, `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - Implemented the fixed `llm` Jamba API, singleton loader, readiness/error behavior, and CUDA/SSM image.
+  - Verified 10 US-102 acceptance tests, the runtime image build, GPU-unavailable health behavior, and the repository's 58-scenario mock suite.
+- **Approved By**: Serda
+- **Approval Date**: 17.08.2026
