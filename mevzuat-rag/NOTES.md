@@ -1,3 +1,45 @@
+# Notlar — Checkpoint 5: Self-RAG Router + CRAG (2026-08-19)
+
+## Amaç
+
+[0] Router ve [5] Evaluate (CRAG) aşamalarını eklemek — bu, prompttaki 9
+tekniğin sonuncu ikisi. Bu checkpoint'le pipeline artık [0]-[7] arasının
+tamamını içeriyor.
+
+## Sonuçlar
+
+- **Router:** 4 gerçek sorguyla test edildi — "merhaba" ve "teşekkürler
+  yardımın için" → `ANSWER_DIRECTLY` (doğru, retrieval hiç çalışmadı);
+  "bişey" → `CLARIFY` (doğru, belirsiz soru); "Dilekçede hangi bilgiler
+  zorunludur?" → `RETRIEVE`, tam pipeline'dan geçip atıflı doğru cevap
+  üretti. Güvenlik kuralı (belirsizlikte RETRIEVE) hem prompt'ta hem
+  parse hatası fallback'inde var.
+- **CRAG:** Orijinal 2026-08-16 notlarındaki üçüncü test sorusu ("Elektronik
+  ortamda güvenli elektronik imza için hangi sertifika gerekir?" — corpus'ta
+  YOK) ile test edildi:
+  - `insufficient_strategy: refuse` → `INSUFFICIENT` tespit edildi, context
+    boşaltıldı (0 candidate), Generate'in "bu sorunun cevabı yok" reddi
+    tetiklenecek şekilde bırakıldı.
+  - `force_hyde` ve `shift_to_bm25` → ikisi de `max_loops=2`'yi doldurup
+    dürüstçe `INSUFFICIENT` sonucunda kaldı (gerçekten corpus'ta yok,
+    fabrikasyon yapmadılar) — sonsuz döngüye girmediler, cap çalışıyor.
+- **Golden set (router+crag dahil hepsi açık):** Recall@1/3/5 = MRR = 1.0.
+  CRAG'in evaluator'ı bu 9 soruda hep `SUFFICIENT` dedi (corpus zaten
+  kapsıyor), yani ek loop maliyeti çıkmadı — gecikme p50 ~5.7s'ye çıktı
+  (router'ın +1 LLM çağrısı + CRAG'in +1 evaluator çağrısı yüzünden).
+- **Thread-safety notu:** CRAG'in `insufficient_strategy` uygulaması
+  bilerek `ctx.engine.config`'i MUTATE ETMİYOR (ör. `hybrid.alpha`'yı
+  geçici değiştirip geri almak yerine) — paylaşılan bir `RAGEngine`
+  üzerinde eşzamanlı isteklerde state sızıntısına yol açardı (bkz.
+  Checkpoint 3'teki thread-safety bulgusuyla aynı risk sınıfı). Bunun
+  yerine her strateji doğrudan `ctx`/`engine.store`/`engine.model` üzerinden
+  çalışıyor.
+- `config/default.yaml`'da `router.enabled` ve `crag.enabled` artık `true`;
+  `config/edge.yaml` ikisini de kapalı tutuyor (düşük kaynaklı cihazlarda
+  ekstra LLM çağrısı maliyeti istenmeyebilir).
+
+---
+
 # Notlar — Checkpoint 4: Parent Document Retrieval + Context Compression (2026-08-19)
 
 ## Amaç

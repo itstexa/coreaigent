@@ -58,7 +58,7 @@ ingestion:
 # tek tek true'ya çevrilir. ---
 
 router:                    # [0] Self-RAG — retrieval gerekli mi kararı
-  enabled: false
+  enabled: true              # doğrulandı — belirsizlikte her zaman RETRIEVE'e düşüyor (güvenlik kuralı)
   model: deepseek-chat
 
 hybrid:                    # [2] Hybrid Retrieve — dense + BM25 + RRF/weighted füzyon
@@ -98,7 +98,7 @@ compression:                # [6] Context Compression
   llm_summarize: false
 
 crag:                       # [5] CRAG — corrective retrieval loop
-  enabled: false
+  enabled: true              # doğrulandı — out-of-corpus sorularda INSUFFICIENT'i doğru tespit edip fabrikasyon yapmadan reddediyor
   max_loops: 2
   insufficient_strategy: force_hyde   # force_hyde | shift_to_bm25 | refuse
 

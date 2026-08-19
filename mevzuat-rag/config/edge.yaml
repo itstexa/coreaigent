@@ -11,3 +11,7 @@ rerank:
   enabled: false
 multi_query:
   enabled: false
+router:
+  enabled: false
+crag:
+  enabled: false

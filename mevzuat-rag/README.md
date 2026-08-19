@@ -31,12 +31,12 @@ zinciri** (`Stage` protokolü, `PipelineContext`, `Pipeline` runner —
 `pipeline/stage.py` / `context.py` / `runner.py`):
 
 ```
-[0] Router          → Self-RAG: retrieval gerekli mi?           ⏳ henüz eklenmedi (config: router.enabled)
+[0] Router          → Self-RAG: retrieval gerekli mi?           ✅ (router.enabled)
 [1] Query Transform → Multi-Query + HyDE (paralel)                ✅ (multi_query.enabled / hyde.enabled)
 [2] Hybrid Retrieve → Dense (bge-m3) + Sparse (BM25) → RRF/weighted ✅ (hybrid.enabled)
 [3] Rerank          → cross-encoder (bge-reranker-v2-m3)          ✅ (rerank.enabled, graceful degradation'lı)
 [4] Expand          → Parent Document Retrieval                   ✅ (parent_doc.enabled)
-[5] Evaluate        → CRAG: context yeterli mi?                   ⏳ henüz eklenmedi (crag.enabled)
+[5] Evaluate        → CRAG: context yeterli mi?                   ✅ (crag.enabled)
 [6] Compress        → dedup + extractive/LLM compression          ✅ (compression.enabled, llm_summarize varsayılan kapalı)
 [7] Generate        → zorunlu atıflı (citation) cevap              ✅ generate.py (DeepSeek)
 ```
@@ -76,6 +76,21 @@ yorumlar). Özet:
   tokenizasyon ile terim örtüşmesi), (c) `llm_summarize: true` yapılırsa
   (varsayılan kapalı) son çare olarak LLM özetlemesi devreye girer, atıf
   numaralarını ([1]/[2]) koruyarak.
+- `router.enabled`: retrieval'dan önce LLM'e `RETRIEVE`/`ANSWER_DIRECTLY`/
+  `CLARIFY` sordurur (yapılandırılmış JSON). **Güvenlik kuralı:** en ufak
+  bir belirsizlikte daima `RETRIEVE`'e düşer — yanlış bir "doğrudan cevap"
+  kararı bu hukuki-atıf sisteminde gerçek zarar riski taşır. `ANSWER_DIRECTLY`/
+  `CLARIFY` kararı Pipeline'ı erken durdurur (`ctx.stopped`), hiç retrieval
+  yapılmaz.
+- `crag.enabled`: [2]-[4]'ün getirdiği bağlamı `SUFFICIENT`/`PARTIAL`/
+  `INSUFFICIENT` olarak değerlendirir (yapılandırılmış LLM kararı).
+  `PARTIAL` → eksik yönü hedefleyen ek bir retrieval + birleştirme;
+  `INSUFFICIENT` → `crag.insufficient_strategy` (`force_hyde` / `shift_to_bm25`
+  / `refuse` — sonuncusu context'i boşaltıp [7] Generate'in yerleşik "bu
+  soruya cevap yok" reddini tetikler). `max_loops` ile sonsuz döngü
+  imkânsız; değerlendirici başarısız olursa güvenli tarafta kalıp
+  `SUFFICIENT`'e düşer (mevcut sonuçla devam, fabrikasyon riski Generate'in
+  kendi atıf/reddetme mantığında zaten karşılanıyor).
 
 Detaylı bulgular ve test sonuçları için [NOTES.md](NOTES.md)'ye bakın.
 

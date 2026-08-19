@@ -19,12 +19,14 @@ from mevzuat_rag.pipeline.bm25_index import BM25Index
 from mevzuat_rag.pipeline.context import PipelineContext
 from mevzuat_rag.pipeline.runner import Pipeline
 from mevzuat_rag.pipeline.stages.compression import CompressionStage
+from mevzuat_rag.pipeline.stages.crag import CRAGStage
 from mevzuat_rag.pipeline.stages.generate import GenerateStage
 from mevzuat_rag.pipeline.stages.hybrid_retrieve import HybridRetrieveStage
 from mevzuat_rag.pipeline.stages.hyde import HyDEStage
 from mevzuat_rag.pipeline.stages.multi_query import MultiQueryStage
 from mevzuat_rag.pipeline.stages.parent_doc import ParentDocStage
 from mevzuat_rag.pipeline.stages.rerank import RerankStage
+from mevzuat_rag.pipeline.stages.router import RouterStage
 from mevzuat_rag.store import QdrantStore
 
 __all__ = ["RAGEngine", "RAGError"]
@@ -95,11 +97,13 @@ class RAGEngine:
 
     def _build_pipeline(self, want_answer: bool) -> Pipeline:
         stages = [
+            RouterStage(enabled=self.config.router.enabled),
             MultiQueryStage(enabled=self.config.multi_query.enabled),
             HyDEStage(enabled=self.config.hyde.enabled),
             HybridRetrieveStage(enabled=True),
             RerankStage(enabled=self.config.rerank.enabled),
             ParentDocStage(enabled=self.config.parent_doc.enabled),
+            CRAGStage(enabled=self.config.crag.enabled),
             CompressionStage(enabled=self.config.compression.enabled),
         ]
         if want_answer:
