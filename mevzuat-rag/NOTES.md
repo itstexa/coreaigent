@@ -1,3 +1,40 @@
+# Notlar — Checkpoint 4: Parent Document Retrieval + Context Compression (2026-08-19)
+
+## Amaç
+
+[4] Expand ve [6] Compress aşamalarını eklemek: küçük chunk'larla arayıp
+tam madde metnini LLM'e vermek (parent doc), ve bağlamı token bütçesine
+sığdırmak (compression).
+
+## Sonuçlar
+
+- **Parent Document Retrieval:** `store.get_chunks_by_madde()` ile parent
+  metni her seferinde canlı yeniden kuruluyor (ayrı, bayatlayabilecek bir
+  kopya tutulmuyor). `chunk_max_tokens=8` ile zorla küçültülmüş chunk'larla
+  test edildi: "Hangi dilekçeler incelenemez?" sorgusunda Madde 6'nın Bent
+  (a) ve Bent (c)'i ayrı ayrı reranked sonuç olarak geliyordu; parent_doc
+  açıkken ikisi de tek "Madde 6 (tam metin)" adayına birleşti (child_count=4,
+  en yüksek çocuk skoru korundu). Token bütçesi testi: `context_window_tokens=50`
+  ile 5 adaydan yalnızca 1'i (en yüksek skorlu) sığdı, gerisi düştü —
+  doğru çalışıyor.
+- **Context Compression:** Dedup senkron testte doğrulandı (cosine>0.95
+  olan iki sentetik aday, düşük skorlu olan düştü). Extractive seçim gerçek
+  cümle bölme + Türkçe terim örtüşmesiyle test edildi, bütçeye sığmayan
+  cümleyi doğru elemiş. **Not:** bu corpus'taki mevzuat metinleri genelde
+  fıkra başına tek cümle olduğu için (`.!?` ile bölünecek ikinci bir cümle
+  yok), extractive adım çoğu gerçek sorguda hiçbir şeyi kısaltmadı — bu bir
+  bug değil, "fıkra asla bölünmez" ilkesiyle tutarlı: extractive seçim
+  cümle granülaritesinde çalışıyor, chunk zaten tek cümleyse yapacak bir
+  şey yok. `llm_summarize: true` ile ayrıca test edildi: 5 adayı [1]-[5]
+  atıf işaretlerini koruyarak tek bir özet adaya indirdi (varsayılan
+  `false` — yalnızca test için açıldı).
+- **Golden set (hybrid+rerank+multi_query+hyde+parent_doc+compression hepsi
+  açık):** Recall@1/3/5 = MRR = 1.0 — hâlâ hiç kalite kaybı yok.
+- `config/default.yaml`'da `parent_doc.enabled` ve `compression.enabled`
+  (llm_summarize hariç) artık `true`.
+
+---
+
 # Notlar — Checkpoint 3: Multi-Query + HyDE (2026-08-19)
 
 ## Amaç

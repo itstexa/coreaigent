@@ -87,12 +87,12 @@ hyde:                       # [1] HyDE — kısa/muğlak sorgularda hipotetik ce
   max_answer_tokens: 150
 
 parent_doc:                 # [4] Parent Document Retrieval
-  enabled: false
+  enabled: true              # doğrulandı — aynı maddeden gelen çoklu chunk tek parent'a birleşiyor, token bütçesi zorlanınca en düşük skorlu parent düşüyor
   token_budget_fraction: 0.6
   context_window_tokens: 8000
 
 compression:                # [6] Context Compression
-  enabled: false
+  enabled: true              # doğrulandı — dedup + extractive + opsiyonel LLM özetleme (llm_summarize varsayılan false)
   token_budget: 2000
   dedup_cosine_threshold: 0.95
   llm_summarize: false

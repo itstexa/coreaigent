@@ -35,9 +35,9 @@ zinciri** (`Stage` protokolü, `PipelineContext`, `Pipeline` runner —
 [1] Query Transform → Multi-Query + HyDE (paralel)                ✅ (multi_query.enabled / hyde.enabled)
 [2] Hybrid Retrieve → Dense (bge-m3) + Sparse (BM25) → RRF/weighted ✅ (hybrid.enabled)
 [3] Rerank          → cross-encoder (bge-reranker-v2-m3)          ✅ (rerank.enabled, graceful degradation'lı)
-[4] Expand          → Parent Document Retrieval                   ⏳ henüz eklenmedi (parent_doc.enabled)
+[4] Expand          → Parent Document Retrieval                   ✅ (parent_doc.enabled)
 [5] Evaluate        → CRAG: context yeterli mi?                   ⏳ henüz eklenmedi (crag.enabled)
-[6] Compress        → dedup + extractive/LLM compression          ⏳ henüz eklenmedi (compression.enabled)
+[6] Compress        → dedup + extractive/LLM compression          ✅ (compression.enabled, llm_summarize varsayılan kapalı)
 [7] Generate        → zorunlu atıflı (citation) cevap              ✅ generate.py (DeepSeek)
 ```
 
@@ -65,6 +65,17 @@ yorumlar). Özet:
 - Reranker/Multi-Query/HyDE LLM çağrıları da dahil her dış çağrı
   `config.generation.timeout_s` + retry (`retry_attempts`/`retry_backoff_s`)
   ile korunuyor.
+- `parent_doc.enabled`: aynı maddeden gelen birden çok kazanan chunk tek
+  parent'a (`store.get_chunks_by_madde` ile canlı yeniden kurulan tam madde
+  metni) birleşir, en yüksek çocuk skoru korunur; toplam bağlam
+  `context_window_tokens * token_budget_fraction`'ı aşarsa en düşük skorlu
+  parent'lar düşer.
+- `compression.enabled`: (a) embedding cosine benzerliği > `dedup_cosine_threshold`
+  olan neredeyse-yinelenen adaylar birleştirilir, (b) hâlâ `token_budget`'ı
+  aşıyorsa her aday sorguyla en alakalı cümlelerine indirilir (Türkçe
+  tokenizasyon ile terim örtüşmesi), (c) `llm_summarize: true` yapılırsa
+  (varsayılan kapalı) son çare olarak LLM özetlemesi devreye girer, atıf
+  numaralarını ([1]/[2]) koruyarak.
 
 Detaylı bulgular ve test sonuçları için [NOTES.md](NOTES.md)'ye bakın.
 

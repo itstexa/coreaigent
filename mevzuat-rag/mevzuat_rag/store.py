@@ -63,6 +63,34 @@ class QdrantStore:
         points = self.client.retrieve(collection_name=self.collection, ids=chunk_ids, with_payload=["source_hash"])
         return {str(point.id): point.payload.get("source_hash", "") for point in points}
 
+    def get_chunks_by_madde(self, kanun_no: str, madde_no: int) -> list[LegislationChunk]:
+        """All chunks belonging to one madde — used by [4] Parent Document
+        Retrieval to reconstruct the full article text from its child
+        chunks (whatever they currently are; always in sync with the index,
+        no separate parent-text storage to go stale)."""
+        points, _ = self.client.scroll(
+            collection_name=self.collection,
+            scroll_filter=Filter(
+                must=[
+                    FieldCondition(key="kanun_no", match=MatchValue(value=kanun_no)),
+                    FieldCondition(key="madde_no", match=MatchValue(value=madde_no)),
+                ]
+            ),
+            limit=256,
+            with_payload=True,
+        )
+        chunks = []
+        for point in points:
+            payload = point.payload
+            metadata = ChunkMetadata(
+                kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
+                fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
+                source_hash=payload.get("source_hash", ""),
+            )
+            chunks.append(LegislationChunk(id=str(point.id), text=payload["text"], metadata=metadata, citation=payload["citation"]))
+        chunks.sort(key=lambda c: (c.metadata.fikra_no is None, c.metadata.fikra_no or 0, c.metadata.bent or ""))
+        return chunks
+
     def delete_by_kanun_no(self, kanun_no: str) -> None:
         self.client.delete(
             collection_name=self.collection,
