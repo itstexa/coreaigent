@@ -46,11 +46,28 @@ için). `embedding.dim` artık `RAGConfig.embedding_dim` alanına bağlı,
 - **`RAG_DEBUG=true` trace exposure:** `ask()` artık `result["trace"]`
   döndürüyor (yalnızca `config.debug` açıkken) — router'ın erken durduğu
   yolda da doğru çalıştığı doğrulandı (tek trace entry: `router`).
-- **`eval/run_ablation.py`:** golden set + her stage'i tek tek kapatıp
-  ölçme — gerçek LLM çağrıları yüzünden (8 ablasyon + 1 baseline × 9 sorgu)
-  tam çalıştırması uzun sürüyor; alttaki `config.X.enabled = False` +
-  `RAGEngine(config)` deseni Checkpoint 2-5'te zaten tekrar tekrar
-  doğrulanmış desenin aynısı.
+- **`eval/run_ablation.py` — tam çalıştırma sonucu:**
+
+  ```
+  BASELINE (default.yaml)          recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=6465ms
+  hybrid kapalı (dense-only)       recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=5219ms
+  rerank kapalı                    recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=6046ms
+  multi_query kapalı               recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=4258ms
+  hyde kapalı                      recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=5189ms
+  parent_doc kapalı                recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=6480ms
+  compression kapalı               recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=6584ms
+  router kapalı                    recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=3634ms
+  crag kapalı                      recall@1=1.000  recall@3=1.000  recall@5=1.000  mrr=1.000  p50=4837ms
+  ```
+
+  **Dürüst bulgu:** her kombinasyonda Recall/MRR = 1.0 — bu 2-belge/9-sorgu
+  golden set, tekniklerin kalite farkını ayırt etmek için yeterince
+  büyük/çeşitli değil (hiçbiri "gerekli" görünmüyor çünkü corpus zaten çok
+  kolay). Asıl görünen sinyal **gecikme**: `router` (+2831ms),
+  `multi_query` (+2207ms) ve `crag` (+1628ms) kapatıldığında gecikme en çok
+  düşüyor — bunlar maliyeti asıl katan üç LLM-çağrılı aşama. Corpus
+  büyüyüp/çeşitlenip gerçek "zor" sorular içerdiğinde bu ablasyon yeniden
+  çalıştırılıp kalite farkları da görülebilir.
 - **Docker:** `Dockerfile.cpu` (torch CPU wheel index'inden, CUDA toolkit
   indirmiyor) ve `Dockerfile.gpu` (nvidia/cuda base image) ayrı;
   `docker-compose.yml` iki profil (`cpu`/`gpu`) + paylaşılan `qdrant`
