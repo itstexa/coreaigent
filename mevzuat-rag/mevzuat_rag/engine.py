@@ -13,10 +13,12 @@ from mevzuat_rag.config import RAGConfig
 from mevzuat_rag.embedding import embed_texts, get_embedder
 from mevzuat_rag.errors import RAGError
 from mevzuat_rag.models import LegislationChunk, RetrievalResult
+from mevzuat_rag.pipeline.bm25_index import BM25Index
 from mevzuat_rag.pipeline.context import PipelineContext
 from mevzuat_rag.pipeline.runner import Pipeline
 from mevzuat_rag.pipeline.stages.generate import GenerateStage
 from mevzuat_rag.pipeline.stages.hybrid_retrieve import HybridRetrieveStage
+from mevzuat_rag.pipeline.stages.rerank import RerankStage
 from mevzuat_rag.store import QdrantStore
 
 __all__ = ["RAGEngine", "RAGError"]
@@ -27,6 +29,7 @@ class RAGEngine:
         self.config = config or RAGConfig.from_env()
         self._store: QdrantStore | None = None
         self._model = None
+        self.bm25_index = BM25Index()
 
     @property
     def store(self) -> QdrantStore:
@@ -70,11 +73,15 @@ class RAGEngine:
         if to_embed:
             vectors = embed_texts(self.model, [chunk.text for chunk in to_embed])
             self.store.upsert_chunks(to_embed, vectors)
+            self.bm25_index.invalidate()
 
         return {"embedded": len(to_embed), "skipped_unchanged": skipped}
 
     def _build_pipeline(self, want_answer: bool) -> Pipeline:
-        stages = [HybridRetrieveStage(enabled=True)]
+        stages = [
+            HybridRetrieveStage(enabled=True),
+            RerankStage(enabled=self.config.rerank.enabled),
+        ]
         if want_answer:
             stages.append(GenerateStage(enabled=True))
         return Pipeline(stages)

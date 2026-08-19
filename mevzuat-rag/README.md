@@ -33,19 +33,25 @@ zinciri** (`Stage` protokolü, `PipelineContext`, `Pipeline` runner —
 ```
 [0] Router          → Self-RAG: retrieval gerekli mi?           ⏳ henüz eklenmedi (config: router.enabled)
 [1] Query Transform → Multi-Query + HyDE (paralel)                ⏳ henüz eklenmedi (multi_query / hyde)
-[2] Hybrid Retrieve → Dense (bge-m3) + Sparse (BM25) → RRF        ✅ dense var, BM25/RRF ⏳ (hybrid.enabled)
-[3] Rerank          → cross-encoder, top_k → top_n                ⏳ henüz eklenmedi (rerank.enabled)
+[2] Hybrid Retrieve → Dense (bge-m3) + Sparse (BM25) → RRF/weighted ✅ (hybrid.enabled)
+[3] Rerank          → cross-encoder (bge-reranker-v2-m3)          ✅ (rerank.enabled, graceful degradation'lı)
 [4] Expand          → Parent Document Retrieval                   ⏳ henüz eklenmedi (parent_doc.enabled)
 [5] Evaluate        → CRAG: context yeterli mi?                   ⏳ henüz eklenmedi (crag.enabled)
 [6] Compress        → dedup + extractive/LLM compression          ⏳ henüz eklenmedi (compression.enabled)
 [7] Generate        → zorunlu atıflı (citation) cevap              ✅ generate.py (DeepSeek)
 ```
 
-Şu an `RAGEngine.retrieve()`/`.ask()`, `[2] Hybrid Retrieve` (dense-only) ve
-`[7] Generate`'i çalıştıran iki aşamalı bir `Pipeline` kurup çağırıyor —
-davranış, bu mimari genişlemeden önceki dense-only akışla birebir aynı. Her
-teknik önce `config/default.yaml`'da `enabled: false` ile eklenip test
-edildikten sonra tek tek açılacak (bkz. `config/default.yaml`'daki yorumlar).
+Varsayılan (`hybrid.enabled: false`, `rerank.enabled: false`) davranış, bu
+mimari genişlemeden önceki dense-only akışla birebir aynı — hiçbir mevcut
+kullanım kırılmadı. `hybrid.enabled: true` yapıldığında dense (Qdrant) +
+sparse (BM25, `rank_bm25`, Türkçe tokenizasyon + Snowball stemming —
+`pipeline/tokenize_tr.py`) sonuçları RRF (varsayılan) veya ağırlıklı skorla
+(`hybrid.fusion: weighted`, `hybrid.alpha`) birleştirilir; `rerank.enabled:
+true` yapıldığında bu birleşik küme `rerank.top_n`'e cross-encoder ile
+daraltılır — reranker yüklenemezse (ağ/OOM) çökmez, WARNING loglar ve
+hybrid skorlarıyla devam eder. Her teknik önce `config/default.yaml`'da
+`enabled: false` ile eklenip test edildikten sonra tek tek açıldı (bkz.
+`config/default.yaml`'daki yorumlar).
 
 Detaylı bulgular ve test sonuçları için [NOTES.md](NOTES.md)'ye bakın.
 

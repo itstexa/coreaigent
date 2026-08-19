@@ -1,3 +1,48 @@
+# Notlar — Checkpoint 2: Hybrid Search + Reranking (2026-08-19)
+
+## Amaç
+
+RAG upgrade planının [2] Hybrid Retrieve (dense+BM25+RRF/weighted) ve
+[3] Rerank (cross-encoder) aşamalarını ekleyip config'ten açarak gerçek
+golden set üzerinde doğrulamak (bkz. Checkpoint 1'in kurduğu
+`mevzuat_rag/pipeline/` mimarisi).
+
+## Sonuçlar
+
+- **BM25:** `rank_bm25.BM25Okapi`, Qdrant'ın mevcut `chunk_id` uzayını
+  paylaşan in-memory index (`store.scroll_all_chunks()`'tan kurulur,
+  `RAGEngine.index_chunks` yeni/değişen chunk embed edince invalidate
+  edilir). Türkçe tokenizasyon: özel case-folding (İ/I) + stopword listesi +
+  `snowballstemmer` Turkish stemmer (`pipeline/tokenize_tr.py`).
+- **Fusion:** RRF (varsayılan, k=60) ve weighted (alpha) ikisi de
+  `pipeline/fusion.py`'de; `hybrid.fusion` config'ten seçilir.
+- **Rerank:** `sentence_transformers.CrossEncoder` ile `BAAI/bge-reranker-v2-m3`.
+  **Graceful degradation doğrulandı:** bozuk model adıyla test edildi, crash
+  etmedi, WARNING logladı, hybrid skorlarıyla devam etti.
+- **`eval/run_retrieval_eval.py` bir bug'ı düzeltildi:** önceden ham
+  `embed_query`+`store.search` çağırıyordu, yani `hybrid`/`rerank` açık olsa
+  bile onları test etmiyordu (her zaman dense-only ölçüyordu). Artık
+  `engine.retrieve()` üzerinden gerçek pipeline'ı çalıştırıyor.
+- **Golden set sonucu (gerçek model ağırlıklarıyla, hybrid+rerank ikisi de
+  açık):** Recall@1/3/5 = MRR = 1.0 — Checkpoint 1'in dense-only skorlarıyla
+  birebir aynı, hiç kalite kaybı yok (9 sorgu, çok küçük bir corpus olduğu
+  için bu sonuç ileride corpus büyüyünce yeniden ölçülmeli).
+- **Ağ garipliği:** `bge-reranker-v2-m3` indirmesi bir ara ~268MB'ta donmuş
+  gibi göründü (90+ saniye aynı byte sayısı) ve `curl` ile
+  `cdn-lfs.huggingface.co`'ya doğrudan istek "Could not resolve host"
+  verdi — ama arka planda çalışan asıl Python indirmesi (muhtemelen farklı
+  bir CDN host'una yönlendirilerek, `huggingface_hub`'ın kendi retry/redirect
+  mantığıyla) 287 saniyede tamamlandı ve sonrasında sorunsuz çalıştı. Yani
+  `curl` ile tekil bir CDN host'una doğrudan erişilemez olması, gerçek
+  indirmenin başarısız olacağı anlamına gelmiyor — bu ortamda ara sıra
+  DNS/CDN tuhaflıkları var, ama `huggingface_hub`'ın kendi mekanizması bunu
+  tolere edebiliyor. İlerideki bir checkpoint'te model indirmesi başarısız
+  olursa önce gerçek Python indirmesini (curl değil) tekrar denemek gerekir.
+- `config/default.yaml`'da `hybrid.enabled` ve `rerank.enabled` artık
+  `true` — bu iki teknik doğrulandı ve varsayılan davranışın parçası oldu.
+
+---
+
 # Notlar — DeepSeek ile RAG testi ve bulgular (2026-08-16)
 
 ## Amaç

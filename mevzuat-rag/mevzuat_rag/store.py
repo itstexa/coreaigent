@@ -69,6 +69,32 @@ class QdrantStore:
             points_selector=Filter(must=[FieldCondition(key="kanun_no", match=MatchValue(value=kanun_no))]),
         )
 
+    def scroll_all_chunks(self, batch_size: int = 256) -> list[LegislationChunk]:
+        """All chunks currently in the collection — used to (re)build the
+        in-memory BM25 sparse index (see pipeline/bm25_index.py), which
+        shares this same chunk_id space since Qdrant has no native BM25."""
+        chunks: list[LegislationChunk] = []
+        offset = None
+        while True:
+            points, offset = self.client.scroll(
+                collection_name=self.collection,
+                limit=batch_size,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for point in points:
+                payload = point.payload
+                metadata = ChunkMetadata(
+                    kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
+                    fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
+                    source_hash=payload.get("source_hash", ""),
+                )
+                chunks.append(LegislationChunk(id=str(point.id), text=payload["text"], metadata=metadata, citation=payload["citation"]))
+            if offset is None:
+                break
+        return chunks
+
     def search(self, query_vector: list[float], top_k: int) -> list[RetrievalResult]:
         hits = self.client.query_points(collection_name=self.collection, query=query_vector, limit=top_k, with_payload=True).points
         results = []

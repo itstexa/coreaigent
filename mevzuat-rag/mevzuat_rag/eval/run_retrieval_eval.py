@@ -2,6 +2,12 @@
 
     python -m mevzuat_rag.eval.run_retrieval_eval
 
+Goes through RAGEngine.retrieve() — i.e. the real pipeline (mevzuat_rag/
+pipeline/), whatever combination of stages the engine's config has enabled
+(hybrid/rerank/etc.) — not a raw embed+search shortcut, so this actually
+measures what a given stage combination contributes (see README's "her
+stage açık/kapalı iken ölçüm" note).
+
 Assumes the corpus has already been indexed (see ingest_pipeline.py or
 smoke_test.py). Compares against (kanun_no, madde_no) identity rather than
 raw chunk IDs, since IDs are an implementation detail and structural
@@ -13,7 +19,6 @@ import json
 import time
 from pathlib import Path
 
-from mevzuat_rag.embedding import embed_query
 from mevzuat_rag.engine import RAGEngine
 from mevzuat_rag.eval.retrieval_metrics import mrr, recall_at_k
 
@@ -35,8 +40,7 @@ def run(engine: RAGEngine | None = None) -> dict:
         relevant = {_madde_key(e["kanun_no"], e["madde_no"]) for e in case["expected"]}
 
         t0 = time.perf_counter()
-        query_vector = embed_query(engine.model, case["query"])
-        hits = engine.store.search(query_vector, top_k=max(K_VALUES))
+        hits = engine.retrieve(case["query"], top_k=max(K_VALUES))
         latency_ms = (time.perf_counter() - t0) * 1000
         latencies_ms.append(latency_ms)
 
