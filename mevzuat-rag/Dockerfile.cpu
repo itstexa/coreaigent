@@ -1,0 +1,21 @@
+# CPU-only image — no CUDA runtime, torch installed from the CPU wheel index
+# (the default PyPI wheel pulls in the full CUDA toolkit, ~5x larger).
+FROM python:3.12-slim
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    DEVICE=cpu \
+    DATA_DIR=/data \
+    HF_HOME=/models
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu \
+    && grep -v '^torch==' requirements.txt > /tmp/requirements-no-torch.txt \
+    && pip install --no-cache-dir -r /tmp/requirements-no-torch.txt
+
+COPY . .
+
+RUN mkdir -p /data /models
+VOLUME ["/data", "/models"]
+
+CMD ["python", "scripts/verify_env.py"]

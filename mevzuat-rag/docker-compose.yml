@@ -1,0 +1,58 @@
+# Kullanım:
+#   CPU:  docker compose --profile cpu up
+#   GPU:  docker compose --profile gpu up   (host'ta NVIDIA Container Toolkit gerekir)
+# İkisi de aynı Qdrant + volume'leri paylaşır; profil = hangi mevzuat-rag
+# image'ının (CPU/GPU) ayağa kalkacağı.
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.11.0
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+
+  mevzuat-rag-cpu:
+    profiles: ["cpu"]
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    env_file:
+      - .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      RAG_PROFILE: cpu_only
+    depends_on:
+      - qdrant
+    volumes:
+      - data:/data
+      - models:/models
+      - ./sample_data:/app/sample_data
+
+  mevzuat-rag-gpu:
+    profiles: ["gpu"]
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    env_file:
+      - .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      RAG_PROFILE: dev_gpu
+    depends_on:
+      - qdrant
+    volumes:
+      - data:/data
+      - models:/models
+      - ./sample_data:/app/sample_data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  qdrant-storage:
+  data:
+  models:

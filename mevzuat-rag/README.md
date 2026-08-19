@@ -97,9 +97,23 @@ Detaylı bulgular ve test sonuçları için [NOTES.md](NOTES.md)'ye bakın.
 ## Kurulum
 
 ```bash
+make setup              # venv + pip install + .env.example -> .env
+make verify-env         # YENİ BİR CİHAZDA İLK ÇALIŞTIRILACAK KOMUT — bkz. DEPLOY.md
+```
+
+Elle (Makefile'sız):
+
+```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # DEEPSEEK_API_KEY'i doldurun
+python scripts/verify_env.py
+```
+
+Docker ile (CPU veya GPU profili — ayrı Dockerfile'lar, bkz. DEPLOY.md):
+
+```bash
+docker compose --profile cpu up --build
 ```
 
 ## Konfigürasyon (profiller)
@@ -120,26 +134,26 @@ CUDA → MPS → CPU. Kodda hiçbir yerde `"cuda"`/`"cpu"` literali yok.
 ## Kullanım
 
 ```bash
-# 1. Mevzuatı indeksle (sample_data/legislation/*.md içeriğini)
-python -m mevzuat_rag.ingest_pipeline
+make ingest              # 1. Mevzuatı indeksle (sample_data/legislation/*.md)
+make ask QUERY="Dilekçede hangi bilgiler zorunludur?"   # 2. Atıflı cevap (DEEPSEEK_API_KEY gerekir)
+make serve                # 3. Etkileşimli REPL (aynı, ama sürekli sorup cevap alma)
+make eval                 # 4. Retrieval değerlendirmesi (Recall@K / MRR)
+python -m mevzuat_rag.eval.run_ablation   # 5. Hangi aşama ne katıyor? (her stage tek tek kapatılıp ölçülür)
+make test                 # 6. Testler — tests/test_smoke_pipeline.py GPU'suz/API-key'siz de geçer (mock LLM)
+```
 
-# 2. Sadece retrieval (LLM/DeepSeek gerekmez)
-python -c "
+Sadece retrieval (LLM/DeepSeek gerekmez):
+
+```python
 from mevzuat_rag.engine import RAGEngine
 engine = RAGEngine()
-for hit in engine.retrieve('Dilekçede hangi bilgiler zorunludur?'):
+for hit in engine.retrieve("Dilekçede hangi bilgiler zorunludur?"):
     print(hit.score, hit.chunk.citation)
-"
-
-# 3. Atıflı, DeepSeek ile üretilmiş cevap (DEEPSEEK_API_KEY gerekir)
-python -m mevzuat_rag.ask "Dilekçede hangi bilgiler zorunludur?"
-
-# 4. Retrieval değerlendirmesi (Recall@K / MRR)
-python -m mevzuat_rag.eval.run_retrieval_eval
-
-# 5. Testler (generation testi DEEPSEEK_API_KEY yoksa otomatik atlanır)
-python -m pytest tests/ -v
 ```
+
+Debug/trace: `RAG_DEBUG=true` (veya `observability.debug: true`) ile
+`ask()`'in döndürdüğü dict'e, hangi aşamaların çalıştığını ve her birinin
+girdi/çıktı sayısı + süresini gösteren bir `"trace"` listesi eklenir.
 
 ## Yeni kaynak dosyası eklemek
 
@@ -165,14 +179,30 @@ değişmeyen dosyalar yeniden embed edilmez.
 ## Mimari kararlar
 
 - **Embedding + vektör depolama:** `sentence-transformers` ile `BAAI/bge-m3`,
-  dense-only, cosine benzerlik, Qdrant — insangram projesindeki
-  `src/rag/embed.py` ile aynı, kanıtlanmış desen. Sparse/hybrid/reranker yok.
+  dense (+ opsiyonel BM25 sparse, bkz. Pipeline), cosine benzerlik, Qdrant —
+  insangram projesindeki `src/rag/embed.py` ile aynı temel desen.
 - **Generation:** DeepSeek'in genel (public) API'sinde embedding endpoint'i
   yok — sadece chat completion var. Bu yüzden embedding BGE-M3'te kalıyor,
-  DeepSeek yalnızca son adımda (retrieve edilen chunk'lardan atıflı cevap
-  üretme) kullanılıyor.
+  DeepSeek generation (Generate) + tüm LLM-tabanlı aşamalarda (Router,
+  Multi-Query, HyDE, CRAG) kullanılıyor.
 - **Chunking:** Madde/Fıkra/Bent yapısına saygılı; bir fıkra/bent asla
   ortadan bölünmez.
+- **Portability:** kodda hiçbir literal path/port/host/model/device yok —
+  hepsi `config/default.yaml` + `config/{profil}.yaml` + env var'dan gelir
+  (bkz. Konfigürasyon bölümü). `device.py:resolve_device()` merkezi cihaz
+  seçimi. `store.py`, embedding modeli/boyutu uyuşmazlığında fail-fast
+  (`IndexMetadataMismatch`) — bkz. MIGRATION.md.
+- **Observability:** her pipeline çalışması `PipelineContext.trace`'e
+  aşama-bazlı girdi/çıktı sayısı + süre kaydeder (`RAG_DEBUG=true` ile
+  `ask()` çıktısında görünür); `eval/run_ablation.py` her aşamayı tek tek
+  kapatıp golden set'teki etkisini ölçer.
+
+## Başka bir cihaza taşıma / index geçişi
+
+- Yeni bir makine/container: [DEPLOY.md](DEPLOY.md) — checklist,
+  `verify_env.py`, Docker.
+- Embedding modeli/chunking parametreleri değiştiğinde mevcut index'i
+  nasıl geçireceğiniz: [MIGRATION.md](MIGRATION.md).
 
 ## Bilinen sınırlar
 

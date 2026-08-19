@@ -1,3 +1,68 @@
+# Notlar — Checkpoint 6: Portability + Observability (2026-08-19)
+
+## Amaç
+
+Phase 3 (portability) ve Phase 4'ün (observability) kalanı: `index_meta.json`
++ embedding boyutu fail-fast, `DATA_DIR`/`HF_HOME` wiring, `verify_env.py`,
+Docker (CPU+GPU), Makefile, mock-LLM smoke test, `debug=true` trace
+exposure, `eval/run_ablation.py`, MIGRATION.md, DEPLOY.md.
+
+## Bulunan ve düzeltilen gerçek gap: `paths.data_dir`/`embedding.dim` ölü config
+
+`config/default.yaml`'da Checkpoint 1'den beri duran `paths.data_dir`,
+`paths.models_dir` ve `embedding.dim` anahtarları **hiçbir yerde
+okunmuyordu** — YAML'da vardı ama `RAGConfig.load()` bunları hiç
+tüketmiyordu, `qdrant.local_path` da hep `PROJECT_ROOT`'a göre çözülüyordu
+(`DATA_DIR` env var'ı bile module-level sabit olarak import zamanında
+donuyor, YAML'daki `paths.data_dir`'i asla görmüyordu). Düzeltildi:
+`RAGConfig.load()` içinde `data_dir` artık `DATA_DIR` env > `paths.data_dir`
+YAML > `PROJECT_ROOT/data` sırasıyla her çağrıda hesaplanıyor,
+`qdrant.local_path` buna göre çözülüyor; `paths.models_dir` (veya `HF_HOME`
+env) varsa `HF_HOME`'u set ediyor (offline/önceden-indirilmiş model cache'i
+için). `embedding.dim` artık `RAGConfig.embedding_dim` alanına bağlı,
+`store.py`'nin `VECTOR_SIZE` sabiti kaldırıldı.
+
+## `index_meta_{collection}.json` + fail-fast doğrulandı
+
+- Farklı `embedding_dim` (Qdrant'ın kendi `vectors.size`'ıyla karşılaştırma):
+  gerçek bir uyumsuzlukla test edildi, `IndexMetadataMismatch` doğru fırlatıldı.
+- Aynı boyut, farklı `embedding_model` (`index_meta_{collection}.json`
+  karşılaştırması): ayrıca test edildi, doğru fırlatıldı — Qdrant'ın kendi
+  kontrolü boyut aynıysa bunu yakalayamazdı, bu yüzden ayrı bir JSON kaydı
+  gerekliydi.
+
+## Diğer sonuçlar
+
+- **`scripts/verify_env.py`:** gerçek ortamda çalıştırıldı — device (cuda),
+  VRAM, embedding modeli, reranker modeli, Qdrant erişimi, DEEPSEEK_API_KEY,
+  disk alanı hepsi PASS döndü.
+- **Mock-LLM smoke test (`tests/test_smoke_pipeline.py`):**
+  `DEEPSEEK_API_KEY` env var'ı kaldırılıp (`unset`) çalıştırıldı, geçti —
+  gerçekten API key/ağ gerektirmiyor. `unittest.mock.patch` her stage
+  modülünün kendi `from ... import get_client` bağladığı yerel isme ayrı
+  ayrı uygulanmak zorunda kaldı (`mevzuat_rag.llm_client.get_client`'ı tek
+  başına patch'lemek hiçbirine ulaşmıyordu — modül-seviyeli import binding'i
+  farkı).
+- **`RAG_DEBUG=true` trace exposure:** `ask()` artık `result["trace"]`
+  döndürüyor (yalnızca `config.debug` açıkken) — router'ın erken durduğu
+  yolda da doğru çalıştığı doğrulandı (tek trace entry: `router`).
+- **`eval/run_ablation.py`:** golden set + her stage'i tek tek kapatıp
+  ölçme — gerçek LLM çağrıları yüzünden (8 ablasyon + 1 baseline × 9 sorgu)
+  tam çalıştırması uzun sürüyor; alttaki `config.X.enabled = False` +
+  `RAGEngine(config)` deseni Checkpoint 2-5'te zaten tekrar tekrar
+  doğrulanmış desenin aynısı.
+- **Docker:** `Dockerfile.cpu` (torch CPU wheel index'inden, CUDA toolkit
+  indirmiyor) ve `Dockerfile.gpu` (nvidia/cuda base image) ayrı;
+  `docker-compose.yml` iki profil (`cpu`/`gpu`) + paylaşılan `qdrant`
+  servisi. Bu ortamda gerçek `docker build` çalıştırılmadı (sandbox'ta
+  Docker daemon yok) — Dockerfile'lar statik olarak doğru ama gerçek bir
+  build ile doğrulanmadı, ilk kullanımda dikkatli test edilmeli.
+- `requirements.txt` artık tam pinlenmiş (bu ortamda kurulu/test edilmiş
+  sürümler: qdrant-client 1.18.0, sentence-transformers 5.5.1, torch 2.12.0,
+  openai 2.20.0, vb.) — önceden `>=` ile gevşekti.
+
+---
+
 # Notlar — Checkpoint 5: Self-RAG Router + CRAG (2026-08-19)
 
 ## Amaç

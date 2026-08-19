@@ -21,7 +21,6 @@ from mevzuat_rag.device import resolve_device
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
-DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
 
 
 def _bool_env(name: str, default: bool) -> bool:
@@ -55,14 +54,15 @@ def _layered_yaml(profile: str) -> dict:
     return _deep_merge(default, override)
 
 
-def _resolve_local_path(raw: str) -> str:
-    """Relative paths resolve against DATA_DIR's parent (PROJECT_ROOT by
-    default), never against the process cwd — so behavior doesn't change
-    depending on where a script happens to be invoked from."""
+def _resolve_data_path(raw: str, data_dir: Path) -> str:
+    """Relative paths resolve against DATA_DIR, never against the process
+    cwd — so behavior doesn't change depending on where a script happens to
+    be invoked from, and moving DATA_DIR (e.g. to a mounted volume) moves
+    every data path with it."""
     path = Path(raw)
     if path.is_absolute():
         return str(path)
-    return str((PROJECT_ROOT / raw).resolve())
+    return str((data_dir / raw).resolve())
 
 
 @dataclass
@@ -143,6 +143,7 @@ class RAGConfig:
     qdrant_local_path: str
     qdrant_collection: str
     embedding_model: str
+    embedding_dim: int
     embedding_device: str
     chunk_max_tokens: int
     chunk_overlap_tokens: int
@@ -176,22 +177,30 @@ class RAGConfig:
         if device == "auto":
             device = resolve_device()
 
+        paths = y.get("paths", {}) or {}
+        data_dir = Path(os.environ.get("DATA_DIR") or paths.get("data_dir") or (PROJECT_ROOT / "data")).resolve()
+
+        models_dir = os.environ.get("HF_HOME") or paths.get("models_dir")
+        if models_dir:
+            os.environ["HF_HOME"] = str(Path(models_dir).resolve())
+
         qdrant = y.get("qdrant", {}) or {}
         embedding = y.get("embedding", {}) or {}
         chunking = y.get("chunking", {}) or {}
         retrieval = y.get("retrieval", {}) or {}
         ingestion = y.get("ingestion", {}) or {}
 
-        local_path = os.environ.get("QDRANT_LOCAL_PATH", qdrant.get("local_path", "./data/qdrant_local"))
+        local_path = os.environ.get("QDRANT_LOCAL_PATH", qdrant.get("local_path", "qdrant_local"))
 
         gen = y.get("generation", {}) or {}
         gen_retry = gen.get("retry", {}) or {}
 
         return cls(
             qdrant_url=os.environ.get("QDRANT_URL") or qdrant.get("url") or None,
-            qdrant_local_path=_resolve_local_path(local_path),
+            qdrant_local_path=_resolve_data_path(local_path, data_dir),
             qdrant_collection=os.environ.get("QDRANT_COLLECTION_MEVZUAT", qdrant.get("collection", "mevzuat_chunks")),
             embedding_model=os.environ.get("RAG_EMBEDDING_MODEL", embedding.get("model", "BAAI/bge-m3")),
+            embedding_dim=int(os.environ.get("RAG_EMBEDDING_DIM", embedding.get("dim", 1024))),
             embedding_device=os.environ.get("RAG_EMBEDDING_DEVICE") or device,
             chunk_max_tokens=int(os.environ.get("RAG_CHUNK_MAX_TOKENS", chunking.get("max_tokens", 768))),
             chunk_overlap_tokens=int(os.environ.get("RAG_CHUNK_OVERLAP_TOKENS", chunking.get("overlap_tokens", 80))),

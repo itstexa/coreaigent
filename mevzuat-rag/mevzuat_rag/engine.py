@@ -54,6 +54,8 @@ class RAGEngine:
                         collection=self.config.qdrant_collection,
                         url=self.config.qdrant_url,
                         local_path=self.config.qdrant_local_path,
+                        embedding_model=self.config.embedding_model,
+                        embedding_dim=self.config.embedding_dim,
                     )
         return self._store
 
@@ -123,9 +125,22 @@ class RAGEngine:
         return [candidate.to_result() for candidate in ctx.candidates]
 
     def ask(self, query: str, top_k: int | None = None) -> dict:
-        """retrieve() + DeepSeek-generated grounded answer. See generation.py."""
+        """retrieve() + DeepSeek-generated grounded answer. See generation.py.
+
+        If ``config.debug`` (or ``RAG_DEBUG=true``) is set, the returned
+        dict also carries a ``"trace"`` list — one entry per stage that
+        actually ran, with its input/output candidate count and duration in
+        ms (see pipeline/context.py:TraceEntry) — so you can see which
+        stages fired and what each one changed for this specific query.
+        """
         if not query:
             raise RAGError("query is required", category="validation")
         top_k = top_k or self.config.retrieval_top_k
         ctx = self._run(query, top_k, want_answer=True)
-        return ctx.answer
+        answer = ctx.answer
+        if self.config.debug:
+            answer["trace"] = [
+                {"stage": t.stage, "input_count": t.input_count, "output_count": t.output_count, "duration_ms": t.duration_ms}
+                for t in ctx.trace
+            ]
+        return answer

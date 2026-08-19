@@ -17,7 +17,7 @@ paths:
 
 qdrant:
   url: null                        # doluysa remote Qdrant (QDRANT_URL); boşsa embedded/local mod
-  local_path: "./data/qdrant_local"
+  local_path: "qdrant_local"       # DATA_DIR altında çözülür (varsayılan DATA_DIR: ${PROJECT_ROOT}/data)
   collection: mevzuat_chunks
   healthcheck_timeout_s: 5
   retry:

@@ -1,0 +1,23 @@
+# GPU image — requires the NVIDIA Container Toolkit on the host
+# (`docker run --gpus all ...` / compose `deploy.resources.reservations.devices`).
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    DEVICE=cuda \
+    DATA_DIR=/data \
+    HF_HOME=/models \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3.12 python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN mkdir -p /data /models
+VOLUME ["/data", "/models"]
+
+CMD ["python3", "scripts/verify_env.py"]
