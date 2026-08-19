@@ -12,12 +12,7 @@ import hashlib
 import uuid
 
 from mevzuat_rag.models import ChunkMetadata, LegislationChunk, LegislationDocument
-
-_CHARS_PER_TOKEN = 4  # rough estimate, avoids pulling in a tokenizer dependency
-
-
-def _estimate_tokens(text: str) -> int:
-    return max(1, len(text) // _CHARS_PER_TOKEN)
+from mevzuat_rag.token_estimate import estimate_tokens as _estimate_tokens
 
 
 def _citation(kanun_no: str, kanun_adi: str, madde_no: int, fikra_no: int | None, bent: str | None) -> str:

@@ -77,12 +77,12 @@ rerank:                    # [3] Reranking — cross-encoder
   min_score: 0.0
 
 multi_query:                # [1] Multi-Query — N farklı bakış açılı sorgu
-  enabled: false
+  enabled: true              # doğrulandı: golden set'te Recall@1/3/5=MRR=1.0 korunuyor. Maliyet: +1 LLM çağrısı/sorgu, ~2-15s ek gecikme
   n_queries: 4
   prompt_path: prompts/multi_query.txt
 
 hyde:                       # [1] HyDE — kısa/muğlak sorgularda hipotetik cevap embedding'i
-  enabled: false
+  enabled: true              # doğrulandı — yalnızca trigger_max_tokens altındaki kısa sorgularda tetiklenir, her sorguda değil
   trigger_max_tokens: 12
   max_answer_tokens: 150
 

@@ -32,7 +32,7 @@ zinciri** (`Stage` protokolü, `PipelineContext`, `Pipeline` runner —
 
 ```
 [0] Router          → Self-RAG: retrieval gerekli mi?           ⏳ henüz eklenmedi (config: router.enabled)
-[1] Query Transform → Multi-Query + HyDE (paralel)                ⏳ henüz eklenmedi (multi_query / hyde)
+[1] Query Transform → Multi-Query + HyDE (paralel)                ✅ (multi_query.enabled / hyde.enabled)
 [2] Hybrid Retrieve → Dense (bge-m3) + Sparse (BM25) → RRF/weighted ✅ (hybrid.enabled)
 [3] Rerank          → cross-encoder (bge-reranker-v2-m3)          ✅ (rerank.enabled, graceful degradation'lı)
 [4] Expand          → Parent Document Retrieval                   ⏳ henüz eklenmedi (parent_doc.enabled)
@@ -41,17 +41,30 @@ zinciri** (`Stage` protokolü, `PipelineContext`, `Pipeline` runner —
 [7] Generate        → zorunlu atıflı (citation) cevap              ✅ generate.py (DeepSeek)
 ```
 
-Varsayılan (`hybrid.enabled: false`, `rerank.enabled: false`) davranış, bu
-mimari genişlemeden önceki dense-only akışla birebir aynı — hiçbir mevcut
-kullanım kırılmadı. `hybrid.enabled: true` yapıldığında dense (Qdrant) +
-sparse (BM25, `rank_bm25`, Türkçe tokenizasyon + Snowball stemming —
-`pipeline/tokenize_tr.py`) sonuçları RRF (varsayılan) veya ağırlıklı skorla
-(`hybrid.fusion: weighted`, `hybrid.alpha`) birleştirilir; `rerank.enabled:
-true` yapıldığında bu birleşik küme `rerank.top_n`'e cross-encoder ile
-daraltılır — reranker yüklenemezse (ağ/OOM) çökmez, WARNING loglar ve
-hybrid skorlarıyla devam eder. Her teknik önce `config/default.yaml`'da
-`enabled: false` ile eklenip test edildikten sonra tek tek açıldı (bkz.
-`config/default.yaml`'daki yorumlar).
+Tüm bu teknikler golden set'te doğrulandı (Recall@1/3/5=MRR=1.0, hiç kalite
+kaybı yok) ve `config/default.yaml`'da artık `enabled: true` — yeni
+varsayılan pipeline davranışı. Her teknik önce `enabled: false` ile eklenip
+test edildikten sonra tek tek açıldı (bkz. `config/default.yaml`'daki
+yorumlar). Özet:
+
+- `hybrid.enabled`: dense (Qdrant) + sparse (BM25, `rank_bm25`, Türkçe
+  tokenizasyon + Snowball stemming — `pipeline/tokenize_tr.py`) sonuçları
+  RRF (varsayılan) veya ağırlıklı skorla (`hybrid.fusion: weighted`,
+  `hybrid.alpha`) birleştirilir.
+- `rerank.enabled`: birleşik küme `rerank.top_n`'e cross-encoder ile
+  daraltılır — reranker yüklenemezse (ağ/OOM) çökmez, WARNING loglar ve
+  hybrid skorlarıyla devam eder.
+- `multi_query.enabled`: LLM'den orijinal sorudan `n_queries` farklı
+  bakış açılı sorgu istenir (`prompts/multi_query.txt`), hepsi thread pool
+  ile paralel embed+retrieve edilir, sonuçlar RRF'e girer. **Maliyet:** her
+  sorguda +1 LLM çağrısı, ~2-15s ek gecikme (bkz. NOTES.md). Düşük
+  kaynaklı ortamlar için `config/edge.yaml` bunu kapatıyor.
+- `hyde.enabled`: yalnızca kısa/muğlak sorgularda (`hyde.trigger_max_tokens`
+  altında) tetiklenir — her sorguda değil; LLM'in ürettiği hipotetik cevap
+  da bir arama varyantı olarak RRF'e girer.
+- Reranker/Multi-Query/HyDE LLM çağrıları da dahil her dış çağrı
+  `config.generation.timeout_s` + retry (`retry_attempts`/`retry_backoff_s`)
+  ile korunuyor.
 
 Detaylı bulgular ve test sonuçları için [NOTES.md](NOTES.md)'ye bakın.
 

@@ -16,8 +16,18 @@ class GenerateStage:
         self.enabled = enabled
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
+        gen_config = ctx.engine.config.generation
         hits = [candidate.to_result() for candidate in ctx.candidates]
-        result = generation.generate_answer(ctx.original_query, hits)
+        result = generation.generate_answer(
+            ctx.original_query,
+            hits,
+            model=gen_config.model,
+            temperature=gen_config.temperature,
+            max_tokens=gen_config.max_tokens,
+            timeout_s=gen_config.timeout_s,
+            retry_attempts=gen_config.retry_attempts,
+            retry_backoff_s=gen_config.retry_backoff_s,
+        )
         result["sources"] = [
             {"citation": hit.chunk.citation, "score": round(float(hit.score), 3), "text": hit.chunk.text}
             for hit in hits

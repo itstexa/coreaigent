@@ -9,6 +9,8 @@ retrieve()/ask() directly, or use ask.py's CLI.
 """
 from __future__ import annotations
 
+import threading
+
 from mevzuat_rag.config import RAGConfig
 from mevzuat_rag.embedding import embed_texts, get_embedder
 from mevzuat_rag.errors import RAGError
@@ -18,6 +20,8 @@ from mevzuat_rag.pipeline.context import PipelineContext
 from mevzuat_rag.pipeline.runner import Pipeline
 from mevzuat_rag.pipeline.stages.generate import GenerateStage
 from mevzuat_rag.pipeline.stages.hybrid_retrieve import HybridRetrieveStage
+from mevzuat_rag.pipeline.stages.hyde import HyDEStage
+from mevzuat_rag.pipeline.stages.multi_query import MultiQueryStage
 from mevzuat_rag.pipeline.stages.rerank import RerankStage
 from mevzuat_rag.store import QdrantStore
 
@@ -29,22 +33,32 @@ class RAGEngine:
         self.config = config or RAGConfig.from_env()
         self._store: QdrantStore | None = None
         self._model = None
+        self._store_lock = threading.Lock()
+        self._model_lock = threading.Lock()
         self.bm25_index = BM25Index()
 
     @property
     def store(self) -> QdrantStore:
+        # [1] Multi-Query/HyDE's dense searches run from a thread pool
+        # (see hybrid_retrieve.py) — without this lock, concurrent
+        # first-access threads race to construct the embedded Qdrant
+        # client and collide on its on-disk lock file.
         if self._store is None:
-            self._store = QdrantStore(
-                collection=self.config.qdrant_collection,
-                url=self.config.qdrant_url,
-                local_path=self.config.qdrant_local_path,
-            )
+            with self._store_lock:
+                if self._store is None:
+                    self._store = QdrantStore(
+                        collection=self.config.qdrant_collection,
+                        url=self.config.qdrant_url,
+                        local_path=self.config.qdrant_local_path,
+                    )
         return self._store
 
     @property
     def model(self):
         if self._model is None:
-            self._model = get_embedder(self.config.embedding_model, self.config.embedding_device)
+            with self._model_lock:
+                if self._model is None:
+                    self._model = get_embedder(self.config.embedding_model, self.config.embedding_device)
         return self._model
 
     def is_ready(self) -> bool:
@@ -79,6 +93,8 @@ class RAGEngine:
 
     def _build_pipeline(self, want_answer: bool) -> Pipeline:
         stages = [
+            MultiQueryStage(enabled=self.config.multi_query.enabled),
+            HyDEStage(enabled=self.config.hyde.enabled),
             HybridRetrieveStage(enabled=True),
             RerankStage(enabled=self.config.rerank.enabled),
         ]

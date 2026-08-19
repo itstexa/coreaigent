@@ -8,12 +8,12 @@ answer in Turkish.
 """
 from __future__ import annotations
 
-import os
-
 from openai import OpenAI
 
 from mevzuat_rag.errors import GenerationError
+from mevzuat_rag.llm_client import get_client
 from mevzuat_rag.models import RetrievalResult
+from mevzuat_rag.retry import call_with_retry
 
 SYSTEM_PROMPT = (
     "Sen bir Türk mevzuatı asistanısın. Sana verilen mevzuat parçalarına "
@@ -24,13 +24,6 @@ SYSTEM_PROMPT = (
     "açıkça 'Verilen mevzuat parçalarında bu sorunun cevabı yok.' de — "
     "tahmin yürütme."
 )
-
-
-def _client(api_key: str | None = None, base_url: str | None = None) -> OpenAI:
-    return OpenAI(
-        api_key=api_key or os.environ.get("DEEPSEEK_API_KEY"),
-        base_url=base_url or os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
-    )
 
 
 def _build_context(chunks: list[RetrievalResult]) -> str:
@@ -46,6 +39,9 @@ def generate_answer(
     model: str = "deepseek-chat",
     temperature: float = 0.0,
     max_tokens: int = 800,
+    timeout_s: float = 30.0,
+    retry_attempts: int = 2,
+    retry_backoff_s: float = 1.0,
     client: OpenAI | None = None,
 ) -> dict:
     """Returns {"answer": str, "citations": [chunk.citation, ...]}.
@@ -56,20 +52,24 @@ def generate_answer(
     if not chunks:
         return {"answer": "Verilen mevzuat parçalarında bu sorunun cevabı yok.", "citations": []}
 
-    client = client or _client()
+    client = client or get_client()
     context = _build_context(chunks)
     user_prompt = f"Soru: {query}\n\nMevzuat parçaları:\n{context}\n\nYukarıdaki parçalara dayanarak soruyu cevapla."
 
-    try:
-        response = client.chat.completions.create(
+    def _call():
+        return client.chat.completions.create(
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,
+            timeout=timeout_s,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
         )
+
+    try:
+        response = call_with_retry(_call, attempts=retry_attempts, backoff_base_s=retry_backoff_s)
     except Exception as exc:
         raise GenerationError(f"DeepSeek generation failed: {exc}") from exc
 

@@ -124,6 +124,18 @@ class CRAGConfig(StageToggle):
 
 
 @dataclass
+class GenerationConfig:
+    provider: str = "deepseek"
+    model: str = "deepseek-chat"
+    base_url: str = "https://api.deepseek.com/v1"
+    temperature: float = 0.0
+    max_tokens: int = 800
+    timeout_s: float = 30.0
+    retry_attempts: int = 2
+    retry_backoff_s: float = 1.0
+
+
+@dataclass
 class RAGConfig:
     # --- legacy flat fields — names/semantics unchanged from before the
     # YAML/profile layer existed, so existing code and tests keep working. ---
@@ -151,6 +163,7 @@ class RAGConfig:
     parent_doc: ParentDocConfig = field(default_factory=ParentDocConfig)
     compression: CompressionConfig = field(default_factory=CompressionConfig)
     crag: CRAGConfig = field(default_factory=CRAGConfig)
+    generation: GenerationConfig = field(default_factory=GenerationConfig)
 
     debug: bool = False
 
@@ -170,6 +183,9 @@ class RAGConfig:
         ingestion = y.get("ingestion", {}) or {}
 
         local_path = os.environ.get("QDRANT_LOCAL_PATH", qdrant.get("local_path", "./data/qdrant_local"))
+
+        gen = y.get("generation", {}) or {}
+        gen_retry = gen.get("retry", {}) or {}
 
         return cls(
             qdrant_url=os.environ.get("QDRANT_URL") or qdrant.get("url") or None,
@@ -192,6 +208,16 @@ class RAGConfig:
             parent_doc=ParentDocConfig(**(y.get("parent_doc", {}) or {})),
             compression=CompressionConfig(**(y.get("compression", {}) or {})),
             crag=CRAGConfig(**(y.get("crag", {}) or {})),
+            generation=GenerationConfig(
+                provider=gen.get("provider", "deepseek"),
+                model=os.environ.get("DEEPSEEK_MODEL", gen.get("model", "deepseek-chat")),
+                base_url=os.environ.get("DEEPSEEK_BASE_URL", gen.get("base_url", "https://api.deepseek.com/v1")),
+                temperature=float(gen.get("temperature", 0.0)),
+                max_tokens=int(gen.get("max_tokens", 800)),
+                timeout_s=float(gen.get("timeout_s", 30)),
+                retry_attempts=int(gen_retry.get("attempts", 2)),
+                retry_backoff_s=float(gen_retry.get("backoff_base_s", 1.0)),
+            ),
             debug=_bool_env("RAG_DEBUG", bool((y.get("observability", {}) or {}).get("debug", False))),
         )
 

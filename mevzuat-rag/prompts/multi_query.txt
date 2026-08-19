@@ -1,0 +1,9 @@
+Sen bir Türk mevzuatı arama asistanısın. Kullanıcının aşağıdaki sorusuna
+farklı açılardan yaklaşan {n} adet ARAMA SORGUSU üret — bunlar birbirinin
+eş anlamlısı/parafrazı OLMAMALI, sorunun farklı yönlerini (ilgili terim,
+hukuki kavram, olası istisna/şart, karşıt durum vb.) hedeflemeli.
+
+Orijinal soru: {query}
+
+Yalnızca şu formatta bir JSON dizisi döndür, başka hiçbir açıklama ekleme:
+["sorgu 1", "sorgu 2", "sorgu 3", "sorgu 4"]

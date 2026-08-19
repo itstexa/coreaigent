@@ -1,3 +1,65 @@
+# Notlar — Checkpoint 3: Multi-Query + HyDE (2026-08-19)
+
+## Amaç
+
+[1] Query Transform aşamasını eklemek: Multi-Query (LLM'den N farklı bakış
+açılı sorgu) ve HyDE (kısa sorgularda hipotetik cevap embedding'i), ikisi de
+[2] Hybrid Retrieve'in RRF/weighted füzyonuna aynı yoldan giriyor (çoklu
+sorgu varyantı → çoklu dense arama → tek füzyon).
+
+## Bulunan ve düzeltilen gerçek bug: thread-safety race condition
+
+Multi-Query'nin "paralel koş" gereksinimini (`ThreadPoolExecutor` ile N
+sorgu varyantının dense aramasını eşzamanlı çalıştırmak) uygularken, ilk
+testte gerçek bir hata yakalandı: `RAGEngine.store`/`.model` lazy-init
+property'leri thread-safe değildi. Çoklu thread ilk erişimde aynı anda
+`self._store is None` görüp hepsi ayrı `QdrantStore(...)` inşa etmeye
+çalışıyor, embedded Qdrant'ın disk kilidiyle çakışıp
+`portalocker.exceptions.AlreadyLocked` fırlatıyordu. Düzeltme:
+double-checked locking (`threading.Lock`, `engine.py`). Bu, ThreadPoolExecutor
+eklemeden önce hiç ortaya çıkmayan, gerçek bir concurrency bug'ıydı —
+gerçek DEEPSEEK_API_KEY ile (bkz. aşağı) uçtan uca test edilmeseydi
+fark edilmezdi.
+
+## DeepSeek API key
+
+Ortamdaki `DEEPSEEK_API_KEY` env var hâlâ geçersiz (`...4069`, bkz. 2026-08-16
+notları). Bu checkpoint'in gerçek LLM çağrısı gerektiren testleri (Multi-Query
+üretimi, HyDE, generation testi) `~/.hermes/.env`'deki çalışan key
+(`sk-4121e9d...`) shell'e export edilerek doğrulandı — projeye `.env` olarak
+commit edilmedi, yalnızca test oturumunda kullanıldı. Bu doğrulamayla
+`tests/test_mevzuat_rag.py::GenerationTests` de dahil **7/7 test gerçek API
+ile geçti** (önceden hep 6/7'ydi, tek başarısız olan da ortamdaki geçersiz
+key'den kaynaklanıyordu).
+
+## Sonuçlar
+
+- **Multi-Query:** DeepSeek'ten JSON dizi olarak 4 farklı-açılı sorgu
+  isteniyor (`prompts/multi_query.txt`), format bozuksa orijinal sorguya
+  fallback (WARNING loglanır). Test edilen gerçek çıktı — "Dilekçe hakkının
+  amacı nedir?" için: "dilekçe hakkı amacı Anayasa", "dilekçe hakkının
+  kullanım şartları ve sınırları", "dilekçe hakkı ile bilgi edinme hakkı
+  farkı", "dilekçe hakkının idareye başvuru sonucu yükümlülükler" — gerçekten
+  parafraz değil, farklı açılar.
+- **HyDE:** "kağıt boyutu" gibi kısa bir sorguda tetiklendi, ürettiği
+  hipotetik cevap (TS EN ISO 216 standardından bahseden bir paragraf) doğru
+  chunk'ı (2646 sayılı Yönetmelik Madde 5) skor 0.90 ile en üste çıkardı.
+- **Golden set (hybrid+rerank+multi_query+hyde hepsi açık, gerçek model +
+  gerçek API key):** Recall@1/3/5 = MRR = 1.0 — hiç kalite kaybı yok.
+  Gecikme belirgin arttı (p50 ~2.5s, en yüksek ~16s — LLM round-trip'leri
+  yüzünden); `config/edge.yaml` bu yüzden `multi_query.enabled: false`
+  bırakıldı.
+- `mevzuat_rag/llm_client.py` (`get_client`) ve `mevzuat_rag/retry.py`
+  (`call_with_retry`) eklendi — generation.py, multi_query.py, hyde.py
+  hepsi aynı client factory + retry/timeout mantığını paylaşıyor
+  (`config.generation.timeout_s`/`retry_attempts`/`retry_backoff_s`, artık
+  gerçekten `RAGConfig`'te taşınıyor — önceden `default.yaml`'da
+  tanımlıydı ama hiçbir yerde okunmuyordu).
+- `config/default.yaml`'da `multi_query.enabled` ve `hyde.enabled` artık
+  `true`.
+
+---
+
 # Notlar — Checkpoint 2: Hybrid Search + Reranking (2026-08-19)
 
 ## Amaç
