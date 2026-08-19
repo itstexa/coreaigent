@@ -1,0 +1,107 @@
+# mevzuat-rag — merkezi varsayılan konfigürasyon
+#
+# Öncelik sırası: env var (bkz. .env.example, geriye dönük uyumlu isimler)
+# > config/{profil}.yaml (bu dosyanın üstüne kısmi override) > bu dosya.
+# Profil seçimi: RAG_PROFILE env var (varsayılan: "default").
+# Profiller: dev_gpu, edge, cpu_only, prod (bkz. config/*.yaml).
+#
+# Kodda literal path/port/host/model adı/device string YASAK — hepsi buradan
+# veya .env'den gelir. scripts/verify_env.py yeni bir cihazda ilk çalıştırılacak
+# doğrulama komutudur.
+
+device: auto              # auto | cpu | cuda | mps — auto => resolve_device() (env DEVICE > CUDA > MPS > CPU)
+
+paths:
+  data_dir: null           # null => ${PROJECT_ROOT}/data (DATA_DIR env ile override edilir)
+  models_dir: null         # null => sentence-transformers/HF varsayılan cache (HF_HOME env ile override edilir)
+
+qdrant:
+  url: null                        # doluysa remote Qdrant (QDRANT_URL); boşsa embedded/local mod
+  local_path: "./data/qdrant_local"
+  collection: mevzuat_chunks
+  healthcheck_timeout_s: 5
+  retry:
+    attempts: 3
+    backoff_base_s: 0.5
+
+embedding:
+  model: BAAI/bge-m3
+  dim: 1024                        # store.py VECTOR_SIZE ile eşleşmeli — uyuşmazlıkta fail fast
+  batch_size: 32
+  oom_retry: true                  # OOM'da batch_size yarıya iner, olmazsa CPU'ya düşülür
+
+chunking:
+  max_tokens: 768                  # 256/512/1024 karşılaştırması için değiştirilebilir
+  overlap_tokens: 80                # ~%15 (768'in ~%10.4'ü — madde/fıkra sınırı zaten bölünmeyi engelliyor)
+
+retrieval:
+  top_k: 5
+
+generation:
+  provider: deepseek
+  model: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  temperature: 0.0
+  max_tokens: 800
+  timeout_s: 30
+  retry:
+    attempts: 2
+    backoff_base_s: 1.0
+
+ingestion:
+  resmi_gazete_rss_url: https://www.resmigazete.gov.tr/rss
+  jina_reader_base_url: https://r.jina.ai
+
+# --- Aşağıdaki bloklar sonraki checkpoint'lerde koda bağlanacak. Şimdilik
+# hepsi enabled:false — pipeline mevcut dense-only davranışı hiç değiştirmeden
+# çalışır. Her teknik önce burada false ile durur, kod+test tamamlanınca
+# tek tek true'ya çevrilir. ---
+
+router:                    # [0] Self-RAG — retrieval gerekli mi kararı
+  enabled: false
+  model: deepseek-chat
+
+hybrid:                    # [2] Hybrid Retrieve — dense + BM25 + RRF/weighted füzyon
+  enabled: false
+  dense_top_k: 20
+  bm25_top_k: 20
+  fusion: rrf               # rrf | weighted
+  rrf_k: 60
+  alpha: 1.0                 # weighted fusion: 0.0=saf BM25, 1.0=saf vector
+
+rerank:                    # [3] Reranking — cross-encoder
+  enabled: false
+  backend: cross_encoder
+  model: BAAI/bge-reranker-v2-m3
+  top_n: 5
+  min_score: 0.0
+
+multi_query:                # [1] Multi-Query — N farklı bakış açılı sorgu
+  enabled: false
+  n_queries: 4
+  prompt_path: prompts/multi_query.txt
+
+hyde:                       # [1] HyDE — kısa/muğlak sorgularda hipotetik cevap embedding'i
+  enabled: false
+  trigger_max_tokens: 12
+  max_answer_tokens: 150
+
+parent_doc:                 # [4] Parent Document Retrieval
+  enabled: false
+  token_budget_fraction: 0.6
+  context_window_tokens: 8000
+
+compression:                # [6] Context Compression
+  enabled: false
+  token_budget: 2000
+  dedup_cosine_threshold: 0.95
+  llm_summarize: false
+
+crag:                       # [5] CRAG — corrective retrieval loop
+  enabled: false
+  max_loops: 2
+  insufficient_strategy: force_hyde   # force_hyde | shift_to_bm25 | refuse
+
+observability:
+  debug: false
+  trace: true

@@ -12,6 +12,7 @@ import os
 
 from openai import OpenAI
 
+from mevzuat_rag.errors import GenerationError
 from mevzuat_rag.models import RetrievalResult
 
 SYSTEM_PROMPT = (
@@ -23,10 +24,6 @@ SYSTEM_PROMPT = (
     "açıkça 'Verilen mevzuat parçalarında bu sorunun cevabı yok.' de — "
     "tahmin yürütme."
 )
-
-
-class GenerationError(Exception):
-    pass
 
 
 def _client(api_key: str | None = None, base_url: str | None = None) -> OpenAI:

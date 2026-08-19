@@ -1,5 +1,7 @@
 """RAG engine facade: retrieve() for plain retrieval, ask() for a grounded
-DeepSeek-generated answer over the retrieved chunks.
+DeepSeek-generated answer over the retrieved chunks. Both run a Pipeline of
+Stages (see pipeline/) — see the README's "Pipeline" section for the stage
+list and which ones are wired up so far.
 
 This is the standalone-package version — no HTTP contract coupling (that
 lived in coreaigent's services/rag/server.py). Import RAGEngine and call
@@ -7,17 +9,17 @@ retrieve()/ask() directly, or use ask.py's CLI.
 """
 from __future__ import annotations
 
-from mevzuat_rag import generation
 from mevzuat_rag.config import RAGConfig
-from mevzuat_rag.embedding import embed_query, embed_texts, get_embedder
+from mevzuat_rag.embedding import embed_texts, get_embedder
+from mevzuat_rag.errors import RAGError
 from mevzuat_rag.models import LegislationChunk, RetrievalResult
+from mevzuat_rag.pipeline.context import PipelineContext
+from mevzuat_rag.pipeline.runner import Pipeline
+from mevzuat_rag.pipeline.stages.generate import GenerateStage
+from mevzuat_rag.pipeline.stages.hybrid_retrieve import HybridRetrieveStage
 from mevzuat_rag.store import QdrantStore
 
-
-class RAGError(Exception):
-    def __init__(self, message: str, category: str = "validation"):
-        super().__init__(message)
-        self.category = category
+__all__ = ["RAGEngine", "RAGError"]
 
 
 class RAGEngine:
@@ -71,25 +73,28 @@ class RAGEngine:
 
         return {"embedded": len(to_embed), "skipped_unchanged": skipped}
 
+    def _build_pipeline(self, want_answer: bool) -> Pipeline:
+        stages = [HybridRetrieveStage(enabled=True)]
+        if want_answer:
+            stages.append(GenerateStage(enabled=True))
+        return Pipeline(stages)
+
+    def _run(self, query: str, top_k: int, want_answer: bool) -> PipelineContext:
+        ctx = PipelineContext(original_query=query, engine=self, top_k=top_k, debug=self.config.debug)
+        pipeline = self._build_pipeline(want_answer=want_answer)
+        return pipeline.run(ctx)
+
     def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievalResult]:
         if not query:
             raise RAGError("query is required", category="validation")
         top_k = top_k or self.config.retrieval_top_k
-        try:
-            query_vector = embed_query(self.model, query)
-        except Exception as exc:
-            raise RAGError(f"embedding failed: {exc}", category="dependency") from exc
-        try:
-            return self.store.search(query_vector, top_k=top_k)
-        except Exception as exc:
-            raise RAGError(f"retrieval failed: {exc}", category="dependency") from exc
+        ctx = self._run(query, top_k, want_answer=False)
+        return [candidate.to_result() for candidate in ctx.candidates]
 
     def ask(self, query: str, top_k: int | None = None) -> dict:
         """retrieve() + DeepSeek-generated grounded answer. See generation.py."""
-        hits = self.retrieve(query, top_k=top_k)
-        result = generation.generate_answer(query, hits)
-        result["sources"] = [
-            {"citation": hit.chunk.citation, "score": round(float(hit.score), 3), "text": hit.chunk.text}
-            for hit in hits
-        ]
-        return result
+        if not query:
+            raise RAGError("query is required", category="validation")
+        top_k = top_k or self.config.retrieval_top_k
+        ctx = self._run(query, top_k, want_answer=True)
+        return ctx.answer

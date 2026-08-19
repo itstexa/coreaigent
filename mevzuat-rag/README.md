@@ -10,6 +10,8 @@ adımı.
 
 ## Pipeline
 
+**Ingestion** (değişmeyen):
+
 ```
 sample_data/legislation/*.md
         │  (ingestion/local_corpus.py — klasörü glob'lar)
@@ -22,11 +24,28 @@ chunking/chunker.py (StructureAwareChunker) → LegislationChunk[] (atıflı, ma
         ▼
 engine.py (RAGEngine.index_chunks) → embedding.py (BAAI/bge-m3) → store.py (Qdrant)
         değişmeyen chunk'lar otomatik atlanır (source_hash karşılaştırması)
-
-Sorgu:  RAGEngine.retrieve(query)  → en yakın top-k chunk (cosine benzerlik)
-        RAGEngine.ask(query)       → retrieve() + generation.py (DeepSeek deepseek-chat)
-                                      → atıflı, gerekçeli, sadece verilen mevzuata dayanan cevap
 ```
+
+**Sorgu — `mevzuat_rag/pipeline/`, config'ten açılıp kapatılabilir aşamalar
+zinciri** (`Stage` protokolü, `PipelineContext`, `Pipeline` runner —
+`pipeline/stage.py` / `context.py` / `runner.py`):
+
+```
+[0] Router          → Self-RAG: retrieval gerekli mi?           ⏳ henüz eklenmedi (config: router.enabled)
+[1] Query Transform → Multi-Query + HyDE (paralel)                ⏳ henüz eklenmedi (multi_query / hyde)
+[2] Hybrid Retrieve → Dense (bge-m3) + Sparse (BM25) → RRF        ✅ dense var, BM25/RRF ⏳ (hybrid.enabled)
+[3] Rerank          → cross-encoder, top_k → top_n                ⏳ henüz eklenmedi (rerank.enabled)
+[4] Expand          → Parent Document Retrieval                   ⏳ henüz eklenmedi (parent_doc.enabled)
+[5] Evaluate        → CRAG: context yeterli mi?                   ⏳ henüz eklenmedi (crag.enabled)
+[6] Compress        → dedup + extractive/LLM compression          ⏳ henüz eklenmedi (compression.enabled)
+[7] Generate        → zorunlu atıflı (citation) cevap              ✅ generate.py (DeepSeek)
+```
+
+Şu an `RAGEngine.retrieve()`/`.ask()`, `[2] Hybrid Retrieve` (dense-only) ve
+`[7] Generate`'i çalıştıran iki aşamalı bir `Pipeline` kurup çağırıyor —
+davranış, bu mimari genişlemeden önceki dense-only akışla birebir aynı. Her
+teknik önce `config/default.yaml`'da `enabled: false` ile eklenip test
+edildikten sonra tek tek açılacak (bkz. `config/default.yaml`'daki yorumlar).
 
 Detaylı bulgular ve test sonuçları için [NOTES.md](NOTES.md)'ye bakın.
 
@@ -37,6 +56,21 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # DEEPSEEK_API_KEY'i doldurun
 ```
+
+## Konfigürasyon (profiller)
+
+Ayarlar üç katmanlı: **env var > `config/{profil}.yaml` > `config/default.yaml`**.
+Profil `RAG_PROFILE` env var ile seçilir (varsayılan `default`):
+
+| Profil | Ne için |
+|---|---|
+| `dev_gpu` | Geliştirme makinesi, CUDA, büyük batch |
+| `edge` | Düşük VRAM cihaz — küçük batch/top_k, ağır aşamalar kapalı |
+| `cpu_only` | CPU-only sunucu, GPU varsayımı yok |
+| `prod` | Remote Qdrant zorunlu, sıkı retry/timeout |
+
+Cihaz seçimi merkezi: `device.py:resolve_device()` — sırayla `env DEVICE` →
+CUDA → MPS → CPU. Kodda hiçbir yerde `"cuda"`/`"cpu"` literali yok.
 
 ## Kullanım
 

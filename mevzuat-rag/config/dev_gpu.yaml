@@ -1,0 +1,6 @@
+# Geliştirme makinesi (GPU'lu) profili — default.yaml'ın üstüne override.
+device: cuda
+embedding:
+  batch_size: 64
+rerank:
+  enabled: false   # checkpoint 2'de true yapılacak

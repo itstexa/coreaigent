@@ -5,4 +5,5 @@ httpx
 beautifulsoup4
 feedparser
 openai>=1.0
+PyYAML>=6.0
 

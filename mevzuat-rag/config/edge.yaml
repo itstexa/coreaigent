@@ -1,0 +1,13 @@
+# Düşük VRAM'lı edge cihaz profili — küçük batch, düşük top_k, ağır aşamalar kapalı.
+device: auto
+embedding:
+  batch_size: 8
+retrieval:
+  top_k: 3
+hybrid:
+  dense_top_k: 8
+  bm25_top_k: 8
+rerank:
+  enabled: false
+multi_query:
+  enabled: false

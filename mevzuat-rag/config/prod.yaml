@@ -1,0 +1,15 @@
+# Prod profili — remote Qdrant zorunlu (embedded mod prod'da kullanılmaz),
+# daha sıkı retry/timeout. QDRANT_URL env var ile verilmesi ZORUNLU;
+# verify_env.py bunu prod profilinde ayrıca kontrol eder.
+qdrant:
+  healthcheck_timeout_s: 10
+  retry:
+    attempts: 5
+    backoff_base_s: 1.0
+generation:
+  timeout_s: 45
+  retry:
+    attempts: 3
+    backoff_base_s: 2.0
+observability:
+  debug: false

@@ -1,0 +1,5 @@
+# CPU-only sunucu profili — device zorunlu cpu, GPU'ya özgü hiçbir varsayım yok.
+device: cpu
+embedding:
+  batch_size: 16
+  oom_retry: false   # CPU'da OOM/batch-halving anlamsız
