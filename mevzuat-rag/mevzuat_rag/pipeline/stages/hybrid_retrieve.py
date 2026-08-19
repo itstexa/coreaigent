@@ -20,12 +20,14 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
+from mevzuat_rag import metrics
 from mevzuat_rag.embedding import embed_query, embed_texts
 from mevzuat_rag.errors import RAGError
 from mevzuat_rag.models import LegislationChunk, RetrievalResult
 from mevzuat_rag.pipeline.candidate import Candidate
-from mevzuat_rag.pipeline.context import PipelineContext
+from mevzuat_rag.pipeline.context import PipelineContext, TraceEntry
 from mevzuat_rag.pipeline.fusion import reciprocal_rank_fusion, weighted_fusion
+from mevzuat_rag.text_norm import normalize_text
 
 
 def _query_variants(ctx: PipelineContext) -> list[tuple[str, str]]:
@@ -49,8 +51,19 @@ class HybridRetrieveStage:
         variants = _query_variants(ctx)
 
         if len(variants) == 1 and not hybrid.enabled:
+            normalized_query = normalize_text(variants[0][1], profile="embedding")
             try:
-                query_vector = embed_query(engine.model, variants[0][1])
+                with metrics.timer("embed_query", metadata={"variant": variants[0][0]}) as t:
+                    query_vector = embed_query(engine.model, normalized_query)
+                ctx.trace.append(
+                    TraceEntry(
+                        stage="embed_query",
+                        input_count=1,
+                        output_count=1,
+                        duration_ms=t.duration_ms or 0.0,
+                        extra=t.metadata,
+                    )
+                )
                 hits = engine.store.search(query_vector, top_k=ctx.top_k)
             except Exception as exc:
                 raise RAGError(f"retrieval failed: {exc}", category="dependency") from exc
@@ -59,8 +72,19 @@ class HybridRetrieveStage:
 
         dense_top_k = hybrid.dense_top_k if hybrid.enabled else ctx.top_k
 
+        normalized_texts = [normalize_text(text, profile="embedding") for _, text in variants]
         try:
-            vectors = embed_texts(engine.model, [text for _, text in variants])
+            with metrics.timer("embed_query", metadata={"variant_count": len(variants)}) as t:
+                vectors = embed_texts(engine.model, normalized_texts)
+            ctx.trace.append(
+                TraceEntry(
+                    stage="embed_query",
+                    input_count=len(variants),
+                    output_count=len(vectors),
+                    duration_ms=t.duration_ms or 0.0,
+                    extra=t.metadata,
+                )
+            )
         except Exception as exc:
             raise RAGError(f"embedding failed: {exc}", category="dependency") from exc
 

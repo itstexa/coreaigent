@@ -22,7 +22,7 @@ from mevzuat_rag.engine import RAGEngine
 from mevzuat_rag.ingestion.local_corpus import load_fixtures
 
 EXPECTED_STAGES = {
-    "router", "multi_query", "hyde", "hybrid_retrieve",
+    "router", "multi_query", "hyde", "hybrid_retrieve", "embed_query",
     "rerank", "parent_doc", "crag", "compression", "generate",
 }
 

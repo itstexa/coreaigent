@@ -28,7 +28,12 @@ embedding:
   model: BAAI/bge-m3
   dim: 1024                        # store.py VECTOR_SIZE ile eşleşmeli — uyuşmazlıkta fail fast
   batch_size: 32
-  oom_retry: true                  # OOM'da batch_size yarıya iner, olmazsa CPU'ya düşülür
+  oom_retry: true                  # OOM'da batch_size yarıya iner, min_batch_size'a kadar
+  min_batch_size: 1                # OOM retry'nin alt sınırı — bundan sonra EmbeddingOOMError
+  max_retries: 2                   # geçici (I/O, timeout) hatalarda exponential backoff retry sayısı
+  strict_validation: true          # validate_embeddings(): sayı/boyut/NaN/L2-norm kontrolü
+  max_input_chars: 20000           # bu eşiği aşan metin on_overlong'a göre uyarılır/reddedilir
+  on_overlong: warn_truncate       # warn_truncate | error
 
 chunking:
   max_tokens: 768                  # 256/512/1024 karşılaştırması için değiştirilebilir
@@ -51,6 +56,9 @@ generation:
 ingestion:
   resmi_gazete_rss_url: https://www.resmigazete.gov.tr/rss
   jina_reader_base_url: https://r.jina.ai
+
+text_norm:
+  version_check: true              # index_meta_{collection}.json'daki text_norm_version ile karşılaştır, uyuşmazlıkta fail-fast
 
 # --- Aşağıdaki bloklar sonraki checkpoint'lerde koda bağlanacak. Şimdilik
 # hepsi enabled:false — pipeline mevcut dense-only davranışı hiç değiştirmeden

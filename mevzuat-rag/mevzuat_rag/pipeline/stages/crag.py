@@ -33,6 +33,7 @@ from mevzuat_rag.llm_client import get_client
 from mevzuat_rag.models import RetrievalResult
 from mevzuat_rag.pipeline.candidate import Candidate
 from mevzuat_rag.pipeline.context import PipelineContext
+from mevzuat_rag.text_norm import normalize_text
 from mevzuat_rag.pipeline.stages.hyde import SYSTEM_PROMPT as HYDE_SYSTEM_PROMPT
 from mevzuat_rag.pipeline.stages.parent_doc import ParentDocStage
 from mevzuat_rag.pipeline.stages.rerank import RerankStage
@@ -112,7 +113,7 @@ class CRAGStage:
 
     def _retrieve_for(self, ctx: PipelineContext, query_text: str, top_k: int) -> list[Candidate]:
         engine = ctx.engine
-        vector = embed_query(engine.model, query_text)
+        vector = embed_query(engine.model, normalize_text(query_text, profile="embedding"))
         hits = engine.store.search(vector, top_k=top_k)
         return [Candidate.from_result(hit, source="crag_refine") for hit in hits]
 
@@ -150,7 +151,7 @@ class CRAGStage:
                 return
             ctx.hyde_answer = hyde_answer
             top_k = engine.config.hybrid.dense_top_k if engine.config.hybrid.enabled else ctx.top_k
-            vector = embed_query(engine.model, hyde_answer)
+            vector = embed_query(engine.model, normalize_text(hyde_answer, profile="embedding"))
             hits = engine.store.search(vector, top_k=top_k)
             new_candidates = [Candidate.from_result(hit, source="crag_hyde") for hit in hits]
             ctx.candidates = _merge(ctx.candidates, new_candidates)

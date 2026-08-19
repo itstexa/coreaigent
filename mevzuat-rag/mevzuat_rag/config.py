@@ -124,6 +124,25 @@ class CRAGConfig(StageToggle):
 
 
 @dataclass
+class EmbeddingConfig:
+    model: str = "BAAI/bge-m3"
+    dim: int = 1024
+    device: str = "cpu"
+    batch_size: int = 32
+    oom_retry: bool = True
+    on_overlong: str = "warn_truncate"
+    max_retries: int = 2
+    min_batch_size: int = 1
+    strict_validation: bool = True
+    max_input_chars: int = 20000
+
+
+@dataclass
+class TextNormConfig:
+    version_check: bool = True
+
+
+@dataclass
 class GenerationConfig:
     provider: str = "deepseek"
     model: str = "deepseek-chat"
@@ -165,6 +184,11 @@ class RAGConfig:
     compression: CompressionConfig = field(default_factory=CompressionConfig)
     crag: CRAGConfig = field(default_factory=CRAGConfig)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
+    # structured embedding config — distinct from the legacy flat
+    # embedding_model/embedding_dim/embedding_device fields above, which stay
+    # unchanged so existing call sites keep working.
+    embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
+    text_norm: TextNormConfig = field(default_factory=TextNormConfig)
 
     debug: bool = False
 
@@ -194,6 +218,7 @@ class RAGConfig:
 
         gen = y.get("generation", {}) or {}
         gen_retry = gen.get("retry", {}) or {}
+        text_norm = y.get("text_norm", {}) or {}
 
         return cls(
             qdrant_url=os.environ.get("QDRANT_URL") or qdrant.get("url") or None,
@@ -228,6 +253,21 @@ class RAGConfig:
                 retry_backoff_s=float(gen_retry.get("backoff_base_s", 1.0)),
             ),
             debug=_bool_env("RAG_DEBUG", bool((y.get("observability", {}) or {}).get("debug", False))),
+            embedding=EmbeddingConfig(
+                model=os.environ.get("RAG_EMBEDDING_MODEL", embedding.get("model", "BAAI/bge-m3")),
+                dim=int(os.environ.get("RAG_EMBEDDING_DIM", embedding.get("dim", 1024))),
+                device=os.environ.get("RAG_EMBEDDING_DEVICE") or device,
+                batch_size=int(embedding.get("batch_size", 32)),
+                oom_retry=bool(embedding.get("oom_retry", True)),
+                on_overlong=embedding.get("on_overlong", "warn_truncate"),
+                max_retries=int(embedding.get("max_retries", 2)),
+                min_batch_size=int(embedding.get("min_batch_size", 1)),
+                strict_validation=bool(embedding.get("strict_validation", True)),
+                max_input_chars=int(embedding.get("max_input_chars", 20000)),
+            ),
+            text_norm=TextNormConfig(
+                version_check=bool(text_norm.get("version_check", True)),
+            ),
         )
 
     @classmethod

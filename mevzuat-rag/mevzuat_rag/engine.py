@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import threading
 
+from mevzuat_rag import metrics
 from mevzuat_rag.config import RAGConfig
-from mevzuat_rag.embedding import embed_texts, get_embedder
+from mevzuat_rag.embedding import embed_texts_with_config, get_embedder
 from mevzuat_rag.errors import RAGError
 from mevzuat_rag.models import LegislationChunk, RetrievalResult
 from mevzuat_rag.pipeline.bm25_index import BM25Index
@@ -28,6 +29,7 @@ from mevzuat_rag.pipeline.stages.parent_doc import ParentDocStage
 from mevzuat_rag.pipeline.stages.rerank import RerankStage
 from mevzuat_rag.pipeline.stages.router import RouterStage
 from mevzuat_rag.store import QdrantStore
+from mevzuat_rag.text_norm import TEXT_NORM_VERSION
 
 __all__ = ["RAGEngine", "RAGError"]
 
@@ -56,6 +58,7 @@ class RAGEngine:
                         local_path=self.config.qdrant_local_path,
                         embedding_model=self.config.embedding_model,
                         embedding_dim=self.config.embedding_dim,
+                        text_norm_version=TEXT_NORM_VERSION if self.config.text_norm.version_check else None,
                     )
         return self._store
 
@@ -75,27 +78,69 @@ class RAGEngine:
         except Exception:
             return False
 
-    def index_chunks(self, chunks: list[LegislationChunk]) -> dict[str, int]:
+    def index_chunks(self, chunks: list[LegislationChunk]) -> dict:
         """Embeds and upserts ``chunks``, skipping ones whose content hasn't
         changed since the last run (same chunk id + same ``source_hash``).
 
         This is what makes "drop a new/edited .md file and re-run
         ingest_pipeline" cheap: unrelated, already-indexed files are not
         re-embedded just because the pipeline ran again.
+
+        Batch-level embedding failures no longer abort the whole ingest. Failed
+        chunks are isolated and reported in ``failed`` so later CLI/ingest code
+        can persist them without losing the successfully embedded chunks.
         """
         if not chunks:
-            return {"embedded": 0, "skipped_unchanged": 0}
+            return {"embedded": 0, "skipped_unchanged": 0, "failed": []}
 
         existing = self.store.existing_source_hashes([chunk.id for chunk in chunks])
         to_embed = [chunk for chunk in chunks if existing.get(chunk.id) != chunk.metadata.source_hash]
         skipped = len(chunks) - len(to_embed)
+        failed: list[dict] = []
+        embedded = 0
 
         if to_embed:
-            vectors = embed_texts(self.model, [chunk.text for chunk in to_embed])
-            self.store.upsert_chunks(to_embed, vectors)
-            self.bm25_index.invalidate()
+            batch_size = max(1, self.config.embedding.batch_size)
 
-        return {"embedded": len(to_embed), "skipped_unchanged": skipped}
+            for i in range(0, len(to_embed), batch_size):
+                batch = to_embed[i:i + batch_size]
+
+                with metrics.timer("embedding_batch", input_count=len(batch)) as t:
+                    try:
+                        vectors = embed_texts_with_config(
+                            self.model,
+                            [chunk.text for chunk in batch],
+                            config=self.config.embedding,
+                        )
+                        self.store.upsert_chunks(batch, vectors)
+                        embedded += len(batch)
+                        t.output_count = len(batch)
+                    except Exception:
+                        # Bu batch kalıcı olarak başarısız olduysa tüm ingest'i
+                        # düşürme; her chunk'ı tek tek dene ve sadece gerçekten
+                        # sorunlu olanları failed listesine al. Bu iç hata
+                        # metrics.timer() tarafından status="ok" olarak
+                        # kaydedilir çünkü izole edilip burada tüketildi —
+                        # dışarı sızan tek şey failed[] listesindeki kayıtlar.
+                        batch_failed = 0
+                        for chunk in batch:
+                            try:
+                                vectors = embed_texts_with_config(
+                                    self.model,
+                                    [chunk.text],
+                                    config=self.config.embedding,
+                                )
+                                self.store.upsert_chunks([chunk], vectors)
+                                embedded += 1
+                            except Exception as chunk_exc:
+                                failed.append({"chunk_id": chunk.id, "error": str(chunk_exc)})
+                                batch_failed += 1
+                        t.output_count = len(batch) - batch_failed
+
+            if embedded:
+                self.bm25_index.invalidate()
+
+        return {"embedded": embedded, "skipped_unchanged": skipped, "failed": failed}
 
     def _build_pipeline(self, want_answer: bool) -> Pipeline:
         stages = [

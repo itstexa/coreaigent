@@ -13,3 +13,36 @@ class RAGError(Exception):
 
 class GenerationError(Exception):
     pass
+
+
+class EmbeddingError(RAGError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        cause: Exception | None = None,
+        context: dict | None = None,
+    ):
+        super().__init__(message, category="embedding")
+        self.cause = cause
+        self.context = context or {}
+
+
+class EmbeddingModelLoadError(EmbeddingError):
+    pass
+
+
+class EmbeddingComputeError(EmbeddingError):
+    pass
+
+
+class EmbeddingInputError(EmbeddingError):
+    pass
+
+
+class EmbeddingDimensionError(EmbeddingError):
+    pass
+
+
+class EmbeddingOOMError(EmbeddingError):
+    pass

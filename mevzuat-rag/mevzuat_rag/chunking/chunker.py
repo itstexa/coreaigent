@@ -12,6 +12,7 @@ import hashlib
 import uuid
 
 from mevzuat_rag.models import ChunkMetadata, LegislationChunk, LegislationDocument
+from mevzuat_rag.text_norm import normalize_text
 from mevzuat_rag.token_estimate import estimate_tokens as _estimate_tokens
 
 
@@ -45,7 +46,7 @@ class StructureAwareChunker:
                 nonlocal buffer_text, buffer_tokens, buffer_first_fikra, buffer_last_fikra
                 if not buffer_text:
                     return
-                text = "\n".join(buffer_text)
+                text = normalize_text("\n".join(buffer_text), profile="embedding")
                 fikra_label = buffer_first_fikra
                 if buffer_first_fikra != buffer_last_fikra:
                     fikra_label = None  # spans multiple fıkralar; citation stays at madde level
@@ -72,7 +73,7 @@ class StructureAwareChunker:
 
             for fikra in madde.fikralar:
                 label = f"({fikra.fikra_no})" + (f" {fikra.bent})" if fikra.bent else "")
-                unit_text = f"{label} {fikra.text}".strip()
+                unit_text = normalize_text(f"{label} {fikra.text}".strip(), profile="embedding")
                 unit_tokens = _estimate_tokens(unit_text)
 
                 if unit_tokens > self.max_tokens:

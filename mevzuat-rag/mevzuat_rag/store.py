@@ -37,10 +37,13 @@ class QdrantStore:
         embedding_model: str = "BAAI/bge-m3",
         embedding_dim: int = 1024,
         meta_dir: str | None = None,
+        *,
+        text_norm_version: str | None = None,
     ):
         self.collection = collection
         self.embedding_model = embedding_model
         self.embedding_dim = embedding_dim
+        self.text_norm_version = text_norm_version
         self.client = QdrantClient(url=url) if url else QdrantClient(path=local_path)
         self._meta_path = Path(meta_dir or local_path or ".") / f"index_meta_{collection}.json"
         self._ensure_collection()
@@ -77,14 +80,29 @@ class QdrantStore:
                     f"boyutta olsalar bile farklı modellerin vektör uzayları uyumlu değildir — "
                     f"bkz. MIGRATION.md."
                 )
+            recorded_version = recorded.get("text_norm_version")
+            if self.text_norm_version is not None and recorded_version != self.text_norm_version:
+                raise IndexMetadataMismatch(
+                    f"Koleksiyon '{self.collection}' metin normalizasyon versiyonu "
+                    f"'{recorded_version or 'tanımsız'}' ile indekslenmiş, ama şu anki config "
+                    f"'{self.text_norm_version}' bekliyor. Normalizasyon kuralları değiştiğinde "
+                    f"chunk metinleri/vektörleri uyumsuz hale gelir — bkz. MIGRATION.md."
+                )
         else:
             self._write_index_metadata()
 
     def _write_index_metadata(self) -> None:
         try:
             self._meta_path.parent.mkdir(parents=True, exist_ok=True)
+            metadata: dict[str, object] = {
+                "embedding_model": self.embedding_model,
+                "embedding_dim": self.embedding_dim,
+                "collection": self.collection,
+            }
+            if self.text_norm_version is not None:
+                metadata["text_norm_version"] = self.text_norm_version
             self._meta_path.write_text(
-                json.dumps({"embedding_model": self.embedding_model, "embedding_dim": self.embedding_dim, "collection": self.collection}, ensure_ascii=False, indent=2),
+                json.dumps(metadata, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
         except OSError:
