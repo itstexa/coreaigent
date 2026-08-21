@@ -21,6 +21,7 @@ import logging
 import math
 import sys
 import time
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from mevzuat_rag.chunking.chunker import StructureAwareChunker
 from mevzuat_rag.chunking.legal_structure_parser import parse_legislation_text
 from mevzuat_rag.config import RAGConfig
 from mevzuat_rag.engine import RAGEngine
+from mevzuat_rag.ingestion.base import RawDocument
 from mevzuat_rag.ingestion.local_corpus import SAMPLE_DATA_DIR, load_fixtures
 
 logger = logging.getLogger(__name__)
@@ -67,9 +69,28 @@ def _percentile(values: list[float], p: float) -> float | None:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
 
 
-def run(engine: RAGEngine | None = None) -> dict[str, object]:
+def run(
+    engine: RAGEngine | None = None,
+    documents: Iterable[RawDocument] | None = None,
+    flush_every: int = 0,
+) -> dict[str, object]:
+    """``documents`` varsayılan olarak yerel .md fixture'ları kullanır
+    (``load_fixtures()``). Büyük ölçekli bir PDF korpusu için
+    ``mevzuat_rag.ingestion.pdf_corpus.load_pdf_corpus(...)`` geçirin — döngü
+    her iki kaynak için de aynıdır, dokümanları teker teker akıtıp indexler
+    (tüm korpus asla belleğe yüklenmez).
+
+    ``flush_every`` > 0 ise: ``metrics._records`` (her doküman için 3 kayıt
+    biriktiren global liste) her N dokümanda bir diske yazılıp temizlenir.
+    1M dokümanlık bir koşuda bu olmadan 3M+ kayıt RAM'de birikir ve süreç
+    sonunda tek bir dev JSON'a yazılmaya çalışılır — kesinti anında her şeyi
+    kaybedersiniz. Küçük yerel korpus (varsayılan 0 = kapalı) için davranış
+    değişmez."""
     engine = engine or RAGEngine()
+    documents = documents if documents is not None else load_fixtures()
     metrics.clear_records()
+    run_stamp = _now_stamp()
+    flush_seq = 0
 
     chunker = StructureAwareChunker(
         max_tokens=engine.config.chunk_max_tokens,
@@ -90,7 +111,7 @@ def run(engine: RAGEngine | None = None) -> dict[str, object]:
     model_ms = t_model.duration_ms or 0.0
 
     with metrics.timer("total") as t_total:
-        for raw_doc in load_fixtures():
+        for raw_doc in documents:
             doc_count += 1
 
             with metrics.timer("parse", kanun_no=raw_doc.kanun_no) as t_parse:
@@ -128,6 +149,21 @@ def run(engine: RAGEngine | None = None) -> dict[str, object]:
 
             if failed:
                 failed_chunks.extend(failed)
+
+            if flush_every and doc_count % flush_every == 0:
+                flush_seq += 1
+                _write_json(
+                    LOGS_DIR / f"ingest_partial_{run_stamp}_{flush_seq:06d}.json",
+                    {
+                        "run_stamp": run_stamp,
+                        "docs_so_far": doc_count,
+                        "chunks_so_far": total_chunks,
+                        "totals_so_far": dict(totals),
+                        "records": metrics.get_records(),
+                    },
+                )
+                metrics.clear_records()
+                logger.info("ara kayıt yazıldı (%d doküman işlendi)", doc_count)
 
     total_ms = t_total.duration_ms or 0.0
     durations = {
@@ -245,20 +281,51 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     parser = argparse.ArgumentParser(
-        description="Index local legislation fixtures into Qdrant"
+        description="Index local legislation fixtures (veya büyük ölçekli bir PDF korpusu) into Qdrant"
     )
     parser.add_argument(
         "--watch",
         action="store_true",
-        help="klasörü izle, yeni/değişen dosyada otomatik yeniden indeksle",
+        help="klasörü izle, yeni/değişen dosyada otomatik yeniden indeksle (yalnızca --source local)",
     )
     parser.add_argument("--poll-seconds", type=float, default=3.0)
+    parser.add_argument(
+        "--source",
+        choices=["local", "pdf"],
+        default="local",
+        help="local: sample_data/legislation/*.md (varsayılan). pdf: --pdf-dir altındaki .pdf dizini, "
+        "1M dosyaya kadar akış+checkpoint+paralel çıkarım+PII redaksiyonuyla.",
+    )
+    parser.add_argument("--pdf-dir", type=Path, help="--source pdf ile taranacak kök dizin")
+    parser.add_argument(
+        "--pdf-checkpoint",
+        type=Path,
+        default=Path(__file__).resolve().parent.parent / "data" / "pdf_ingest_checkpoint.jsonl",
+        help="işlenen PDF'lerin kaydedildiği dosya — kesintiden sonra yeniden çalıştırınca atlanır",
+    )
+    parser.add_argument("--pdf-workers", type=int, default=4, help="paralel PDF çıkarım process sayısı")
+    parser.add_argument(
+        "--flush-every",
+        type=int,
+        default=0,
+        help="N dokümanda bir metrik kayıtlarını diske yazıp bellekten temizle (büyük PDF koşularında >0 önerilir, ör. 2000)",
+    )
     parsed = parser.parse_args()
 
     engine = RAGEngine(RAGConfig.from_env())
+
+    if parsed.source == "pdf":
+        if not parsed.pdf_dir:
+            parser.error("--source pdf için --pdf-dir zorunlu")
+        from mevzuat_rag.ingestion.pdf_corpus import load_pdf_corpus
+
+        docs = load_pdf_corpus(parsed.pdf_dir, parsed.pdf_checkpoint, workers=parsed.pdf_workers)
+        run_summary = run(engine, documents=docs, flush_every=parsed.flush_every or 2000)
+        sys.exit(1 if run_summary.get("totals", {}).get("failed", 0) else 0)
+
     if parsed.watch:
         watch(engine, poll_seconds=parsed.poll_seconds)
         sys.exit(0)
 
-    run_summary = run(engine)
+    run_summary = run(engine, flush_every=parsed.flush_every)
     sys.exit(1 if run_summary.get("totals", {}).get("failed", 0) else 0)
