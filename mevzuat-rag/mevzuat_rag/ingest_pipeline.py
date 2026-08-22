@@ -130,7 +130,10 @@ def run(
             total_chunks += len(chunks)
 
             with metrics.timer("index_chunks", input_count=len(chunks)) as t_index:
-                outcome = engine.index_chunks(chunks)
+                # invalidate_bm25=False: N dokümanlık bu döngüde BM25'i
+                # dokümanda bir değil, döngü bitince TEK SEFERDE geçersiz
+                # kılıyoruz — bkz. RAGEngine.index_chunks docstring'i.
+                outcome = engine.index_chunks(chunks, invalidate_bm25=False)
             index_ms += t_index.duration_ms or 0.0
 
             embedded = int(outcome.get("embedded", 0))
@@ -164,6 +167,9 @@ def run(
                 )
                 metrics.clear_records()
                 logger.info("ara kayıt yazıldı (%d doküman işlendi)", doc_count)
+
+        if totals["embedded"]:
+            engine.bm25_index.invalidate()
 
     total_ms = t_total.duration_ms or 0.0
     durations = {

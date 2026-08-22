@@ -21,6 +21,14 @@ MADDE_RE = re.compile(r"^\s*MADDE\s+(\d+)\s*[-–—]\s*(.*)$", re.IGNORECASE)
 FIKRA_RE = re.compile(r"^\s*\((\d+)\)\s*(.*)$")
 BENT_RE = re.compile(r"^\s*([a-zçğıöşü])\)\s*(.*)$", re.IGNORECASE)
 
+# Resmi mevzuat kaynaklarının (mevzuat.gov.tr, Resmi Gazete) standart notasyonu:
+# "MADDE 9- (Mülga: 12/7/2013-6495/77 md.)" ya da
+# "MADDE 5- (Değişik: 10/6/2020-... md.) <yeni metin devam eder>"
+# Not: sample_data/legislation/ içindeki 2 örnek belgede bu kalıbın gerçek bir
+# örneği yok (corpus çok küçük/temiz) — testler bu yüzden sentetik metinlerle
+# yazıldı, bkz. tests/test_durum_tracking.py.
+DURUM_RE = re.compile(r"^\(?\s*(mülga|değişik)\b", re.IGNORECASE)
+
 
 def parse_legislation_text(raw_text: str, kanun_no: str, kanun_adi: str, kaynak_url: str) -> LegislationDocument:
     doc = LegislationDocument(kanun_no=kanun_no, kanun_adi=kanun_adi, kaynak_url=kaynak_url)
@@ -40,6 +48,9 @@ def parse_legislation_text(raw_text: str, kanun_no: str, kanun_adi: str, kaynak_
             current_fikra = None
             current_bent_letter = None
             remainder = madde_match.group(2).strip()
+            durum_match = DURUM_RE.match(remainder)
+            if durum_match:
+                current_madde.durum = durum_match.group(1).lower()
             if remainder:
                 line = remainder
             else:

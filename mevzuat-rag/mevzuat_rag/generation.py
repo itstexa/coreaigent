@@ -22,14 +22,26 @@ SYSTEM_PROMPT = (
     "Her iddianı, hangi parçaya dayandığını [1], [2] gibi referanslarla "
     "işaretleyerek belirt. Verilen parçalar soruyu cevaplamaya yetmiyorsa, "
     "açıkça 'Verilen mevzuat parçalarında bu sorunun cevabı yok.' de — "
-    "tahmin yürütme."
+    "tahmin yürütme.\n\n"
+    "Bir kaynağın başında [⚠️ MÜLGA — YÜRÜRLÜKTE DEĞİL] işareti varsa, bu "
+    "madde YÜRÜRLÜKTEN KALDIRILMIŞTIR — cevabında bunu güncel/geçerli bir "
+    "hüküm gibi SUNMA; bu bilgiyi kullanıyorsan açıkça 'bu madde mülga "
+    "edilmiştir, artık yürürlükte değildir' diye belirt. [⚠️ DEĞİŞİK] "
+    "işaretli bir kaynak değişikliğe uğramış ama yürürlükte olan güncel "
+    "metindir — bunu normal bir kaynak gibi kullanabilirsin."
 )
+
+_DURUM_WARNING = {
+    "mülga": "[⚠️ MÜLGA — YÜRÜRLÜKTE DEĞİL] ",
+    "değişik": "[⚠️ DEĞİŞİK] ",
+}
 
 
 def _build_context(chunks: list[RetrievalResult]) -> str:
     parts = []
     for i, hit in enumerate(chunks, start=1):
-        parts.append(f"[{i}] ({hit.chunk.citation})\n{hit.chunk.text}")
+        warning = _DURUM_WARNING.get(hit.chunk.metadata.durum, "")
+        parts.append(f"[{i}] ({hit.chunk.citation})\n{warning}{hit.chunk.text}")
     return "\n\n".join(parts)
 
 

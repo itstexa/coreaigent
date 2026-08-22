@@ -64,6 +64,7 @@ class ParentDocStage:
                 bent=None,
                 kaynak_url=template.metadata.kaynak_url,
                 source_hash=template.metadata.source_hash,
+                durum=template.metadata.durum,
             )
             parent_chunk = LegislationChunk(
                 id=f"parent:{kanun_no}:{madde_no}",

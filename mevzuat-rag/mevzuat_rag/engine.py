@@ -80,7 +80,7 @@ class RAGEngine:
         except Exception:
             return False
 
-    def index_chunks(self, chunks: list[LegislationChunk]) -> dict:
+    def index_chunks(self, chunks: list[LegislationChunk], invalidate_bm25: bool = True) -> dict:
         """Embeds and upserts ``chunks``, skipping ones whose content hasn't
         changed since the last run (same chunk id + same ``source_hash``).
 
@@ -91,7 +91,17 @@ class RAGEngine:
         Batch-level embedding failures no longer abort the whole ingest. Failed
         chunks are isolated and reported in ``failed`` so later CLI/ingest code
         can persist them without losing the successfully embedded chunks.
-        """
+
+        ``invalidate_bm25=False``: bir toplu ingest çalıştıran çağıran kod
+        (ör. ``ingest_pipeline.run()``, N doküman için N kez ``index_chunks``
+        çağırır), her dokümandan sonra BM25'i tek tek geçersiz kılmak yerine
+        kendi döngüsünün sonunda BİR KEZ ``engine.bm25_index.invalidate()``
+        çağırmalı. Aynı ``RAGEngine``'in eşzamanlı olarak sorgu da sunduğu bir
+        dağıtımda (coreaigent'ın tasarladığı kalıcı ``rag`` servisi gibi),
+        her ingest edilen dokümanın hemen ardından gelen sorgunun tüm corpus'u
+        (bugünkü ölçekte 12 chunk, hedeflenen ölçekte 1M+) yeniden taramasını
+        önler — 2026-08-22 alt-ajan taramasında bulunan gerçek risk, bkz.
+        docs/IMPROVEMENT_IDEAS.md."""
         if not chunks:
             return {"embedded": 0, "skipped_unchanged": 0, "failed": []}
 
@@ -139,7 +149,7 @@ class RAGEngine:
                                 batch_failed += 1
                         t.output_count = len(batch) - batch_failed
 
-            if embedded:
+            if embedded and invalidate_bm25:
                 self.bm25_index.invalidate()
 
         return {"embedded": embedded, "skipped_unchanged": skipped, "failed": failed}

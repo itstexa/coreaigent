@@ -13,6 +13,10 @@ class ChunkMetadata:
     bent: str | None
     kaynak_url: str
     source_hash: str
+    # "yürürlükte" | "mülga" | "değişik" — bkz. legal_structure_parser.py'deki
+    # DURUM_RE. 2026-08-22: hukuki karar-destek bağlamında en riskli boşluktu,
+    # mülga bir madde güncelmiş gibi sunulabiliyordu, bkz. docs/IMPROVEMENT_IDEAS.md.
+    durum: str = "yürürlükte"
 
 
 @dataclass
@@ -49,3 +53,4 @@ class MaddeNode:
     madde_no: int
     baslik: str | None
     fikralar: list[FikraNode] = field(default_factory=list)
+    durum: str = "yürürlükte"

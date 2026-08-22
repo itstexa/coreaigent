@@ -80,6 +80,7 @@ class CitationExpansionStage:
                     bent=None,
                     kaynak_url=template.metadata.kaynak_url,
                     source_hash=template.metadata.source_hash,
+                    durum=template.metadata.durum,
                 )
                 chunk = LegislationChunk(
                     id=f"citation_ref:{kanun_no}:{madde_no}",
