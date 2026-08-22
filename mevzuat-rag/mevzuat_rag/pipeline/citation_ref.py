@@ -23,6 +23,18 @@ _MADDE_REF_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Kısaltılmış hukuki atıf formları: "m.5", "md.5", "mad. 5", "5. md." gibi
+# kalıplar hukuk metinlerinde ("TCK m.5", "HMK md.114/2") yaygındır ama
+# yukarıdaki tam-yazım regex'i bunları yakalamaz. 2026-08-22 alt-ajan
+# taramasında bulundu (bkz. docs/IMPROVEMENT_IDEAS.md, Retrieval #1).
+# Sample corpus'ta bu kısaltma kalıbının gerçek bir örneği yok — sample_data/
+# legislation/ tam-yazım kullanıyor ("4. maddede") — testler bu yüzden
+# sentetik, dürüstçe not edildi (bkz. tests/test_citation_ref.py).
+_MADDE_REF_ABBR_RE = re.compile(
+    r"\b(?:m|md|mad)\.\s*(\d{1,3})\b|\b(\d{1,3})\s*\.\s*(?:m|md|mad)\.",
+    re.IGNORECASE,
+)
+
 
 def extract_same_kanun_refs(text: str, own_madde_no: int | None) -> set[int]:
     """Metinde geçen madde numaralarını döndürür — kendi madde numarasını
@@ -30,5 +42,8 @@ def extract_same_kanun_refs(text: str, own_madde_no: int | None) -> set[int]:
     olan tek haneli küçük sayıları (ör. "3 kişi") elemeye çalışmaz; regex
     zaten "madde" kelimesine bitişik sayı arıyor, o yüzden bu risk düşük."""
     refs = {int(m.group(1)) for m in _MADDE_REF_RE.finditer(text)}
+    for m in _MADDE_REF_ABBR_RE.finditer(text):
+        num = m.group(1) or m.group(2)
+        refs.add(int(num))
     refs.discard(own_madde_no)
     return refs

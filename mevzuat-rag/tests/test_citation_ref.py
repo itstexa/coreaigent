@@ -45,3 +45,26 @@ def test_multiple_refs_in_one_text():
 
 def test_empty_text():
     assert extract_same_kanun_refs("", own_madde_no=1) == set()
+
+
+def test_abbreviated_forms_m_dot_number():
+    # Hukuk metinlerinde yaygın kısaltma kalıpları — sample corpus'ta gerçek
+    # örneği yok, sentetik (bkz. modül docstring'i).
+    cases = [
+        ("Bkz. m.5 hükmü uygulanır.", {5}),
+        ("md.7 gereğince işlem yapılır.", {7}),
+        ("mad. 12 kapsamında değerlendirilir.", {12}),
+        ("5. md. hükmüne göre reddedilir.", {5}),
+    ]
+    for text, expected in cases:
+        assert extract_same_kanun_refs(text, own_madde_no=1) == expected, text
+
+
+def test_abbreviated_self_reference_excluded():
+    text = "Bu maddenin (m.6) uygulanması aşağıdaki gibidir."
+    assert extract_same_kanun_refs(text, own_madde_no=6) == set()
+
+
+def test_abbreviated_and_full_form_together():
+    text = "3. maddede belirtilenler ile m.7 birlikte uygulanır."
+    assert extract_same_kanun_refs(text, own_madde_no=1) == {3, 7}

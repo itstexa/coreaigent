@@ -13,6 +13,7 @@ from openai import OpenAI
 from mevzuat_rag.errors import GenerationError
 from mevzuat_rag.llm_client import get_client
 from mevzuat_rag.models import RetrievalResult
+from mevzuat_rag.prompt_safety import INJECTION_DEFENSE_NOTE, wrap_source
 from mevzuat_rag.retry import call_with_retry
 
 SYSTEM_PROMPT = (
@@ -29,6 +30,7 @@ SYSTEM_PROMPT = (
     "edilmiştir, artık yürürlükte değildir' diye belirt. [⚠️ DEĞİŞİK] "
     "işaretli bir kaynak değişikliğe uğramış ama yürürlükte olan güncel "
     "metindir — bunu normal bir kaynak gibi kullanabilirsin."
+    + INJECTION_DEFENSE_NOTE
 )
 
 _DURUM_WARNING = {
@@ -41,7 +43,7 @@ def _build_context(chunks: list[RetrievalResult]) -> str:
     parts = []
     for i, hit in enumerate(chunks, start=1):
         warning = _DURUM_WARNING.get(hit.chunk.metadata.durum, "")
-        parts.append(f"[{i}] ({hit.chunk.citation})\n{warning}{hit.chunk.text}")
+        parts.append(f"[{i}] ({hit.chunk.citation})\n{wrap_source(warning + hit.chunk.text)}")
     return "\n\n".join(parts)
 
 

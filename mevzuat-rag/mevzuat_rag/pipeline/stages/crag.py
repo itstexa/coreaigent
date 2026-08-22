@@ -33,6 +33,7 @@ from mevzuat_rag.llm_client import get_client
 from mevzuat_rag.models import RetrievalResult
 from mevzuat_rag.pipeline.candidate import Candidate
 from mevzuat_rag.pipeline.context import PipelineContext
+from mevzuat_rag.prompt_safety import INJECTION_DEFENSE_NOTE, wrap_source
 from mevzuat_rag.text_norm import normalize_text
 from mevzuat_rag.pipeline.stages.hyde import SYSTEM_PROMPT as HYDE_SYSTEM_PROMPT
 from mevzuat_rag.pipeline.stages.parent_doc import ParentDocStage
@@ -52,6 +53,7 @@ SYSTEM_PROMPT = (
     '{"verdict": "SUFFICIENT" | "PARTIAL" | "INSUFFICIENT", '
     '"missing_aspect": "PARTIAL ise eksik olan şeyi arayacak kısa bir sorgu, değilse boş string", '
     '"reason": "kısa gerekçe"}'
+    + INJECTION_DEFENSE_NOTE
 )
 
 
@@ -88,7 +90,7 @@ class CRAGStage:
 
     def _evaluate(self, ctx: PipelineContext) -> dict:
         gen_config = ctx.engine.config.generation
-        context = "\n\n".join(f"({c.chunk.citation}) {c.text}" for c in ctx.candidates) or "(hiç sonuç bulunamadı)"
+        context = "\n\n".join(f"({c.chunk.citation}) {wrap_source(c.text)}" for c in ctx.candidates) or "(hiç sonuç bulunamadı)"
         user_prompt = f"Soru: {ctx.original_query}\n\nGetirilen parçalar:\n{context}"
         client = get_client()
 

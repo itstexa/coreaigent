@@ -34,6 +34,7 @@ import re
 
 from mevzuat_rag.llm_client import get_client
 from mevzuat_rag.pipeline.context import PipelineContext
+from mevzuat_rag.prompt_safety import INJECTION_DEFENSE_NOTE, wrap_source
 from mevzuat_rag.retry import call_with_retry
 
 logger = logging.getLogger("mevzuat_rag.post_hoc_verify")
@@ -52,6 +53,7 @@ SYSTEM_PROMPT = (
     "kaynakları yanlış yorumluyor.\n\n"
     "Yalnızca şu JSON formatında cevap ver, başka hiçbir açıklama ekleme:\n"
     '{"verdict": "SUPPORTED" | "UNSUPPORTED", "reason": "kısa gerekçe"}'
+    + INJECTION_DEFENSE_NOTE
 )
 
 
@@ -106,7 +108,7 @@ class PostHocVerifyStage:
             ctx.answer["post_hoc_verdict"] = "STRUCTURAL_OK_UNCHECKED"
             return ctx
 
-        source_block = "\n\n".join(f"[{i}] {s['text']}" for i, s in enumerate(sources, start=1))
+        source_block = "\n\n".join(f"[{i}] {wrap_source(s['text'])}" for i, s in enumerate(sources, start=1))
         user_prompt = f"Cevap:\n{answer_text}\n\nKaynak parçalar:\n{source_block}"
         client = get_client()
 
