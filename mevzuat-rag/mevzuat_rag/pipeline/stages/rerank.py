@@ -97,7 +97,13 @@ class RerankStage:
         ranked = sorted(ctx.candidates, key=lambda c: c.score, reverse=True)
         filtered = [c for c in ranked if c.score >= config.min_score]
 
-        if getattr(config, "adaptive_cutoff", False):
+        # `is True` (yalnızca gerçek bool True) — MagicMock tabanlı testlerde
+        # (ör. test_min_score.py) config.rerank bir Mock ise, dokunulmayan
+        # bir attribute auto-vivify olur ve varsayılan olarak "truthy"dir;
+        # bu da adaptive_cutoff hiç set edilmemişken yanlışlıkla True
+        # sayılmasına yol açardı. `is True` bu durumu güvenle False'a düşürür,
+        # gerçek dataclass'taki bool alanla ise aynen çalışır.
+        if config.adaptive_cutoff is True:
             keep_n = _adaptive_cutoff_count(
                 [c.score for c in filtered], config.top_n, config.adaptive_drop_ratio
             )

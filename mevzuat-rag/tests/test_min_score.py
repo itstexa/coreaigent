@@ -27,6 +27,12 @@ def _make_ctx(n_candidates: int) -> PipelineContext:
     engine = MagicMock()
     engine.config.rerank.model = "fake-model"
     engine.config.rerank.min_score = 0.05
+    # MagicMock'un auto-vivify'ı yüzünden açıkça set edilmezse
+    # engine.config.rerank.adaptive_cutoff, rerank.py'nin
+    # getattr(config, "adaptive_cutoff", False) kontrolünde HER ZAMAN
+    # truthy bir Mock döner (gerçek RerankConfig'in varsayılanı False'tur) —
+    # bu yüzden burada gerçek varsayılanla eşleşecek şekilde açıkça set ediliyor.
+    engine.config.rerank.adaptive_cutoff = False
     engine.config.device = "cpu"
     ctx = PipelineContext(original_query="test sorgu", engine=engine, top_k=5)
     ctx.candidates = [_fake_candidate(str(i)) for i in range(n_candidates)]
