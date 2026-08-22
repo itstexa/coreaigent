@@ -29,7 +29,17 @@ SYSTEM_PROMPT = (
     "hüküm gibi SUNMA; bu bilgiyi kullanıyorsan açıkça 'bu madde mülga "
     "edilmiştir, artık yürürlükte değildir' diye belirt. [⚠️ DEĞİŞİK] "
     "işaretli bir kaynak değişikliğe uğramış ama yürürlükte olan güncel "
-    "metindir — bunu normal bir kaynak gibi kullanabilirsin."
+    "metindir — bunu normal bir kaynak gibi kullanabilirsin.\n\n"
+    "Farklı türden kaynaklar (Anayasa, Kanun, KHK, Yönetmelik, Tebliğ) "
+    "arasında çelişki varsa, normlar hiyerarşisini gözet: Anayasa > Kanun > "
+    "KHK > Yönetmelik > Tebliğ. Üst norm ile çelişen alt norm hükmünü öncelikli "
+    "kaynak gibi sunma, çelişkiyi ve hangi kaynağın hiyerarşik olarak "
+    "üstün olduğunu açıkça belirt.\n\n"
+    "Bir kaynağın başında [⚠️ TABLO/EK OLABİLİR] işareti varsa, bu kaynak "
+    "muhtemelen bir tablo veya ek içeriyor ve düz metne dönüştürülürken "
+    "hizalama/sütun yapısı bozulmuş olabilir — bu kaynağı yorumlarken "
+    "dikkatli ol, sayısal değerleri/sütunları yanlış eşleştirmiş olabileceğini "
+    "unutma."
     + INJECTION_DEFENSE_NOTE
 )
 
@@ -37,12 +47,15 @@ _DURUM_WARNING = {
     "mülga": "[⚠️ MÜLGA — YÜRÜRLÜKTE DEĞİL] ",
     "değişik": "[⚠️ DEĞİŞİK] ",
 }
+_TABLE_WARNING = "[⚠️ TABLO/EK OLABİLİR] "
 
 
 def _build_context(chunks: list[RetrievalResult]) -> str:
     parts = []
     for i, hit in enumerate(chunks, start=1):
         warning = _DURUM_WARNING.get(hit.chunk.metadata.durum, "")
+        if hit.chunk.metadata.contains_table:
+            warning += _TABLE_WARNING
         parts.append(f"[{i}] ({hit.chunk.citation})\n{wrap_source(warning + hit.chunk.text)}")
     return "\n\n".join(parts)
 

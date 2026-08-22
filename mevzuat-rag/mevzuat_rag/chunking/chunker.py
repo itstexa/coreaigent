@@ -59,6 +59,8 @@ class StructureAwareChunker:
                     kaynak_url=doc.kaynak_url,
                     source_hash=_source_hash(doc.kanun_no, str(madde.madde_no), text),
                     durum=madde.durum,
+                    mevzuat_turu=doc.mevzuat_turu,
+                    contains_table=madde.contains_table,
                 )
                 chunk_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{doc.kanun_no}:{madde.madde_no}:{buffer_first_fikra}:{len(chunks)}"))
                 chunks.append(LegislationChunk(
@@ -84,6 +86,8 @@ class StructureAwareChunker:
                         fikra_no=fikra.fikra_no, bent=fikra.bent, kaynak_url=doc.kaynak_url,
                         source_hash=_source_hash(doc.kanun_no, str(madde.madde_no), str(fikra.fikra_no), unit_text),
                         durum=madde.durum,
+                        mevzuat_turu=doc.mevzuat_turu,
+                        contains_table=madde.contains_table,
                     )
                     chunk_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{doc.kanun_no}:{madde.madde_no}:{fikra.fikra_no}:{fikra.bent}:{len(chunks)}"))
                     chunks.append(LegislationChunk(

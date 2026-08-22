@@ -16,6 +16,7 @@ later. See DEPLOY.md / MIGRATION.md.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from qdrant_client import QdrantClient
@@ -109,6 +110,12 @@ class QdrantStore:
             pass  # best-effort — a remote Qdrant + read-only local fs shouldn't hard-fail startup
 
     def upsert_chunks(self, chunks: list[LegislationChunk], vectors: list[list[float]]) -> None:
+        # "indexed_at" (ISO-8601 UTC) — saklama/silme politikasının (bkz.
+        # retention.py) dayandığı çapa: bu kayıt olmadan "bu veri ne kadar
+        # eski" sorusuna sonradan cevap verilemez, KVKK'nın "amaç sona
+        # erince sil" ilkesi vatandaş belgesinden türeyen içerik için
+        # uygulanamaz hale gelir.
+        indexed_at = datetime.now(timezone.utc).isoformat()
         points = [
             PointStruct(
                 id=chunk.id,
@@ -124,6 +131,9 @@ class QdrantStore:
                     "kaynak_url": chunk.metadata.kaynak_url,
                     "source_hash": chunk.metadata.source_hash,
                     "durum": chunk.metadata.durum,
+                    "indexed_at": indexed_at,
+                    "mevzuat_turu": chunk.metadata.mevzuat_turu,
+                    "contains_table": chunk.metadata.contains_table,
                 },
             )
             for chunk, vector in zip(chunks, vectors)
@@ -165,6 +175,7 @@ class QdrantStore:
                 kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
                 fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
                 source_hash=payload.get("source_hash", ""), durum=payload.get("durum", "yürürlükte"),
+                mevzuat_turu=payload.get("mevzuat_turu", "kanun"), contains_table=payload.get("contains_table", False),
             )
             chunks.append(LegislationChunk(id=str(point.id), text=payload["text"], metadata=metadata, citation=payload["citation"]))
         chunks.sort(key=lambda c: (c.metadata.fikra_no is None, c.metadata.fikra_no or 0, c.metadata.bent or ""))
@@ -196,6 +207,7 @@ class QdrantStore:
                     kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
                     fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
                     source_hash=payload.get("source_hash", ""), durum=payload.get("durum", "yürürlükte"),
+                mevzuat_turu=payload.get("mevzuat_turu", "kanun"), contains_table=payload.get("contains_table", False),
                 )
                 chunks.append(LegislationChunk(id=str(point.id), text=payload["text"], metadata=metadata, citation=payload["citation"]))
             if offset is None:
@@ -211,6 +223,7 @@ class QdrantStore:
                 kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
                 fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
                 source_hash=payload.get("source_hash", ""), durum=payload.get("durum", "yürürlükte"),
+                mevzuat_turu=payload.get("mevzuat_turu", "kanun"), contains_table=payload.get("contains_table", False),
             )
             chunk = LegislationChunk(id=str(hit.id), text=payload["text"], metadata=metadata, citation=payload["citation"])
             results.append(RetrievalResult(chunk=chunk, score=hit.score))
