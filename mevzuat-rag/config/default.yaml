@@ -110,6 +110,20 @@ crag:                       # [5] CRAG — corrective retrieval loop
   max_loops: 2
   insufficient_strategy: force_hyde   # force_hyde | shift_to_bm25 | refuse
 
+citation_expansion:         # [9] Atıf Genişletme (GraphRAG-lite) — regex tabanlı, madde-madde aynı-kanun atıfları
+  enabled: false             # 2026-08-22: regex + gerçek corpus'taki tek örnekle (3071 m.6 -> m.4) test edildi, doğru çalışıyor,
+                              # ama LLM üretimiyle (DeepSeek key'i ölü) uçtan uca henüz doğrulanmadı — o yüzden diğer teknikler gibi
+                              # "doğrulandı, varsayılan açık" değil. Çalışan bir key ile test edilip sonra açılmalı.
+  token_budget_fraction: 0.6
+  context_window_tokens: 8000
+
+post_hoc_verify:             # [8] Post-hoc Atıf Doğrulama — [7] Generate'ten sonra çalışır
+  enabled: false              # 2026-08-22: yapısal [N]-indeks kontrolü LLM'siz gerçek testlerle doğrulandı; LLM tabanlı
+                              # kanıt kontrolü yalnızca mock'lu testlerle doğrulandı, gerçek DeepSeek key'i yoktu. Aynı
+                              # gerekçeyle varsayılan kapalı — bkz. citation_expansion.
+  llm_check: true             # false ise yalnızca ücretsiz yapısal kontrol çalışır, LLM çağrısı yapılmaz
+  model: deepseek-chat
+
 observability:
   debug: false
   trace: true

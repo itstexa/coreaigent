@@ -19,6 +19,7 @@ from mevzuat_rag.models import LegislationChunk, RetrievalResult
 from mevzuat_rag.pipeline.bm25_index import BM25Index
 from mevzuat_rag.pipeline.context import PipelineContext
 from mevzuat_rag.pipeline.runner import Pipeline
+from mevzuat_rag.pipeline.stages.citation_expansion import CitationExpansionStage
 from mevzuat_rag.pipeline.stages.compression import CompressionStage
 from mevzuat_rag.pipeline.stages.crag import CRAGStage
 from mevzuat_rag.pipeline.stages.generate import GenerateStage
@@ -26,6 +27,7 @@ from mevzuat_rag.pipeline.stages.hybrid_retrieve import HybridRetrieveStage
 from mevzuat_rag.pipeline.stages.hyde import HyDEStage
 from mevzuat_rag.pipeline.stages.multi_query import MultiQueryStage
 from mevzuat_rag.pipeline.stages.parent_doc import ParentDocStage
+from mevzuat_rag.pipeline.stages.post_hoc_verify import PostHocVerifyStage
 from mevzuat_rag.pipeline.stages.rerank import RerankStage
 from mevzuat_rag.pipeline.stages.router import RouterStage
 from mevzuat_rag.store import QdrantStore
@@ -150,11 +152,13 @@ class RAGEngine:
             HybridRetrieveStage(enabled=True),
             RerankStage(enabled=self.config.rerank.enabled),
             ParentDocStage(enabled=self.config.parent_doc.enabled),
+            CitationExpansionStage(enabled=self.config.citation_expansion.enabled),
             CRAGStage(enabled=self.config.crag.enabled),
             CompressionStage(enabled=self.config.compression.enabled),
         ]
         if want_answer:
             stages.append(GenerateStage(enabled=True))
+            stages.append(PostHocVerifyStage(enabled=self.config.post_hoc_verify.enabled))
         return Pipeline(stages)
 
     def _run(self, query: str, top_k: int, want_answer: bool) -> PipelineContext:

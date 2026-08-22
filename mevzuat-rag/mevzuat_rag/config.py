@@ -129,6 +129,20 @@ class CRAGConfig(StageToggle):
 
 
 @dataclass
+class CitationExpansionConfig(StageToggle):
+    # [4]'teki ParentDocConfig ile aynı bütçe mantığı — genişletilen madde
+    # düşük öncelikli, bütçe zorlanırsa önce o düşer.
+    token_budget_fraction: float = 0.6
+    context_window_tokens: int = 8000
+
+
+@dataclass
+class PostHocVerifyConfig(StageToggle):
+    llm_check: bool = True  # False = yalnızca ücretsiz yapısal [N]-indeks kontrolü
+    model: str = "deepseek-chat"
+
+
+@dataclass
 class EmbeddingConfig:
     model: str = "BAAI/bge-m3"
     dim: int = 1024
@@ -188,6 +202,8 @@ class RAGConfig:
     parent_doc: ParentDocConfig = field(default_factory=ParentDocConfig)
     compression: CompressionConfig = field(default_factory=CompressionConfig)
     crag: CRAGConfig = field(default_factory=CRAGConfig)
+    citation_expansion: CitationExpansionConfig = field(default_factory=CitationExpansionConfig)
+    post_hoc_verify: PostHocVerifyConfig = field(default_factory=PostHocVerifyConfig)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
     # structured embedding config — distinct from the legacy flat
     # embedding_model/embedding_dim/embedding_device fields above, which stay
@@ -247,6 +263,8 @@ class RAGConfig:
             parent_doc=ParentDocConfig(**(y.get("parent_doc", {}) or {})),
             compression=CompressionConfig(**(y.get("compression", {}) or {})),
             crag=CRAGConfig(**(y.get("crag", {}) or {})),
+            citation_expansion=CitationExpansionConfig(**(y.get("citation_expansion", {}) or {})),
+            post_hoc_verify=PostHocVerifyConfig(**(y.get("post_hoc_verify", {}) or {})),
             generation=GenerationConfig(
                 provider=gen.get("provider", "deepseek"),
                 model=os.environ.get("DEEPSEEK_MODEL", gen.get("model", "deepseek-chat")),
