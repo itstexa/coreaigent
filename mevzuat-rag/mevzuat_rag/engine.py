@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import threading
 
-from mevzuat_rag import metrics
+from mevzuat_rag import audit_log, metrics
 from mevzuat_rag.config import RAGConfig
 from mevzuat_rag.embedding import embed_texts_with_config, get_embedder
 from mevzuat_rag.errors import RAGError
@@ -181,7 +181,9 @@ class RAGEngine:
             raise RAGError("query is required", category="validation")
         top_k = top_k or self.config.retrieval_top_k
         ctx = self._run(query, top_k, want_answer=False)
-        return [candidate.to_result() for candidate in ctx.candidates]
+        results = [candidate.to_result() for candidate in ctx.candidates]
+        audit_log.log_query(query, citations=[r.chunk.citation for r in results])
+        return results
 
     def ask(self, query: str, top_k: int | None = None) -> dict:
         """retrieve() + DeepSeek-generated grounded answer. See generation.py.
@@ -202,4 +204,9 @@ class RAGEngine:
                 {"stage": t.stage, "input_count": t.input_count, "output_count": t.output_count, "duration_ms": t.duration_ms}
                 for t in ctx.trace
             ]
+        audit_log.log_query(
+            query,
+            citations=list(answer.get("citations") or []),
+            answer_verdict=answer.get("post_hoc_verdict"),
+        )
         return answer

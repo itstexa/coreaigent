@@ -123,6 +123,7 @@ class QdrantStore:
                     "bent": chunk.metadata.bent,
                     "kaynak_url": chunk.metadata.kaynak_url,
                     "source_hash": chunk.metadata.source_hash,
+                    "durum": chunk.metadata.durum,
                 },
             )
             for chunk, vector in zip(chunks, vectors)
@@ -163,7 +164,7 @@ class QdrantStore:
             metadata = ChunkMetadata(
                 kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
                 fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
-                source_hash=payload.get("source_hash", ""),
+                source_hash=payload.get("source_hash", ""), durum=payload.get("durum", "yürürlükte"),
             )
             chunks.append(LegislationChunk(id=str(point.id), text=payload["text"], metadata=metadata, citation=payload["citation"]))
         chunks.sort(key=lambda c: (c.metadata.fikra_no is None, c.metadata.fikra_no or 0, c.metadata.bent or ""))
@@ -194,7 +195,7 @@ class QdrantStore:
                 metadata = ChunkMetadata(
                     kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
                     fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
-                    source_hash=payload.get("source_hash", ""),
+                    source_hash=payload.get("source_hash", ""), durum=payload.get("durum", "yürürlükte"),
                 )
                 chunks.append(LegislationChunk(id=str(point.id), text=payload["text"], metadata=metadata, citation=payload["citation"]))
             if offset is None:
@@ -209,7 +210,7 @@ class QdrantStore:
             metadata = ChunkMetadata(
                 kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
                 fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
-                source_hash=payload.get("source_hash", ""),
+                source_hash=payload.get("source_hash", ""), durum=payload.get("durum", "yürürlükte"),
             )
             chunk = LegislationChunk(id=str(hit.id), text=payload["text"], metadata=metadata, citation=payload["citation"])
             results.append(RetrievalResult(chunk=chunk, score=hit.score))

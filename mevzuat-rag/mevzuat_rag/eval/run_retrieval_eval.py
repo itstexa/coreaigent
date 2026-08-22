@@ -12,6 +12,13 @@ Assumes the corpus has already been indexed (see ingest_pipeline.py or
 smoke_test.py). Compares against (kanun_no, madde_no) identity rather than
 raw chunk IDs, since IDs are an implementation detail and structural
 identity is what a human golden-set author can actually verify.
+
+2026-08-22: golden_set.jsonl'a ``must_refuse: true`` satırları eklendi
+(corpus-dışı sorular, bkz. docs/IMPROVEMENT_IDEAS.md, Gözlemlenebilirlik
+#3) — bunlar için Recall/MRR anlamsız (doğru madde diye bir şey yok),
+bunun yerine "retrieve() gerçekten boş döndü mü" (min_score=0.05'in
+her şeyi elediği doğrulanmış davranış, bkz. NOTES.md) ayrı bir
+``refuse_accuracy`` metriğiyle raporlanıyor.
 """
 from __future__ import annotations
 
@@ -37,6 +44,7 @@ def run(engine: RAGEngine | None = None) -> dict:
     per_case = []
     latencies_ms = []
     for case in cases:
+        must_refuse = bool(case.get("must_refuse", False))
         relevant = {_madde_key(e["kanun_no"], e["madde_no"]) for e in case["expected"]}
 
         t0 = time.perf_counter()
@@ -45,18 +53,32 @@ def run(engine: RAGEngine | None = None) -> dict:
         latencies_ms.append(latency_ms)
 
         retrieved = [_madde_key(hit.chunk.metadata.kanun_no, hit.chunk.metadata.madde_no) for hit in hits]
-        row = {"query": case["query"], "latency_ms": round(latency_ms, 1)}
-        for k in K_VALUES:
-            row[f"recall@{k}"] = round(recall_at_k(retrieved, relevant, k), 3)
-        row["mrr"] = round(mrr(retrieved, relevant), 3)
+        row = {"query": case["query"], "latency_ms": round(latency_ms, 1), "must_refuse": must_refuse}
+        if must_refuse:
+            # Doğru madde diye bir şey yok — burada "başarı" retrieve()'in
+            # boş dönmesi (min_score eşiğinin her şeyi elemesi).
+            row["refused_correctly"] = len(hits) == 0
+        else:
+            for k in K_VALUES:
+                row[f"recall@{k}"] = round(recall_at_k(retrieved, relevant, k), 3)
+            row["mrr"] = round(mrr(retrieved, relevant), 3)
         per_case.append(row)
 
     n = len(per_case)
-    summary = {f"recall@{k}": round(sum(r[f"recall@{k}"] for r in per_case) / n, 3) for k in K_VALUES}
-    summary["mrr"] = round(sum(r["mrr"] for r in per_case) / n, 3)
+    positive_cases = [r for r in per_case if not r["must_refuse"]]
+    refuse_cases = [r for r in per_case if r["must_refuse"]]
+
+    summary: dict[str, object] = {}
+    if positive_cases:
+        np_ = len(positive_cases)
+        summary.update({f"recall@{k}": round(sum(r[f"recall@{k}"] for r in positive_cases) / np_, 3) for k in K_VALUES})
+        summary["mrr"] = round(sum(r["mrr"] for r in positive_cases) / np_, 3)
+    if refuse_cases:
+        summary["refuse_accuracy"] = round(sum(r["refused_correctly"] for r in refuse_cases) / len(refuse_cases), 3)
     summary["latency_ms_p50"] = round(sorted(latencies_ms)[n // 2], 1)
     summary["latency_ms_max"] = round(max(latencies_ms), 1)
     summary["n_queries"] = n
+    summary["n_refuse_queries"] = len(refuse_cases)
 
     return {"per_case": per_case, "summary": summary}
 

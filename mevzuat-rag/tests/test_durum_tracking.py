@@ -7,8 +7,12 @@ sentetik metinlerle yazıldı, dürüstçe not edilmiştir.
 """
 from __future__ import annotations
 
+import tempfile
+
 from mevzuat_rag.chunking.chunker import StructureAwareChunker
 from mevzuat_rag.chunking.legal_structure_parser import parse_legislation_text
+from mevzuat_rag.config import RAGConfig
+from mevzuat_rag.engine import RAGEngine
 from mevzuat_rag.generation import _build_context
 from mevzuat_rag.models import RetrievalResult
 
@@ -80,6 +84,46 @@ def test_generation_context_warns_on_mulga():
 
     assert "[⚠️ MÜLGA — YÜRÜRLÜKTE DEĞİL] Bu madde metni." in context
     assert "[⚠️" not in context.split("[2]")[1]  # ikinci kaynakta uyarı yok
+
+
+def test_durum_survives_real_qdrant_round_trip():
+    """Kritik test: durum yalnızca bellek-içi nesnelerde değil, gerçek
+    Qdrant'a upsert edilip GERİ OKUNDUKTAN sonra da korunmalı. Bu test
+    olmadan store.py'nin upsert_chunks/scroll_all_chunks/search/
+    get_chunks_by_madde'sinin 'durum'u payload'a hiç yazmadığı/okumadığı
+    (her zaman varsayılana "yürürlükte" düşürdüğü) bir bug fark edilmeden
+    kalabilirdi — tam da bu testi yazarken bulundu ve store.py'de düzeltildi."""
+    text = (
+        "MADDE 1- (Mülga: 1/1/2020-1234/5 md.)\n\n"
+        "MADDE 2- Yürürlükteki normal madde metni burada."
+    )
+    doc = parse_legislation_text(text, "9999", "Test Kanunu", "https://example.com")
+    chunks = StructureAwareChunker(max_tokens=768).chunk(doc)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        config = RAGConfig.from_env()
+        config.qdrant_local_path = tmp
+        config.qdrant_collection = "durum_roundtrip_test"
+        engine = RAGEngine(config)
+
+        engine.index_chunks(chunks)
+
+        # 1) get_chunks_by_madde üzerinden (parent_doc/citation_expansion'ın kullandığı yol)
+        madde1_chunks = engine.store.get_chunks_by_madde("9999", 1)
+        assert madde1_chunks[0].metadata.durum == "mülga"
+        madde2_chunks = engine.store.get_chunks_by_madde("9999", 2)
+        assert madde2_chunks[0].metadata.durum == "yürürlükte"
+
+        # 2) scroll_all_chunks üzerinden (BM25 index'in kullandığı yol)
+        all_chunks = engine.store.scroll_all_chunks()
+        by_madde = {c.metadata.madde_no: c for c in all_chunks}
+        assert by_madde[1].metadata.durum == "mülga"
+        assert by_madde[2].metadata.durum == "yürürlükte"
+
+        # 3) search() üzerinden (asıl sorgu/retrieve() yolu)
+        hits = engine.retrieve("mülga madde", top_k=5)
+        mulga_hits = [h for h in hits if h.chunk.metadata.madde_no == 1]
+        assert mulga_hits and mulga_hits[0].chunk.metadata.durum == "mülga"
 
 
 def test_generation_context_warns_on_degisik():

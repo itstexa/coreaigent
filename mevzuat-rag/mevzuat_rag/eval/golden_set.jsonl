@@ -7,3 +7,7 @@
 {"query": "Yabancılar dilekçe hakkından hangi şartlarla yararlanabilir?", "expected": [{"kanun_no": "3071", "madde_no": 3}]}
 {"query": "Resmi yazışmalarda kullanılacak kağıt boyutu nedir?", "expected": [{"kanun_no": "2646", "madde_no": 5}]}
 {"query": "Üst yazının ekleri farklı ebatlarda hazırlanabilir mi?", "expected": [{"kanun_no": "2646", "madde_no": 5}]}
+{"query": "Türkiye'nin başkenti neresidir?", "expected": [], "must_refuse": true}
+{"query": "Elektronik ortamda güvenli elektronik imza nasıl atılır, hangi sertifika gerekir?", "expected": [], "must_refuse": true}
+{"query": "En iyi Türk yemeği nedir?", "expected": [], "must_refuse": true}
+{"query": "Bugün hava nasıl?", "expected": [], "must_refuse": true}
