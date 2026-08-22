@@ -89,7 +89,12 @@ class RerankConfig(StageToggle):
     backend: str = "cross_encoder"
     model: str = "BAAI/bge-reranker-v2-m3"
     top_n: int = 5
-    min_score: float = 0.0
+    # [10] min_score eşiği — 2026-08-22'de golden set (9 corpus-içi soru,
+    # bge-reranker-v2-m3 skoru min 0.5306) + 4 corpus-dışı soru (skor
+    # max 0.0006) ile kalibre edildi, bkz. NOTES.md. 0.05, iki dağılım
+    # arasında ~10x güvenlik payı bırakıyor. Küçük corpus'ta ölçüldü —
+    # corpus büyüdükçe yeniden kalibre edilmeli.
+    min_score: float = 0.05
 
 
 @dataclass
