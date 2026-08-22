@@ -95,6 +95,15 @@ class RerankConfig(StageToggle):
     # arasında ~10x güvenlik payı bırakıyor. Küçük corpus'ta ölçüldü —
     # corpus büyüdükçe yeniden kalibre edilmeli.
     min_score: float = 0.05
+    # [Retrieval #2] Adaptif rerank kesimi — docs/IMPROVEMENT_IDEAS.md.
+    # Varsayılan KAPALI: bu depodaki disiplinle tutarlı olarak (bkz.
+    # citation_expansion/post_hoc_verify) yeni davranışlar doğrulanana kadar
+    # açılmıyor. True olduğunda top_n sabit kesim yerine skor dizisindeki
+    # ani orantısal düşüşe (elbow) göre kesim yapılır, bkz. rerank.py.
+    adaptive_cutoff: bool = False
+    # adaptive_cutoff=True iken kullanılır: ardışık skorların oranı
+    # (curr/prev) bu eşiğin altına düşünce kesim yapılır.
+    adaptive_drop_ratio: float = 0.5
 
 
 @dataclass
