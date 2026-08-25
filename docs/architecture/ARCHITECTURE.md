@@ -16,6 +16,7 @@ consumes the human-approved Jamba and feature-pack requirements in
 | [ARCHITECTURE_f84cffd_f05.md](ARCHITECTURE_f84cffd_f05.md) | US-110 F-05 automatic routing, notification records, and PostgreSQL recovery | f84cffd | Active |
 | [ARCHITECTURE_5a9d17f_f06.md](ARCHITECTURE_5a9d17f_f06.md) | US-111 F-06 orchestration, current state, demo access, and recovery | 5a9d17f | Active |
 | [ARCHITECTURE_1b8477b_f08.md](ARCHITECTURE_1b8477b_f08.md) | US-112 F-08 truthful local Compose dependency closure and real local verification | 1b8477b | Active |
+| [ARCHITECTURE_a18aacd_f09.md](ARCHITECTURE_a18aacd_f09.md) | US-113 F-09 public case API manifest and strict result schemas | a18aacd | Active |
 
 ## Scope and Component Boundary
 

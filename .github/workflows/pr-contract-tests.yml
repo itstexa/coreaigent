@@ -12,6 +12,22 @@ permissions:
   contents: read
 
 jobs:
+  python-acceptance:
+    name: Python acceptance and contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tests/requirements.txt fastapi==0.115.12 httpx==0.28.1
+      - name: Run falsification-focused Python tests
+        run: python -m unittest discover -s tests -p 'test_*.py'
+
   contract-mock-e2e:
     name: Contract and mock E2E
     runs-on: ubuntu-latest

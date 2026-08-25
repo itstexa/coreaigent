@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"review-completion-result","type":"object","additionalProperties":false,"required":["case_id","case_revision","state"],"properties":{"case_id":{"type":"string","minLength":1},"case_revision":{"type":"integer","minimum":1},"state":{"const":"completed"}}}

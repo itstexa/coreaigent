@@ -9,15 +9,14 @@
 - **Status**: Approved
 - **Stage**: Implementation
 - **Session Started**: 2026-08-25
-- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_f38fa41_f08.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_1b8477b_f08.md`; `docs/architecture/ARCHITECTURE_f84cffd_f05.md`; `docs/implementation/IMPLEMENTATION_LOG.md`; `docs/tekno_agent_feature_pack/08_docker_and_runtime.md`
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_a18aacd_f09.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_a18aacd_f09.md`; `contracts/http/manifest.json`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Implements the declarative dependency-closure registry for `dev` and `test development`.
-  - Adds full local Jamba extraction topology and named real acceptance runners.
-  - Hardens F-05 structured output by discarding safe extra model fields while rejecting missing or invalid required fields.
+  - Implements unique public case endpoint manifest records and strict F-04/F-06 result schemas.
+  - Adds CI Python acceptance coverage and an implemented UI-facing API guide without changing authorization, persistence, or optimistic-concurrency semantics.
 - **Open Questions Resolved This Session**:
   - OQ-150 — local dependency closure is real whenever available; fallback mocks are explicit mixed-topology dependencies only.
-  - None newly raised.
+  - None; implemented route semantics are already approved.
 - **Approved By**: Serda
 - **Approval Date**: 2026-08-25
 

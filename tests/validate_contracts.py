@@ -14,11 +14,19 @@ def main():
         assert boundary["request"] in names, f"{service}: request schema missing"
         assert boundary["response"] in names, f"{service}: response schema missing"
         assert boundary["path"].startswith("/v1/")
+    seen = set()
     for boundary in manifest.get("additionalEndpoints", []):
         assert boundary["service"] in manifest["services"]
-        assert boundary["method"] == "PATCH"
-        assert boundary["path"] == "/cases/{case_id}/supplemental-information"
-        assert boundary["request"] in names and boundary["response"] in names
+        assert boundary["method"] in {"GET", "POST", "PATCH"}
+        assert boundary["path"].startswith("/cases/{case_id}")
+        identity = (boundary["service"], boundary["method"], boundary["path"])
+        assert identity not in seen, f"duplicate endpoint: {identity}"
+        seen.add(identity)
+        if boundary["method"] == "GET":
+            assert "request" not in boundary
+        else:
+            assert boundary["request"] in names
+        assert boundary["response"] in names
     for path in SCHEMAS.glob("*.schema.json"):
         schema = json.loads(path.read_text(encoding="utf-8"))
         Draft202012Validator.check_schema(schema)

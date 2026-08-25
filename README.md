@@ -207,4 +207,4 @@ Test scope is intentionally limited: service-owned unit tests, JSON Schema contr
 
 Until an implementation Dockerfile exists, `dev` and `integration` stop with a clear message rather than presenting a mock as a real service. The useful first check today is `docker compose up --build -d` followed by `.\scripts\coreaigent.ps1 test mock`.
 
-See [contracts/README.md](contracts/README.md), [docs/service-implementation.md](docs/service-implementation.md), and [docs/ci.md](docs/ci.md).
+See [contracts/README.md](contracts/README.md), [docs/service-implementation.md](docs/service-implementation.md), [docs/ci.md](docs/ci.md), and the [UI API guide](docs/ui-api-guide.md).

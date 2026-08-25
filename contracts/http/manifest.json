@@ -9,7 +9,12 @@
     "workflow": {"path": "/v1/workflows/document", "request": "document-input", "response": "workflow-result"}
   },
   "additionalEndpoints": [
-    {"service": "validation", "method": "PATCH", "path": "/cases/{case_id}/supplemental-information", "request": "supplemental-information-request", "response": "validation-result"}
+    {"service": "validation", "method": "PATCH", "path": "/cases/{case_id}/supplemental-information", "request": "supplemental-information-request", "response": "validation-result"},
+    {"service": "workflow", "method": "POST", "path": "/cases/{case_id}/correspondence", "request": "empty-object", "response": "correspondence-start-result"},
+    {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/correspondence", "response": "case-correspondence-result"},
+    {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/routing", "response": "case-routing-result"},
+    {"service": "workflow", "method": "GET", "path": "/cases/{case_id}", "response": "case-status-result"},
+    {"service": "workflow", "method": "POST", "path": "/cases/{case_id}/review-completion", "request": "empty-object", "response": "review-completion-result"}
   ],
   "errorResponse": "standard-error"
 }

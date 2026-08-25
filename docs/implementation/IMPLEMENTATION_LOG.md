@@ -5,6 +5,51 @@ traceable history of completed and paused implementation work.
 
 ---
 
+## Pass: 2026-08-25 — US-113 F-09 case API contract atlas
+
+**Branch:** `feature/jamba-inference`.
+**Traces to:** `docs/design/DESIGN_a18aacd_f09.md` (US-113) and
+`docs/architecture/ARCHITECTURE_a18aacd_f09.md`.
+**Approval basis:** Requirement Analysis and Solution Architecture approved by
+Serda on 2026-08-25 (see `docs/APPROVAL_LOG.md`).
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Public case API atlas | ✅ Pass | `contracts/http/manifest.json` contains each implemented F-03–F-06 case route exactly once; `tests/test_case_contracts.py` rejects missing, duplicate, or mismatched records. |
+| Lifecycle-safe F-04 reads | ✅ Pass | Strict `oneOf` schema separates `not_requested`, active, failed, and completed correspondence responses; failed results cannot include draft fields. |
+| Role-safe case projection | ✅ Pass | Strict USER and ADMIN response branches prevent operational or target-unit fields from leaking into the USER view. |
+| CI and UI handoff | ✅ Pass | Pull requests run the Python acceptance suite in addition to Compose checks; `docs/ui-api-guide.md` documents polling, mutations, roles, revisions, and rendering states. |
+| Required mock Docker baseline | ✅ Pass | Exact README Compose sequence rebuilt services and passed `contracts and 58 golden scenarios are valid` and `58 mock scenario(s) passed`; stack was torn down. |
+| Local CI-equivalent tests | ✅ Pass | Isolated Python 3.12 environment with Docker available completed 72 tests. Negative Jamba timeout/initialization logs were expected test fixtures. |
+
+### Predicates / Invariants Matched
+
+| Entity/Predicate | Invariant / Boundary / Concurrency Rule | Verified By |
+|---|---|---|
+| `CaseEndpointContract` | Every existing public case endpoint has one method/path/schema record; GET declares no request schema. | Manifest validator and F-09 contract tests. |
+| `CorrespondenceCurrentResult` | Lifecycle payload is determined by `generation_status`; no stale or partial failed draft is legal. | Strict schema branch checks. |
+| `CaseStatusResult` | USER and ADMIN projections are disjoint strict shapes while retaining opaque persisted notification payloads. | F-09 schema tests and workflow projection implementation. |
+| Verification truthfulness | GPU/cache-dependent Jamba/BGE-M3 work is not represented as GitHub-hosted real inference. | CI and UI/runbook documentation. |
+
+### Open Questions Raised This Pass
+
+| ID | Question | Status | Resolution |
+|---|---|---|---|
+| — | None. | — | Existing implementations and approved F-03–F-06 contracts define all endpoint behavior. |
+
+### Deviations From Approved DESIGN/ARCHITECTURE
+
+None. The CI job and UI guide expose and verify the approved contracts without
+altering endpoint behavior.
+
+### Version Control Actions
+
+- Pending this pass's final commit and push.
+
+---
+
 ## Pass: 2026-08-25 — US-112 F-08 truthful local Compose modes
 
 **Branch:** `feature/jamba-inference`.
