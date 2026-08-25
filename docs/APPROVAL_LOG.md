@@ -6,6 +6,25 @@
 
 ## Active Entry
 
+- **Status**: Pending Approval
+- **Stage**: Requirement Analysis
+- **Session Started**: 2026-08-25
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_c207e52_f06.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - Analyses F-06 durable orchestration, state transitions, recovery, and authorized case observability.
+  - Preserves F-01–F-05 PostgreSQL authority and F-05's separate routing/notification invariants.
+- **Open Questions Resolved This Session**:
+  - None; OQ-144–OQ-148 require explicit operator decisions before final acceptance criteria can be written.
+- **Approved By**: —
+- **Approval Date**: —
+
+---
+
+## History
+
+### Implementation — US-110 F-05 final routing and notifications
+
 - **Status**: Approved
 - **Stage**: Implementation
 - **Session Started**: 2026-08-25
@@ -18,10 +37,6 @@
   - None.
 - **Approved By**: Serda
 - **Approval Date**: 2026-08-25
-
----
-
-## History
 
 ### Implementation — US-109 F-04 regulation retrieval and official correspondence
 
