@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: coreaigent
+      POSTGRES_USER: coreaigent
+      POSTGRES_PASSWORD: coreaigent
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coreaigent -d coreaigent"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    volumes:
+      - ocr-postgres-data:/var/lib/postgresql/data
+
+  ocr:
+    build:
+      context: ./services/ocr
+      dockerfile: Dockerfile
+    image: coreaigent/ocr:local
+    environment:
+      MOCK_SERVICE: null
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  contract-tests:
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+
+volumes:
+  ocr-postgres-data:

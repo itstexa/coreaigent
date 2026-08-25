@@ -1,0 +1,31 @@
+{
+  "taxonomyVersion": "demo-belediyesi-v1",
+  "departments": [
+    {"id": "vatandas-hizmetleri", "label": "Vatandaş Hizmetleri Müdürlüğü", "active": true},
+    {"id": "bilgi-islem", "label": "Bilgi İşlem Müdürlüğü", "active": true},
+    {"id": "mali-hizmetler", "label": "Mali Hizmetler Müdürlüğü", "active": true},
+    {"id": "imar-sehircilik", "label": "İmar ve Şehircilik Müdürlüğü", "active": true},
+    {"id": "zabita", "label": "Zabıta Müdürlüğü", "active": true},
+    {"id": "diger", "label": "Diğer / Sınıflandırılamayan Başvurular Müdürlüğü", "active": true}
+  ],
+  "units": [
+    {"id": "beyaz-masa", "label": "Beyaz Masa Birimi", "departmentId": "vatandas-hizmetleri", "active": true},
+    {"id": "dijital-hizmetler", "label": "Dijital Hizmetler Birimi", "departmentId": "bilgi-islem", "active": true},
+    {"id": "gelir-tahakkuk", "label": "Gelir ve Tahakkuk Birimi", "departmentId": "mali-hizmetler", "active": true},
+    {"id": "ruhsat", "label": "Ruhsat Birimi", "departmentId": "imar-sehircilik", "active": true},
+    {"id": "denetim", "label": "Denetim Birimi", "departmentId": "zabita", "active": true},
+    {"id": "siniflandirilmamis", "label": "Diğer / Sınıflandırılamayan Başvurular Birimi", "departmentId": "diger", "active": true}
+  ],
+  "requestTypes": [
+    {"id": "adres-bildirimi", "label": "Adres Değişikliği Bildirimi", "unitId": "beyaz-masa", "documentType": "application", "keywords": ["adres", "değişiklik", "ikamet", "bildirim", "kayıt"]},
+    {"id": "bilgi-edinme", "label": "Bilgi Edinme Talebi", "unitId": "beyaz-masa", "documentType": "information_request", "keywords": ["bilgi", "talep", "faaliyet", "rapor", "edinme"]},
+    {"id": "e-imza-arizasi", "label": "E-İmza Arızası", "unitId": "dijital-hizmetler", "documentType": "complaint", "keywords": ["e-imza", "sertifika", "imzalama", "hata", "sistem"]},
+    {"id": "sistem-erisim-arizasi", "label": "Sistem Erişim Arızası", "unitId": "dijital-hizmetler", "documentType": "complaint", "keywords": ["sistem", "erişim", "giriş", "şifre", "arıza"]},
+    {"id": "fatura-islemi", "label": "Fatura İşlemi", "unitId": "gelir-tahakkuk", "documentType": "invoice", "keywords": ["fatura", "ödeme", "tahakkuk", "mal", "hizmet"]},
+    {"id": "odeme-itirazi", "label": "Ödeme İtirazı", "unitId": "gelir-tahakkuk", "documentType": "complaint", "keywords": ["ödeme", "itiraz", "borç", "tahsilat", "vergi"]},
+    {"id": "ruhsat-basvurusu", "label": "Ruhsat Başvurusu", "unitId": "ruhsat", "documentType": "application", "keywords": ["ruhsat", "başvuru", "işyeri", "izin", "belge"]},
+    {"id": "ruhsat-sorgusu", "label": "Ruhsat Durum Sorgusu", "unitId": "ruhsat", "documentType": "information_request", "keywords": ["ruhsat", "durum", "sorgu", "başvuru", "sonuç"]},
+    {"id": "gurultu-sikayeti", "label": "Gürültü Şikayeti", "unitId": "denetim", "documentType": "complaint", "keywords": ["gürültü", "gece", "desibel", "rahatsızlık", "şikayet"]},
+    {"id": "isyeri-denetimi", "label": "İşyeri Denetim Bildirimi", "unitId": "denetim", "documentType": "official_letter", "keywords": ["işyeri", "denetim", "rapor", "tutanak", "kontrol"]}
+  ]
+}

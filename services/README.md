@@ -1,4 +1,3 @@
 # Service ownership directories
 
-Add only an implemented service directory here, for example `services/ocr/Dockerfile`. The development command builds that directory into the fixed `ocr` Compose service; it must implement the corresponding contract before it is used outside mock mode.
-
+Implemented services live here. `services/ocr/` is the PostgreSQL-backed F-01 intake implementation; `compose.ocr.yaml` builds it into the fixed `ocr` Compose service. It must be used with that overlay, not as a replacement for the baseline mock contract stack.

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "scenarios": [
     {"id":"s01-izin-talebi","title":"Personel yıllık izin talebi","documentType":"petition","classification":"processable","department":"insan_kaynaklari","status":"completed","requiresOcr":false,"retrieval":true,"text":"Yıllık izin talebimi arz ederim.","draft":"Yıllık izin talebiniz İnsan Kaynakları birimine iletilmiştir."},
     {"id":"s02-raporlu-izin","title":"Sağlık raporuna dayalı izin","documentType":"application","classification":"processable","department":"insan_kaynaklari","status":"completed","requiresOcr":true,"retrieval":true,"text":"Sağlık raporum ekinde izin talep ediyorum.","draft":"Raporlu izin başvurunuz değerlendirmeye alınmıştır."},
@@ -61,4 +61,3 @@
     {"id":"s58-acil-hukuki","title":"Acil hukuki işlem talebi","documentType":"official_letter","classification":"processable","department":"hukuk","status":"completed","requiresOcr":true,"retrieval":true,"text":"Acil hukuki işlem talep eden resmi yazı.","draft":"Acil yazınız Hukuk birimine öncelikli olarak iletilmiştir."}
   ]
 }
-

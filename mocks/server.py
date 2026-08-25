@@ -19,7 +19,7 @@ def scenario(payload):
 
 def tracing(payload):
     return {
-        "schemaVersion": "1.0",
+        "schemaVersion": "2.0",
         "requestId": payload.get("requestId", "unknown-request"),
         "documentId": payload.get("documentId", "unknown-document"),
         "workflowId": payload.get("workflowId") or "wf-" + payload.get("documentId", "unknown-document"),
@@ -29,12 +29,19 @@ def tracing(payload):
 def result(payload, item):
     trace = tracing(payload)
     if SERVICE == "ocr":
-        return trace | {"text": item["text"], "language": "tr", "confidence": 0.91, "pages": 1, "warnings": []}
+        return trace | {"caseId": "case-" + payload.get("documentId", "unknown-document"), "text": item["text"], "language": "tr", "confidence": 0.91, "ingestStatus": "queued", "warnings": []}
     if SERVICE == "classification":
-        return trace | {"documentType": item["documentType"], "classification": item["classification"], "extractedFields": {"scenario": item["id"]}, "summary": item["title"]}
+        trace["schemaVersion"] = "3.0"
+        status = "classified" if item["classification"] == "processable" else "needs_review"
+        department = {"id": item["department"], "label": item["department"]}
+        unit = {"id": "demo-unit-" + item["department"], "label": "Demo Birim"}
+        request_type = {"id": item["documentType"], "label": item["title"]}
+        return trace | {"status": status, "department": department, "unit": unit, "requestType": request_type, "confidence": 0.91 if status == "classified" else 0.8, "taxonomyVersion": "demo-belediyesi-v1", "classifierVersion": "mock-deterministic-v3", "classificationReason": "Deterministic mock scenario"}
     if SERVICE == "validation":
-        missing = [] if item["classification"] != "needs_information" else ["required_attachment"]
-        return trace | {"missingFields": missing}
+        trace["schemaVersion"] = "3.0"
+        missing = [] if item["classification"] != "needs_information" else [{"id": "required-attachment", "label": "Zorunlu ek"}]
+        status = "missing_information" if missing else "complete"
+        return trace | {"caseId": "case-" + payload.get("documentId", "unknown-document"), "requestTypeId": item["documentType"], "schemaVersionUsed": "demo-belediyesi-fields-v1", "extractedFields": [], "missingRequiredFields": missing, "invalidFields": [], "completionStatus": status, "userActionRequired": bool(missing)}
     if SERVICE == "rag":
         results = [] if not item["retrieval"] else [{"id": "regulation-" + item["id"], "title": "İlgili kamu mevzuatı", "excerpt": item["title"], "score": 0.9}]
         return trace | {"results": results, "searchedAt": "2026-01-01T00:00:00Z"}
@@ -56,10 +63,11 @@ def workflow_result(payload, item):
     classification = request("classification", ocr)
     validation = request("validation", classification)
     trace = {key: classification[key] for key in ("schemaVersion", "requestId", "documentId", "workflowId")}
-    rag = request("rag", trace | {"query": classification["summary"] or item["title"], "documentType": classification["documentType"]})
-    llm = request("llm", trace | {"task": "draft_reply", "prompt": payload["content"] or item["text"], "context": [entry["excerpt"] for entry in rag["results"]]})
+    trace["schemaVersion"] = "2.0"
+    rag = request("rag", trace | {"query": classification["requestType"]["label"], "documentType": item["documentType"]})
+    llm = request("llm", trace | {"task": "draft_reply", "prompt": payload["text"], "context": [entry["excerpt"] for entry in rag["results"]]})
     steps = [{"service": name, "status": "completed", "timestamp": "2026-01-01T00:00:00Z"} for name in ("ocr", "classification", "validation", "rag", "llm", "workflow")]
-    return trace | {"status": item["status"], "documentType": classification["documentType"], "department": llm["output"]["department"], "draft": llm["output"]["draft"], "steps": steps, "error": None}
+    return trace | {"status": item["status"], "documentType": item["documentType"], "department": llm["output"]["department"], "draft": llm["output"]["draft"], "steps": steps, "error": None}
 
 
 def matches(schema, value):
@@ -114,14 +122,14 @@ class Handler(BaseHTTPRequestHandler):
         item = scenario(payload)
         schema = json.loads(Path("/contracts/schemas/" + MANIFEST[SERVICE]["request"] + ".schema.json").read_text(encoding="utf-8"))
         if self.path != expected or not matches(schema, payload) or not item:
-            error = {"schemaVersion": "1.0", "requestId": payload.get("requestId", "unknown-request"), "workflowId": payload.get("workflowId"), "documentId": payload.get("documentId"), "service": SERVICE, "timestamp": "2026-01-01T00:00:00Z", "category": "validation", "message": "Invalid request, unknown scenario, or endpoint", "retryable": False}
+            error = {"schemaVersion": "2.0", "requestId": payload.get("requestId", "unknown-request"), "workflowId": payload.get("workflowId"), "documentId": payload.get("documentId"), "service": SERVICE, "timestamp": "2026-01-01T00:00:00Z", "category": "validation", "message": "Invalid request, unknown scenario, or endpoint", "retryable": False}
             print(json.dumps({"timestamp": error["timestamp"], "requestId": error["requestId"], "workflowId": error["workflowId"], "documentId": error["documentId"], "service": SERVICE, "errorCategory": "validation"}), flush=True)
             self.send_json(400 if self.path == expected else 404, error)
             return
         try:
             body = workflow_result(payload, item) if SERVICE == "workflow" else result(payload, item)
         except Exception as exc:
-            error = {"schemaVersion": "1.0", "requestId": payload["requestId"], "workflowId": payload.get("workflowId") or "wf-" + payload["documentId"], "documentId": payload["documentId"], "service": SERVICE, "timestamp": "2026-01-01T00:00:00Z", "category": "dependency", "message": str(exc), "retryable": True}
+            error = {"schemaVersion": "2.0", "requestId": payload["requestId"], "workflowId": payload.get("workflowId") or "wf-" + payload["documentId"], "documentId": payload["documentId"], "service": SERVICE, "timestamp": "2026-01-01T00:00:00Z", "category": "dependency", "message": str(exc), "retryable": True}
             print(json.dumps({"timestamp": error["timestamp"], "requestId": error["requestId"], "workflowId": error["workflowId"], "documentId": error["documentId"], "service": SERVICE, "errorCategory": "dependency"}), flush=True)
             self.send_json(502, error)
             return

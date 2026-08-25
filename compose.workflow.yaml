@@ -1,0 +1,74 @@
+services:
+  workflow:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    image: coreaigent/workflow:local
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      CASE_ACCESS_TOKEN: f03-demo-token
+      CASE_ADMIN_TOKEN: f06-demo-admin-token
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - "${HF_CACHE_DIR:-llm-hf-cache}:/var/cache/huggingface"
+
+  correspondence-worker:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    image: coreaigent/workflow:local
+    command: ["python", "worker.py"]
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      JAMBA_URL: http://llm:8080/generate
+      HF_HOME: /var/cache/huggingface
+      HF_HUB_OFFLINE: "1"
+      BGE_MODEL_REVISION: "5617a9f61b028005a4858fdac845db406aefb181"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - "${HF_CACHE_DIR:-llm-hf-cache}:/var/cache/huggingface"
+
+  routing-worker:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    image: coreaigent/workflow:local
+    command: ["python", "routing_worker.py"]
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      JAMBA_URL: http://llm:8080/generate
+      TAXONOMY_PATH: /app/taxonomy.json
+      WORKER_POLL_SECONDS: "0.05"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - "./services/classification/taxonomy.json:/app/taxonomy.json:ro"
+
+  orchestrator-worker:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    image: coreaigent/workflow:local
+    command: ["python", "orchestrator_worker.py"]
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      F04_RETRY_COOLDOWN_SECONDS: "30"
+      WORKER_POLL_SECONDS: "0.05"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  contract-tests:
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent

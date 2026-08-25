@@ -1,0 +1,12 @@
+{
+  "version": "municipality-pii-v1",
+  "fieldHandling": {
+    "applicant-name": "redact", "supplier-name": "redact", "tckn": "redact", "phone": "redact",
+    "new-address": "redact", "business-address": "redact", "incident-address": "task_required",
+    "incident-description": "task_required", "incident-date": "task_required", "business-activity": "task_required",
+    "problem-description": "task_required", "request-subject": "task_required", "inspection-subject": "task_required",
+    "objection-reason": "task_required", "payment-reference": "exclude", "invoice-number": "exclude",
+    "invoice-date": "task_required", "invoice-amount": "task_required", "application-number": "exclude",
+    "document-number": "exclude"
+  }
+}

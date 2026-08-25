@@ -4,6 +4,6 @@ Each team service lives in `services/<name>/` and provides a `Dockerfile`. The l
 
 Implement the endpoint in `contracts/http/manifest.json`, return exactly the matching schema, and provide `GET /health` plus `GET /ready`. `/ready` must return success only after required models and stores are usable. Every log record must include `requestId`, `documentId` or `workflowId`, `service`, timestamp, and error category when applicable.
 
-Do not copy mock behavior into a real service. The mock exists only to provide deterministic upstream/downstream contract data. The mandatory verification is `python tests/run_scenarios.py --mode real` against the local service container.
+Do not copy mock behavior into a real service. The mock exists only to provide deterministic upstream/downstream contract data. For OCR, run the F-01 PostgreSQL acceptance suite from the README, followed by `python tests/run_scenarios.py --mode development --local ocr` in the overlay test container.
 
-Shared infrastructure (PostgreSQL, Redis, Qdrant) is intentionally not declared yet: add its real container to `compose.yaml` only when a real service actually needs it. Do not mock it.
+Shared infrastructure is declared only where a real service requires it. F-01 adds PostgreSQL 16 in `compose.ocr.yaml`, not the baseline mock Compose file; Redis remains optional future transient infrastructure and must not be introduced for durable intake work.
