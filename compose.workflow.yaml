@@ -1,0 +1,36 @@
+services:
+  workflow:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    image: coreaigent/workflow:local
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      CASE_ACCESS_TOKEN: f03-demo-token
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - "${HF_CACHE_DIR:-llm-hf-cache}:/var/cache/huggingface"
+
+  correspondence-worker:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    image: coreaigent/workflow:local
+    command: ["python", "worker.py"]
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      JAMBA_URL: http://llm:8080/generate
+      HF_HOME: /var/cache/huggingface
+      HF_HUB_OFFLINE: "1"
+      BGE_MODEL_REVISION: "5617a9f61b028005a4858fdac845db406aefb181"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - "${HF_CACHE_DIR:-llm-hf-cache}:/var/cache/huggingface"
+
+  contract-tests:
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent

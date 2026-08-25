@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "3.0",
   "services": {
     "ocr": {"path": "/v1/ocr", "request": "document-input", "response": "ocr-result"},
     "classification": {"path": "/v1/classify", "request": "ocr-result", "response": "classification-result"},
@@ -8,5 +8,8 @@
     "llm": {"path": "/v1/generate", "request": "llm-request", "response": "llm-response"},
     "workflow": {"path": "/v1/workflows/document", "request": "document-input", "response": "workflow-result"}
   },
+  "additionalEndpoints": [
+    {"service": "validation", "method": "PATCH", "path": "/cases/{case_id}/supplemental-information", "request": "supplemental-information-request", "response": "validation-result"}
+  ],
   "errorResponse": "standard-error"
 }

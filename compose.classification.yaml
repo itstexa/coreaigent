@@ -1,0 +1,32 @@
+services:
+  classification:
+    build:
+      context: ./services/classification
+      dockerfile: Dockerfile
+    image: coreaigent/classification:local
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      TAXONOMY_PATH: /app/taxonomy.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  classification-worker:
+    build:
+      context: ./services/classification
+      dockerfile: Dockerfile
+    image: coreaigent/classification:local
+    command: ["python", "worker.py"]
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      TAXONOMY_PATH: /app/taxonomy.json
+      WORKER_POLL_SECONDS: "0.05"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      classification:
+        condition: service_started
+
+  contract-tests:
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent

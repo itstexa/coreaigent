@@ -1,0 +1,18 @@
+services:
+  validation:
+    build:
+      context: ./services/validation
+      dockerfile: Dockerfile
+    image: coreaigent/validation:local
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      CASE_ACCESS_TOKEN: f03-demo-token
+      EXTRACTOR_MODE: deterministic
+      JAMBA_URL: http://llm:8080/generate
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  contract-tests:
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
