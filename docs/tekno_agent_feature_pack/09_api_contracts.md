@@ -135,15 +135,34 @@ generation pointer'ını okur.
 
 ## 7. Case Status
 
+`GET /cases/{case_id}` demo `USER` veya `ADMIN` Bearer token gerektirir.
+Her iki role için current PostgreSQL projection:
+
 ```json
 {
   "case_id": "case-...",
-  "state": "waiting_for_user|ready_for_processing|completed|failed|...",
-  "current_step": "...",
-  "last_error": null,
+  "case_revision": 4,
+  "state": "needs_review|waiting_for_user|ready_for_processing|draft_prepared|notification_pending|completed|failed|...",
+  "completed_steps": ["F-01", "F-02", "F-03"],
+  "last_error_code": null,
+  "validation_status": "complete|missing_information|invalid_information|null",
+  "routing_status": "not_routed|routed",
+  "applicant_notifications": [],
   "updated_at": "..."
 }
 ```
+
+Demo `USER` yalnız kendi demo case projection'ını görür; target-unit payload,
+validated field değerleri ve taslak metin dönmez. Tek demo `ADMIN` token'ı
+ayrıca `operational_context`, routing target'ı ve target-unit notification
+payload'ını görür. Bu iki sabit token modeli production login/RBAC değildir.
+
+`POST /cases/{case_id}/review-completion` yalnız `ADMIN` içindir. Empty body,
+`Idempotency-Key: <uuid>` ve `If-Match: "<current_revision>"` zorunludur.
+Yalnız current `needs_review` state'i `completed` olur; USER `403`, stale
+revision `412 CASE_REVISION_CONFLICT`, başka state `409 CASE_NOT_REVIEWABLE`
+döner. Aynı case/revision/key replay'i aynı response'u döndürür; aynı key'in
+başka revision için kullanımı `409 IDEMPOTENCY_KEY_REUSED` döndürür.
 
 ## Contract kuralları
 
