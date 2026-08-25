@@ -154,14 +154,17 @@ Jamba and BGE-M3 artifacts, rather than a mock response:
 
 ```bash
 export HF_CACHE_DIR=/media/serda/home_extra/hf-cache
-docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml up --build -d
-docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_correspondence_intake.py
-docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_orchestration_intake.py
-docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml down --volumes --remove-orphans
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.llm.yaml -f compose.validation.yaml -f compose.validation.jamba.yaml -f compose.workflow.yaml up --build -d
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.llm.yaml -f compose.validation.yaml -f compose.validation.jamba.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_llm_intake.py
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.llm.yaml -f compose.validation.yaml -f compose.validation.jamba.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_validation_intake.py --phase jamba
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.llm.yaml -f compose.validation.yaml -f compose.validation.jamba.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_correspondence_intake.py
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.llm.yaml -f compose.validation.yaml -f compose.validation.jamba.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_orchestration_intake.py
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.llm.yaml -f compose.validation.yaml -f compose.validation.jamba.yaml -f compose.workflow.yaml down --volumes --remove-orphans
 ```
 
-The acceptance runner calls real OCR, classification, validation, BGE-M3,
-Jamba, PostgreSQL workers, `GET /cases/{case_id}`, and
+The full-local command overrides the CPU-only deterministic F-03 extractor
+with the real Jamba extractor. It calls real OCR, classification, validation,
+BGE-M3, Jamba, PostgreSQL workers, `GET /cases/{case_id}`, and
 `GET /cases/{case_id}/routing`. It verifies automatic F-04 start, one
 current-revision route, the active `diger` / `siniflandirilmamis` fallback for
 `review_required`, USER/ADMIN response projections, idempotent reviewer
@@ -191,7 +194,14 @@ following workflows:
 .\scripts\coreaigent.ps1 reset
 ```
 
-`dev <service>` starts the selected local implementation and contract-compatible deterministic mocks for all other application services. `integration <service>` keeps that local implementation but swaps the other services for the SHA-pinned images in `.env`. `e2e` uses only those images. Service hostnames never change.
+`dev <service>` and `test development <service>` resolve the selected
+service's full local dependency closure from
+[`scripts/local-topologies.json`](scripts/local-topologies.json), then run its
+named real acceptance runner. The wrapper prints `real_local` for a complete
+closure or `mixed_local` when an implementation is genuinely unavailable; the
+latter is never presented as full E2E. `integration <service>` keeps one local
+implementation but swaps the other services for SHA-pinned images in `.env`.
+`e2e` uses only those images. Service hostnames never change.
 
 Test scope is intentionally limited: service-owned unit tests, JSON Schema contract checks, the one-real-service development harness, local-plus-stable-image integration, and all-real E2E. Mock runs compare deterministic scenario results; real-image runs assert contracts and structural workflow properties rather than exact LLM strings.
 

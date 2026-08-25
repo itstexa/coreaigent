@@ -6,18 +6,20 @@
 
 ## Active Entry
 
-- **Status**: Pending Approval
-- **Stage**: Requirement Analysis
+- **Status**: Approved
+- **Stage**: Implementation
 - **Session Started**: 2026-08-25
-- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_f38fa41_f08.md`; `docs/tekno_agent_feature_pack/08_docker_and_runtime.md`
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_f38fa41_f08.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_1b8477b_f08.md`; `docs/architecture/ARCHITECTURE_f84cffd_f05.md`; `docs/implementation/IMPLEMENTATION_LOG.md`; `docs/tekno_agent_feature_pack/08_docker_and_runtime.md`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Analyses truthful F-08 local Compose modes after F-06 implementation.
-  - Preserves the mandatory deterministic mock baseline and its distinction from real service verification.
+  - Implements the declarative dependency-closure registry for `dev` and `test development`.
+  - Adds full local Jamba extraction topology and named real acceptance runners.
+  - Hardens F-05 structured output by discarding safe extra model fields while rejecting missing or invalid required fields.
 - **Open Questions Resolved This Session**:
-  - None; OQ-150 must determine the developer-mode dependency closure before final acceptance criteria can be approved.
-- **Approved By**: —
-- **Approval Date**: —
+  - OQ-150 — local dependency closure is real whenever available; fallback mocks are explicit mixed-topology dependencies only.
+  - None newly raised.
+- **Approved By**: Serda
+- **Approval Date**: 2026-08-25
 
 ---
 

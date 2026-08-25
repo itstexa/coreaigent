@@ -9,6 +9,8 @@ from __future__ import annotations
 
 FALLBACK_DEPARTMENT_ID = "diger"
 FALLBACK_UNIT_ID = "siniflandirilmamis"
+MAX_NOTIFICATION_TITLE_CHARACTERS = 200
+MAX_NOTIFICATION_BODY_CHARACTERS = 4000
 
 
 class RoutingRejected(ValueError):
@@ -73,3 +75,18 @@ def notification_payload(audience, case_id, body, operational_context=None):
         source = operational_context if isinstance(operational_context, dict) else {}
         payload["case_context"] = {key: source[key] for key in allowed if key in source}
     return payload
+
+
+def normalize_notification_output(payload):
+    """Keep only the two approved notification fields from a model object.
+
+    This is a structural recovery for an otherwise valid response which repeats
+    supplied case context. It never derives title/body from a differently named
+    field, so it cannot publish invented content or a partial response.
+    """
+    if not isinstance(payload, dict) or not all(isinstance(payload.get(key), str) and payload[key].strip() for key in ("title", "body")):
+        raise ValueError("notification title and body are required")
+    result = {key: payload[key].strip() for key in ("title", "body")}
+    if len(result["title"]) > MAX_NOTIFICATION_TITLE_CHARACTERS or len(result["body"]) > MAX_NOTIFICATION_BODY_CHARACTERS:
+        raise ValueError("notification output exceeds bounds")
+    return result

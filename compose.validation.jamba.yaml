@@ -1,0 +1,7 @@
+services:
+  validation:
+    environment:
+      EXTRACTOR_MODE: jamba
+    depends_on:
+      llm:
+        condition: service_healthy

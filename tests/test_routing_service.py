@@ -8,7 +8,7 @@ from pathlib import Path
 WORKFLOW = Path(__file__).parents[1] / "services" / "workflow"
 sys.path.insert(0, str(WORKFLOW))
 
-from routing import RoutingRejected, notification_payload, select_route  # noqa: E402
+from routing import RoutingRejected, normalize_notification_output, notification_payload, select_route  # noqa: E402
 
 
 TAXONOMY = {
@@ -58,6 +58,24 @@ class RoutingSelectionTests(unittest.TestCase):
 
 
 class NotificationProjectionTests(unittest.TestCase):
+    def test_structured_notification_recovery_keeps_only_valid_title_and_body(self):
+        recovered = normalize_notification_output({
+            "title": "Yeni başvuru yönlendirildi",
+            "body": "Başvurunun incelenmesi için işlem yapılması gerekmektedir.",
+            "draft_text": "Modelin gereksiz alanı",
+            "validated_fields": {"tckn": {"value": "10000000146"}},
+        })
+        self.assertEqual(recovered, {
+            "title": "Yeni başvuru yönlendirildi",
+            "body": "Başvurunun incelenmesi için işlem yapılması gerekmektedir.",
+        })
+
+    def test_structured_notification_recovery_rejects_missing_or_invalid_fields(self):
+        with self.assertRaisesRegex(ValueError, "title and body"):
+            normalize_notification_output({"title": "Başlık", "draft_text": "Metin"})
+        with self.assertRaisesRegex(ValueError, "bounds"):
+            normalize_notification_output({"title": "Başlık", "body": "x" * 4001})
+
     def test_applicant_payload_is_process_only_and_has_no_internal_context(self):
         payload = notification_payload("applicant", "case-123", "Başvurunuz ilgili birime yönlendirilmiştir.", operational_context={"validated_fields": {"tckn": "x"}, "draft_text": "internal"})
         self.assertEqual(payload, {"audience": "applicant", "case_id": "case-123", "title": "Başvurunuz işleme alındı", "body": "Başvurunuz ilgili birime yönlendirilmiştir.", "email_placeholder": None})

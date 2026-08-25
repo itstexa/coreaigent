@@ -5,6 +5,53 @@ traceable history of completed and paused implementation work.
 
 ---
 
+## Pass: 2026-08-25 — US-112 F-08 truthful local Compose modes
+
+**Branch:** `feature/jamba-inference`.
+**Traces to:** `docs/design/DESIGN_f38fa41_f08.md` (US-112) and
+`docs/architecture/ARCHITECTURE_1b8477b_f08.md`.
+**Approval basis:** Requirement Analysis and Solution Architecture approved by
+Serda on 2026-08-25 (see `docs/APPROVAL_LOG.md`).
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Isolated mock baseline | ✅ Pass | Exact README sequence passed `docker compose config --quiet`, then `58 mock scenario(s) passed`; it is recorded as mock verification only. |
+| Declarative local closures | ✅ Pass | `scripts/local-topologies.json` lists ordered OCR, classification, validation, workflow, and LLM closures. `tests/test_local_topologies.py` independently checks exact overlay order, Dockerfiles, missing-dependency declaration, and wrapper use. |
+| Full real local Jamba mode | ✅ Pass | RTX 4060 host with cached Jamba/BGE-M3 ran `run_llm_intake.py`: `/ready`, real `/generate`, model identity, 40-character revision, and non-empty generation passed. |
+| Real F-03 extraction | ✅ Pass | Full Compose topology with `compose.validation.jamba.yaml` ran `run_validation_intake.py --phase jamba`; actual Jamba extraction, deterministic TCKN validation, and PostgreSQL current row passed. |
+| Real F-04/F-05/F-06 workflow | ✅ Pass | Full local runner passed `run_correspondence_intake.py` and `run_orchestration_intake.py`; it exercised OCR, classification worker, validation, BGE-M3, Jamba, durable PostgreSQL jobs, routing, notification, and case-state reads. |
+| Jamba notification context echo | ✅ Pass | Real run exposed valid `title`/`body` plus extra echoed fields. `normalize_notification_output` now discards only extras; unit tests reject missing fields and the rerun completed both notification audiences. |
+
+### Predicates / Invariants Matched
+
+| Entity/Predicate | Invariant / Boundary / Concurrency Rule | Verified By |
+|---|---|---|
+| `LocalDevelopmentTopology` | `real_local` closures build every available local dependency and select a named non-mock runner. | Registry contract tests and Compose config validation. |
+| Jamba prerequisite | Missing real GPU/model readiness is not substituted with an LLM mock. | `compose.llm.yaml` readiness dependency and real ready/generate test. |
+| F-03 source of truth | Jamba semantic extraction does not replace deterministic TCKN validation; current result commits in PostgreSQL. | Jamba F-03 runner direct response and SQL assertion. |
+| Notification recovery | Only exact non-blank title/body survive; additional model context is discarded, and missing/oversize output still fails. | `tests/test_routing_service.py` recovery/negative/boundary assertions and real F-05 rerun. |
+
+### Open Questions Raised This Pass
+
+| ID | Question | Status | Resolution |
+|---|---|---|---|
+| — | None. | — | OQ-150 and the existing real-model structural-oracle policy fully specified the implementation. |
+
+### Deviations From Approved DESIGN/ARCHITECTURE
+
+- F-05 D-152 records a narrowly-scoped structural recovery discovered by the
+  real local run: extra model fields are discarded only when exact valid
+  `title` and `body` already exist. This applies the approved structured-output
+  recovery intent without deriving content from a different field.
+
+### Version Control Actions
+
+- Pending this pass's final verification and commit.
+
+---
+
 ## Pass: 2026-08-25 — US-111 F-06 durable orchestration and case state
 
 **Branch:** `feature/jamba-inference`.

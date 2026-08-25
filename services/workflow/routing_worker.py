@@ -14,7 +14,7 @@ from psycopg.types.json import Jsonb
 
 from app import ensure_schema
 from correspondence import extract_json_object
-from routing import RoutingRejected, notification_payload, select_route
+from routing import RoutingRejected, normalize_notification_output, notification_payload, select_route
 
 
 DATABASE_URL = os.environ["DATABASE_URL"]
@@ -123,7 +123,7 @@ def _notification_context(cur, notification_id):
     return cur.fetchone()
 
 
-def _notification_prompt(audience, context):
+def _notification_prompt(audience, context, repair_error=None):
     if audience == "applicant":
         input_context = {"instruction": "Başvurunun işleme alındığını, ilgili birime yönlendirildiğini ve inceleme sonucunun bildirileceğini söyle."}
     else:
@@ -131,23 +131,21 @@ def _notification_prompt(audience, context):
             "request_type_id": context[2], "document_summary": context[3], "draft_text": context[4],
             "regulation_suggestions": context[5], "validated_fields": context[6],
         }
+    repair_rule = " Önceki çıktı reddedildi: " + repair_error + ". Sadece title ve body anahtarlarını döndür." if repair_error else ""
     return (
         "Türkçe kısa belediye bildirimi üret. Yalnız tek JSON object döndür; markdown veya başka anahtar yok. "
         "body en fazla iki kısa cümle ve 600 karakter olsun. JSON nesnesini mutlaka kapat ve nesneden sonra yazmayı durdur. "
         "Zorunlu şema: title(string), body(string). body boş olamaz. Alıcı: " + audience + ". "
         + ("Başvuru sahibi için iç metadata, alan değerleri, taslak veya birim adı verme. " if audience == "applicant" else "Hedef birim için yalnız verilen case bağlamını kullan; yeni olgu uydurma. ")
-        + "Örnek: {\"title\":\"Başvuru işleme alındı\",\"body\":\"Başvurunuz ilgili birime yönlendirilmiştir.\"}\nGirdi:\n"
+        + "Örnek: {\"title\":\"Başvuru işleme alındı\",\"body\":\"Başvurunuz ilgili birime yönlendirilmiştir.\"}."
+        + repair_rule + "\nGirdi:\n"
         + json.dumps(input_context, ensure_ascii=False)
     )
 
 
 def _validate_notification(raw, audience):
     payload = extract_json_object(raw)
-    if set(payload) != {"title", "body"} or not all(isinstance(payload[key], str) and payload[key].strip() for key in payload):
-        raise ValueError("notification structured output is invalid")
-    if len(payload["title"]) > 200 or len(payload["body"]) > 4000:
-        raise ValueError("notification output exceeds bounds")
-    return payload
+    return normalize_notification_output(payload)
 
 
 def run_notification_once():
@@ -160,10 +158,10 @@ def run_notification_once():
             context = _notification_context(cur, job[1])
         if not context:
             raise ValueError("NOTIFICATION_CONTEXT_NOT_FOUND")
-        error = None
+        repair_error = None
         for attempt in (1, 2):
             try:
-                model = _invoke(_notification_prompt(context[0], context))
+                model = _invoke(_notification_prompt(context[0], context, repair_error))
                 generated = _validate_notification(model["response"], context[0])
                 payload = notification_payload(context[0], str(context[1]), generated["body"], {
                     "request_type_id": context[2], "document_summary": context[3], "draft_text": context[4], "regulation_suggestions": context[5], "validated_fields": context[6],
@@ -174,7 +172,7 @@ def run_notification_once():
                 _complete_job("notification_jobs", job[0])
                 return True
             except Exception as exc:
-                error = str(exc) or "STRUCTURED_OUTPUT_INVALID"
+                repair_error = str(exc) or "STRUCTURED_OUTPUT_INVALID"
         with psycopg.connect(DATABASE_URL) as db:
             db.execute("UPDATE notification_records SET generation_status='failed',payload=NULL,attempt_count=2,error_code='STRUCTURED_OUTPUT_INVALID',completed_at=now() WHERE notification_id=%s AND generation_status='processing'", (job[1],))
         _complete_job("notification_jobs", job[0])

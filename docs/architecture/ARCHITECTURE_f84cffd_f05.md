@@ -106,8 +106,10 @@ Traces to: US-110.
 
 **Boundary behavior**
 
-- Blank/non-object Jamba output, unknown members, or an output for the wrong
-  audience fails validation and is retryable once; no partial body is exposed.
+- Blank/non-object Jamba output or an output without non-blank exact `title`
+  and `body` strings fails validation and is retryable once; no partial body is
+  exposed. When those two exact fields are valid, server-owned structural
+  recovery discards additional echoed model fields rather than publishing them.
 - An inactive target prevents notification job creation because no route is
   committed.
 
@@ -148,6 +150,24 @@ visibly outside a normal department decision.
 
 **Why not reuse or Jamba:** neither preserves the explicit categorization and
 audit semantics required for review work.
+
+### Decision D-152: Notification structured-output recovery
+
+| Option | Benefits | Drawbacks | Chosen |
+|---|---|---|---|
+| Preserve only valid exact `title` and `body`; discard extra echoed fields | Handles real Jamba context echo without exposing it or inventing replacement text. | Does not recover missing/renamed required fields. | ✅ |
+| Reject every object with an unknown member | Strict and simple. | Rejects a safe notification when the two authoritative display fields are already valid. | ❌ |
+| Derive a notification from arbitrary model fields | Can recover more output variation. | Could publish invented or unauthorized context. | ❌ |
+
+**Why exact-field recovery:** a real local Jamba run returned valid `title` and
+`body` together with echoed `draft_text` and `validated_fields`. Keeping only
+the two approved fields is deterministic redaction, not semantic generation.
+
+**Why not strict rejection:** it turns harmless context echo into an avoidable
+durable notification failure.
+
+**Why not derive fields:** F-05 must not reinterpret an arbitrary model object
+or expose fields outside the audience projection.
 
 ## Read boundary
 

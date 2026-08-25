@@ -25,13 +25,16 @@ container DNS adları korunur.
 | Mod | Komut | Ne kanıtlar |
 | --- | --- | --- |
 | Mock baseline | `docker compose up --build -d` | 6 deterministic mock ve 58 golden scenario |
-| Bir gerçek OCR servis | `scripts/coreaigent.ps1 dev ocr` | PostgreSQL-backed gerçek intake + diğer servis mock'ları |
-| Bir gerçek LLM servis | `scripts/coreaigent.ps1 dev llm` | Gerçek Jamba + diğer servis mock'ları |
+| Yerel dependency closure | `scripts/coreaigent.ps1 dev <service>` | Seçilen servisin mevcut tüm local bağımlılıkları gerçek Compose implementasyonlarıyla başlar |
+| Yerel gerçek acceptance | `scripts/coreaigent.ps1 test development <service>` | Topology'nin named runner'ı gerçek local HTTP/worker/PostgreSQL davranışını doğrular |
 | F-03 CPU acceptance | OCR + classification + validation overlay | Gerçek PostgreSQL servisleri, açıkça injected deterministic extractor |
 | Tam gerçek E2E | `scripts/coreaigent.ps1 e2e` | `.env` içindeki tüm SHA-pinned image'lar |
 
 `dev` ve `integration` seçilen servis için Dockerfile yoksa durur; mock'u
-gerçek servis gibi göstermez. Tam E2E akışında `compose.integration.yaml`
+gerçek servis gibi göstermez. `scripts/local-topologies.json` her development
+closure'ın overlay sırasını, local servislerini, doğrulama türünü ve runner'ını
+tek yerde taşır. Gerçek karşılığı olmayan dependency varsa topology
+`mixed_local` olarak yazdırılır ve full real E2E olarak raporlanmaz. Tam E2E akışında `compose.integration.yaml`
 yalnızca immutable image tag'lerini kullanır; local `compose.llm.yaml` bu
 akışa eklenmez.
 
@@ -102,10 +105,12 @@ Validation current state için restart predicate'i ayrıca `--phase
 restart-create`, `docker compose ... restart validation` ve `--phase
 restart-verify` sırasıyla doğrulanır.
 
-Gerçek Jamba extraction için bu overlay'e ayrıca `compose.llm.yaml` eklenir ve
-validation `EXTRACTOR_MODE=jamba` ile `http://llm:8080/generate` adresine
-bağlanır. Jamba hazır değilse validation `/ready` veya extraction isteği
-başarılı gibi davranmaz.
+Gerçek Jamba extraction için `compose.llm.yaml` ardından
+`compose.validation.jamba.yaml` eklenir. Bu son overlay validation'ı
+`EXTRACTOR_MODE=jamba` ile `http://llm:8080/generate` adresine bağlar; Jamba
+hazır değilse validation `/ready` veya extraction isteği başarılı gibi
+davranmaz. `test development validation` ve `test development workflow` bu
+tam local seçeneği kullanır.
 
 Model cache hazır değilse `/ready` başarılı olmaz. Cache'i image layer'ına
 almayın; `HF_CACHE_DIR` ile host cache bind edin veya Compose'un

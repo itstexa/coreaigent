@@ -132,14 +132,40 @@ def restart_verify():
         assert db.execute("SELECT revision FROM current_validation_states WHERE document_id = %s", (document_id,)).fetchone() == (1,)
 
 
+def jamba_acceptance():
+    """Exercise real Jamba extraction without treating prose as a fixture."""
+    document_id = "f03-jamba-" + uuid.uuid4().hex
+    ocr = submit(
+        document_id,
+        "Gece gürültü desibel rahatsızlık şikayet bildiriyorum. Başvuran Ayşe Yılmaz. "
+        "Olay adresi Atatürk Mahallesi 1. Sokak No: 2. Tarih 25.08.2026. "
+        "Açıklama: gece yüksek ses nedeniyle dinlenemiyoruz. TCKN 10000000146.",
+    )
+    wait_classified(document_id)
+    result, headers = validate(ocr)
+    assert_public_result(result)
+    assert result["completionStatus"] in {"complete", "missing_information", "invalid_information"}, result
+    assert headers["ETag"] == '"1"', headers
+    tckn = next((field for field in result["extractedFields"] if field["id"] == "tckn"), None)
+    assert tckn == {"id": "tckn", "label": "T.C. Kimlik Numarası", "value": "10000000146", "confidence": 1.0}, result
+    with psycopg.connect(DATABASE_URL) as db:
+        persisted = db.execute(
+            "SELECT completion_status, revision, accepted_fields->'tckn'->>'value' FROM current_validation_states WHERE case_id = %s",
+            (result["caseId"],),
+        ).fetchone()
+    assert persisted == (result["completionStatus"], 1, "10000000146"), persisted
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=("all", "restart-create", "restart-verify"), default="all")
+    parser.add_argument("--phase", choices=("all", "restart-create", "restart-verify", "jamba"), default="all")
     phase = parser.parse_args().phase
     if phase == "all":
         full_acceptance()
     elif phase == "restart-create":
         restart_create()
-    else:
+    elif phase == "restart-verify":
         restart_verify()
+    else:
+        jamba_acceptance()
     print(f"F-03 validation intake {phase}: passed")
