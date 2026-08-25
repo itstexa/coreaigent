@@ -8,6 +8,7 @@ import subprocess
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from services.llm.app import MODEL_ID, RuntimeConfig
 
@@ -24,12 +25,14 @@ class JambaRuntimeAcceptanceTests(unittest.TestCase):
     def test_reference_runtime_configuration_boundaries(self):
         base = RuntimeConfig(model_revision="a" * 40)
         self.assertIsNone(base.validation_error())
-        self.assertEqual(base.hf_cache_dir, "/var/cache/huggingface/hub")
+        with patch.dict(os.environ, {"HUGGINGFACE_HUB_CACHE": "/mounted/hf-cache"}):
+            self.assertEqual(base.hf_cache_dir, "/mounted/hf-cache")
 
         self.assertIsNone(replace(base, max_new_tokens=1).validation_error())
-        self.assertIsNone(replace(base, max_new_tokens=512).validation_error())
+        self.assertIsNone(replace(base, max_new_tokens=1799).validation_error())
+        self.assertIsNone(replace(base, max_new_tokens=1800).validation_error())
         self.assertIsNotNone(replace(base, max_new_tokens=0).validation_error())
-        self.assertIsNotNone(replace(base, max_new_tokens=513).validation_error())
+        self.assertIsNotNone(replace(base, max_new_tokens=1801).validation_error())
 
         self.assertIsNone(replace(base, temperature=0.0).validation_error())
         self.assertIsNone(replace(base, temperature=2.0).validation_error())
@@ -62,6 +65,8 @@ class JambaRuntimeAcceptanceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         resolved = json.loads(result.stdout)
         llm = resolved["services"]["llm"]
+        self.assertEqual(llm["image"], "coreaigent/llm:jamba-local")
+        self.assertEqual(llm["build"]["context"], str(Path("services/llm").resolve()))
         self.assertIn(llm["gpus"], ("all", [{"count": -1}]))
         self.assertTrue(any(volume["target"] == "/var/cache/huggingface" for volume in llm["volumes"]))
         self.assertIn("llm-hf-cache", resolved["volumes"])

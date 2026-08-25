@@ -64,6 +64,74 @@ The PowerShell wrapper provides the equivalent mock test command on Windows:
 .\scripts\coreaigent.ps1 test mock
 ```
 
+To run the real local Jamba `llm` service, use the GPU/cache overlay. This is
+separate from the mock baseline:
+
+```bash
+export HF_CACHE_DIR=/media/serda/home_extra/hf-cache
+docker compose -f compose.yaml -f compose.llm.yaml up --build -d llm
+curl http://localhost:8085/health
+curl http://localhost:8085/ready
+```
+
+The overlay builds `services/llm/Dockerfile`, uses the pinned
+`linguai/Jamba2-3B-Turkish-SFT-v1` revision in `.env`, and keeps model weights
+in the mounted HF cache. `/ready` remains
+`503` until the GPU model is loaded.
+
+To run the real PostgreSQL-backed OCR intake service, use its dedicated
+development overlay. This replaces only `ocr`; the remaining services stay
+deterministic mocks and must not be described as real implementations:
+
+```bash
+docker compose -f compose.yaml -f compose.ocr.yaml up --build -d
+docker compose -f compose.yaml -f compose.ocr.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_ocr_intake.py --phase all
+docker compose -f compose.yaml -f compose.ocr.yaml down --volumes --remove-orphans
+```
+
+The second command verifies PostgreSQL persistence, equal-input idempotent
+replay, changed-input HTTP 409, the 39/40/41 boundary, and the durable outbox.
+For the restart predicate, run `--phase restart-create`, restart `ocr`, then
+run `--phase restart-verify`. `scripts/coreaigent.ps1 dev ocr` and
+`scripts/coreaigent.ps1 test development ocr` include the same overlay.
+
+To run the real classification API and its durable PostgreSQL worker on top of
+the real OCR intake, add the classification overlay. Classification is real in
+this command; validation, RAG, LLM, and workflow remain deterministic mocks:
+
+```bash
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml up --build -d
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_classification_intake.py
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml down --volumes --remove-orphans
+```
+
+The acceptance runner posts official-document text to real OCR, verifies the
+evolved `POST /v1/classify` v3 response, and checks that the worker completes
+the durable job only after writing the one current classification record. The
+repository-owned `Demo Belediyesi` taxonomy returns `classified` only above
+0.80; lower valid matches and no-match results remain `needs_review`.
+
+To run the real PostgreSQL-backed F-03 validation service, retain the real OCR,
+classification API, and durable worker, then add the validation overlay. This
+CPU acceptance path injects the deterministic extractor explicitly; it tests
+the real validation service and PostgreSQL persistence, but it is not a Jamba
+inference run.
+
+```bash
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml up --build -d
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_validation_intake.py
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml down --volumes --remove-orphans
+```
+
+To verify F-03 current state across a validation container restart, run
+`/app/run_validation_intake.py --phase restart-create`, restart `validation`,
+then run it again with `--phase restart-verify` before teardown.
+
+In production extraction mode, set `EXTRACTOR_MODE=jamba` and run the real
+`llm` Jamba overlay as well; validation calls its minimal `/generate` endpoint.
+`/ready` reports 503 if PostgreSQL, the registry, or the configured Jamba
+dependency is unavailable.
+
 Pull requests run this same Docker mock suite automatically in GitHub Actions;
 see [the PR workflow](.github/workflows/pr-contract-tests.yml).
 

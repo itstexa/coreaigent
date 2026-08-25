@@ -1,12 +1,31 @@
 services:
   llm:
+    build:
+      context: ./services/llm
+      dockerfile: Dockerfile
+    image: coreaigent/llm:jamba-local
     gpus: all
     environment:
-      MODEL_ID: "${MODEL_ID:-serda-dev/Jamba2-3B-Turkish}"
-      MODEL_REVISION: "${MODEL_REVISION:-<PINNED_HF_COMMIT_SHA>}"
+      MOCK_SERVICE: null
+      MODEL_ID: "${MODEL_ID:-linguai/Jamba2-3B-Turkish-SFT-v1}"
+      MODEL_REVISION: "${MODEL_REVISION:-5202214fe552041fc6dfe1e6486b61f75eb5fce0}"
       HF_HOME: "/var/cache/huggingface"
+      HUGGINGFACE_HUB_CACHE: "/var/cache/huggingface"
+      HF_HUB_OFFLINE: "${HF_HUB_OFFLINE:-1}"
+      # 1800 remains the validated service maximum.  A bounded default keeps
+      # the single serialized GPU lane responsive when a model misses EOS.
+      MAX_NEW_TOKENS: "${MAX_NEW_TOKENS:-512}"
+      TEMPERATURE: "${TEMPERATURE:-0.0}"
+      NVIDIA_VISIBLE_DEVICES: "all"
+      NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
     volumes:
-      - llm-hf-cache:/var/cache/huggingface
+      - "${HF_CACHE_DIR:-llm-hf-cache}:/var/cache/huggingface"
 
 volumes:
   llm-hf-cache:

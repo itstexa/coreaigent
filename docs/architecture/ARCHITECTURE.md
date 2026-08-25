@@ -1,7 +1,7 @@
 # Architecture Atlas
 
 Central index of solution-architecture output for this repository. This design
-consumes the human-approved Jamba requirements in
+consumes the human-approved Jamba and feature-pack requirements in
 [docs/design/DESIGN.md](../design/DESIGN.md).
 
 ## Linked Architecture Documents
@@ -9,6 +9,10 @@ consumes the human-approved Jamba requirements in
 | File | Scope / Topic | Started (commit) | Status |
 |---|---|---|---|
 | (this file) | `llm` service / Jamba2-3B-Turkish inference | — | Active |
+| [ARCHITECTURE_0df0ad1.md](ARCHITECTURE_0df0ad1.md) | US-106 F-01 intake, PostgreSQL state, durable outbox, contract v2 | 0df0ad1 | Active |
+| [ARCHITECTURE_0df0ad1_f02.md](ARCHITECTURE_0df0ad1_f02.md) | US-107 F-02 hierarchical classification, demo taxonomy, durable worker, contract v3 | 0df0ad1 | Active |
+| [ARCHITECTURE_0df0ad1_f03.md](ARCHITECTURE_0df0ad1_f03.md) | US-108 F-03 extraction, validation, current PostgreSQL state, and supplemental PATCH contract | 0df0ad1 | Active |
+| [ARCHITECTURE_0df0ad1_f04.md](ARCHITECTURE_0df0ad1_f04.md) | US-109 F-04 regulation retrieval, immutable correspondence history, durable jobs, and structured Jamba draft | 0df0ad1 | Active |
 
 ## Scope and Component Boundary
 
@@ -39,7 +43,7 @@ Traces to: US-102 (docs/design/DESIGN.md)
 
 | Field | Type | Unit | Constraints |
 |---|---|---|---|
-| `prompt` | UTF-8 JSON string | Unicode scalar values | Required; must satisfy the resolved non-empty-prompt policy before inference. |
+| `prompt` | UTF-8 JSON string | Unicode scalar values | Required; must satisfy the resolved non-empty-prompt policy and the active server token capacity before inference. |
 
 **Invariants** (must always hold true):
 
@@ -48,12 +52,12 @@ Traces to: US-102 (docs/design/DESIGN.md)
 
 **Boundary Behavior:**
 
-- Min/Max: a missing or empty prompt returns HTTP 422; the maximum accepted
-  prompt length is pending AQ-102.
+- Min/Max: a missing or empty prompt returns HTTP 422; the F-04-capable server
+  maximum is 8192 rendered Jamba input tokens.
 - Empty/Null/Zero: missing, null, or empty values do not invoke the loader or
   model and return HTTP 422.
-- Overflow/Truncation: the service must not silently truncate a prompt;
-  behavior beyond the approved limit is pending AQ-102.
+- Overflow/Truncation: the service must not silently truncate a prompt; a
+  prompt beyond the active token limit is rejected before generation.
 
 **Concurrency / Race-Scenario Analysis:**
 
@@ -66,19 +70,21 @@ Traces to: US-102 (docs/design/DESIGN.md)
 
 | Field | Type | Unit | Constraints |
 |---|---|---|---|
-| `model` | string | Hugging Face repository ID | Required; exact value `serda-dev/Jamba2-3B-Turkish`. |
+| `model` | string | Hugging Face repository ID | Required; exact value `linguai/Jamba2-3B-Turkish-SFT-v1`. |
+| `modelRevision` | 40 lowercase hexadecimal string | Hugging Face commit identity | Required successful-response provenance for F-04 generation persistence. |
 | `response` | UTF-8 JSON string | Unicode scalar values | Required; generated completion text. |
 
 **Invariants** (must always hold true):
 
-- A successful response always identifies the fixed model ID.
+- A successful response always identifies the fixed model ID and loaded pinned
+  revision.
 - The `response` value is produced by the one loaded model instance, not a
   deterministic mock in a real-model verification tier.
 
 **Boundary Behavior:**
 
-- Min/Max: response length is governed by server-side generation
-  configuration; its values are pending AQ-103.
+- Min/Max: response length is governed by server-side generation configuration;
+  F-04 permits at most 1800 generated tokens.
 - Empty/Null/Zero: `model` and `response` are never null; the behavior of a
   zero-token model completion is pending AQ-103.
 - Overflow/Truncation: the generation configuration, rather than request
@@ -130,7 +136,7 @@ Traces to: US-102, US-103, US-105 (docs/design/DESIGN.md)
 
 | Field | Type | Unit | Constraints |
 |---|---|---|---|
-| `MODEL_ID` | string | Hugging Face repository ID | Required; exactly `serda-dev/Jamba2-3B-Turkish`. |
+| `MODEL_ID` | string | Hugging Face repository ID | Required; exactly `linguai/Jamba2-3B-Turkish-SFT-v1`. |
 | `MODEL_REVISION` | string | Git commit SHA hexadecimal characters | Required; exactly 40 lowercase hexadecimal characters; `main` is prohibited. |
 | `HF_HOME` | absolute POSIX path string | filesystem path | Required; inside the persistent, writable Hugging Face cache volume. |
 | `max_new_tokens` | positive integer | tokens | Server configuration only; default/range pending AQ-103. |
@@ -332,6 +338,6 @@ a claimed real Jamba result.
 
 | AQ         | Karar                                                                                          | Açıklama                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ---------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AQ-102** | **CLOSED — string zorunlu, whitespace-only yasak, max 1024 input token.**                      | `prompt` JSON string olmak zorunda. `null`, number, boolean, array, object → `422 invalid_prompt_type`. `prompt.strip()` boşsa → `422 empty_prompt`. String otomatik olarak trim/normalize edilmez; yalnızca validation için whitespace kontrolü yapılır. Tokenization sonrasında **1024 token'dan büyük prompt reddedilir** → `422 prompt_too_long`. HTTP tarafında ayrıca kaba DoS koruması için örn. **64 KiB request-body limiti** konabilir ama public semantic limit token sayısıdır. |
-| **AQ-103** | **CLOSED — `256 / 0.7 / 0.9 / 60s`.**                                                          | Server-only defaults: `max_new_tokens=256`, `temperature=0.7`, `top_p=0.9`, `generation_deadline_seconds=60`. Allowed config ranges: `max_new_tokens 1..512`, `temperature 0.0..2.0`, `top_p >0.0..1.0`, deadline `5..120 s`. Bunlar request body'den değiştirilemez. **Zero-token completion success değildir**; model EOS'u hemen üretir veya decode sonrası boş çıktı kalırsa `500 empty_generation`. Model kartındaki örnek de `256 / 0.7 / 0.9` kullanıyor.       |
-| **AQ-104** | Production `MODEL_REVISION` için geçici placeholder kullanılacak: `MODEL_REVISION=<PINNED_HF_COMMIT_SHA>`. Yarışma deployment/release aşamasında `serda-dev/Jamba2-3B-Turkish` için doğrulanmış 40 karakterlik Hugging Face commit SHA ile değiştirilecek. Cache warming ve offline artifact doğrulama politikası geçerli kalacak. | **Deferred / Non-blocking** |
+| **AQ-102** | **CLOSED — string zorunlu, whitespace-only yasak, max 8192 rendered input token.**             | `prompt` JSON string olmak zorunda. `null`, number, boolean, array, object → `422 invalid_prompt_type`. `prompt.strip()` boşsa → `422 empty_prompt`. String otomatik olarak trim/normalize edilmez; yalnızca validation için whitespace kontrolü yapılır. Rendered chat template tokenization sonrasında **8192 token'dan büyük prompt reddedilir** → `422 prompt_too_long`. HTTP tarafında ayrıca kaba DoS koruması için örn. **64 KiB request-body limiti** konabilir ama public semantic limit token sayısıdır. |
+| **AQ-103** | **CLOSED — `256 / 0.7 / 0.9 / 60s`; F-04 output capacity max 1800.**                            | Server-only defaults: `max_new_tokens=256`, `temperature=0.7`, `top_p=0.9`, `generation_deadline_seconds=60`. Allowed config ranges: `max_new_tokens 1..1800`, `temperature 0.0..2.0`, `top_p >0.0..1.0`, deadline `5..120 s`. F-04 deployment profile uses at most **1800** output tokens; request body cannot change controls. **Zero-token completion success değildir**; model EOS'u hemen üretir veya decode sonrası boş çıktı kalırsa `500 empty_generation`. |
+| **AQ-104** | Production modeli `linguai/Jamba2-3B-Turkish-SFT-v1`, sabit revision ise `5202214fe552041fc6dfe1e6486b61f75eb5fce0` olarak çözülmüştür. Cache warming ve offline artifact doğrulama politikası geçerlidir. | **Resolved** |

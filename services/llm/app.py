@@ -14,14 +14,17 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-MODEL_ID = "serda-dev/Jamba2-3B-Turkish"
+MODEL_ID = "linguai/Jamba2-3B-Turkish-SFT-v1"
 MODEL_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-MAX_PROMPT_TOKENS = 1024
+MAX_PROMPT_TOKENS = 8192
+JAMBA_FALLBACK_CHAT_TEMPLATE = """{% if bos_token is defined and bos_token is not none %}{{ bos_token }}{% endif %}{% for message in messages %}{% if message.role in ['system', 'user', 'assistant'] %}{{ '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>\\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""
+JAMBA_SYSTEM_PROMPT = "Sen verilen talimata doğrudan ve güvenilir biçimde yanıt veren yardımcı bir Türkçe asistansın."
 LOGGER = logging.getLogger("coreaigent.llm")
 
 
@@ -49,9 +52,9 @@ class RuntimeConfig:
 
     @property
     def hf_cache_dir(self) -> str:
-        """Return the Hub cache directory inside the persistent HF volume."""
+        """Return the explicit Hub cache path used by the model artifact."""
 
-        return os.path.join(self.hf_home, "hub")
+        return os.environ.get("HUGGINGFACE_HUB_CACHE", os.path.join(self.hf_home, "hub"))
 
     @classmethod
     def from_env(cls) -> "RuntimeConfig":
@@ -76,13 +79,13 @@ class RuntimeConfig:
 
     def validation_error(self) -> Optional[str]:
         if self.model_id != MODEL_ID:
-            return "MODEL_ID must be serda-dev/Jamba2-3B-Turkish"
+            return "MODEL_ID must be linguai/Jamba2-3B-Turkish-SFT-v1"
         if not MODEL_REVISION_PATTERN.fullmatch(self.model_revision):
             return "MODEL_REVISION must be a 40-character lowercase commit SHA"
         if not self.hf_home or not self.hf_home.startswith("/"):
             return "HF_HOME must be an absolute path"
-        if not 1 <= self.max_new_tokens <= 512:
-            return "MAX_NEW_TOKENS must be between 1 and 512"
+        if not 1 <= self.max_new_tokens <= 1800:
+            return "MAX_NEW_TOKENS must be between 1 and 1800"
         if not 0.0 <= self.temperature <= 2.0:
             return "TEMPERATURE must be between 0.0 and 2.0"
         if not 0.0 < self.top_p <= 1.0:
@@ -142,6 +145,14 @@ class RealJambaLoader:
         )
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
+        # The pinned Turkish SFT checkpoint has Jamba chat tokens but no
+        # tokenizer chat_template.  Use the compatibility template maintained
+        # by the sibling jamba-sft runtime so generation starts in an assistant
+        # turn instead of continuing/echoing the raw user prompt.
+        if not getattr(tokenizer, "chat_template", None):
+            vocab = tokenizer.get_vocab()
+            if "<|im_start|>" in vocab and "<|im_end|>" in vocab:
+                tokenizer.chat_template = JAMBA_FALLBACK_CHAT_TEMPLATE
 
         model = AutoModelForCausalLM.from_pretrained(
             config.model_id,
@@ -166,7 +177,10 @@ class RealJambaLoader:
         return len(encoded["input_ids"])
 
     def generate(self, prompt: str, config: RuntimeConfig) -> str:
-        messages = [{"role": "user", "content": prompt}]
+        messages = [
+            {"role": "system", "content": JAMBA_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
         if getattr(self._tokenizer, "chat_template", None):
             inputs = self._tokenizer.apply_chat_template(
                 messages,
@@ -253,6 +267,55 @@ def error_response(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status, content={"error": {"code": code, "message": message}})
 
 
+def contract_error_response(
+    body: Any,
+    status: int,
+    category: str,
+    message: str,
+    *,
+    retryable: bool = False,
+) -> JSONResponse:
+    """Return the repository-wide error envelope for the /v1 contract."""
+
+    payload = body if isinstance(body, dict) else {}
+    request_id = payload.get("requestId")
+    workflow_id = payload.get("workflowId") if isinstance(payload.get("workflowId"), str) else None
+    document_id = payload.get("documentId") if isinstance(payload.get("documentId"), str) else None
+    return JSONResponse(
+        status_code=status,
+        content={
+            "schemaVersion": "2.0",
+            "requestId": request_id if isinstance(request_id, str) and request_id else "unknown-request",
+            "workflowId": workflow_id,
+            "documentId": document_id,
+            "service": "llm",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "category": category,
+            "message": message,
+            "retryable": retryable,
+        },
+    )
+
+
+def valid_contract_request(body: Any) -> bool:
+    """Keep the small adapter aligned with contracts/schemas/llm-request."""
+
+    if not isinstance(body, dict):
+        return False
+    required = {"schemaVersion", "requestId", "documentId", "workflowId", "task", "prompt"}
+    allowed = required | {"context"}
+    if set(body) - allowed or not required <= set(body):
+        return False
+    if body["schemaVersion"] != "2.0" or body["task"] not in {"draft_reply", "route_document", "summarize"}:
+        return False
+    if any(not isinstance(body[key], str) or not body[key] for key in ("requestId", "documentId", "workflowId", "prompt")):
+        return False
+    return "context" not in body or (
+        isinstance(body["context"], list)
+        and all(isinstance(item, str) for item in body["context"])
+    )
+
+
 def _gpu_available() -> bool:
     try:
         import torch
@@ -311,7 +374,7 @@ def create_app(
             return service.readiness_error()
         try:
             if service.token_count(prompt) > MAX_PROMPT_TOKENS:
-                return error_response(422, "prompt_too_long", "prompt exceeds 1024 input tokens")
+                return error_response(422, "prompt_too_long", "prompt exceeds 8192 input tokens")
             response = service.generate(prompt)
         except GenerationDeadlineError:
             return error_response(504, "deadline_exceeded", "generation deadline exceeded")
@@ -322,7 +385,49 @@ def create_app(
         except Exception:
             LOGGER.exception("Jamba generation failed")
             return error_response(500, "generation_failed", "model generation failed")
-        return JSONResponse(status_code=200, content={"model": runtime_config.model_id, "response": response})
+        return JSONResponse(status_code=200, content={"model": runtime_config.model_id, "modelRevision": runtime_config.model_revision, "response": response})
+
+    @app.post("/v1/generate")
+    async def contract_generate(request: Request) -> JSONResponse:
+        """Adapt the model API to the fixed CoreAIgent generation contract."""
+
+        try:
+            body = json.loads(await request.body())
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return contract_error_response({}, 400, "validation", "Request body must be valid JSON")
+        if not valid_contract_request(body):
+            return contract_error_response(body, 400, "validation", "Invalid llm-request payload")
+        if not service.ready:
+            return contract_error_response(body, 503, "dependency", "Jamba model is not ready", retryable=True)
+
+        context = body.get("context", [])
+        prompt = body["prompt"]
+        if context:
+            prompt = prompt + "\n\nBağlam:\n" + "\n".join(context)
+        try:
+            if service.token_count(prompt) > MAX_PROMPT_TOKENS:
+                return contract_error_response(body, 400, "validation", "prompt exceeds 8192 input tokens")
+            response = service.generate(prompt)
+        except GenerationDeadlineError:
+            return contract_error_response(body, 504, "timeout", "generation deadline exceeded", retryable=True)
+        except EmptyGenerationError:
+            return contract_error_response(body, 502, "dependency", "model returned an empty response", retryable=True)
+        except ModelNotReadyError:
+            return contract_error_response(body, 503, "dependency", "Jamba model is not ready", retryable=True)
+        except Exception:
+            LOGGER.exception("Contract generation failed")
+            return contract_error_response(body, 502, "dependency", "model generation failed", retryable=True)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "schemaVersion": "2.0",
+                "requestId": body["requestId"],
+                "documentId": body["documentId"],
+                "workflowId": body["workflowId"],
+                "output": {"draft": response, "department": "manual_review", "confidence": 0.0},
+                "model": runtime_config.model_id,
+            },
+        )
 
     return app
 

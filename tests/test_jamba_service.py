@@ -104,8 +104,75 @@ class JambaServiceAcceptanceTests(unittest.TestCase):
             response = client.post("/generate", json={"prompt": "Belgeyi Türkçe özetle."})
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"model": MODEL_ID, "response": "Başvurunuz incelenmiştir."})
+        self.assertEqual(response.json(), {
+            "model": MODEL_ID,
+            "modelRevision": "a" * 40,
+            "response": "Başvurunuz incelenmiştir.",
+        })
         self.assertEqual(loader.generate_call_count, 1)
+
+    def test_contract_generate_returns_contract_shaped_trace_and_safe_department(self):
+        loader = FakeLoader(output="Resmî yanıt taslağı")
+        request = {
+            "schemaVersion": "2.0",
+            "requestId": "req-1",
+            "documentId": "doc-1",
+            "workflowId": "wf-1",
+            "task": "draft_reply",
+            "prompt": "Başvuruyu yanıtla.",
+            "context": ["Mevzuat özeti"],
+        }
+        with client_for(loader) as client:
+            response = client.post("/v1/generate", json=request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "schemaVersion": "2.0",
+            "requestId": "req-1",
+            "documentId": "doc-1",
+            "workflowId": "wf-1",
+            "output": {"draft": "Resmî yanıt taslağı", "department": "manual_review", "confidence": 0.0},
+            "model": MODEL_ID,
+        })
+        self.assertEqual(loader.generate_call_count, 1)
+
+    def test_contract_generate_rejects_invalid_payload_with_standard_error(self):
+        loader = FakeLoader()
+        with client_for(loader) as client:
+            response = client.post("/v1/generate", json={})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["service"], "llm")
+        self.assertEqual(response.json()["category"], "validation")
+        self.assertFalse(response.json()["retryable"])
+        self.assertEqual(loader.generate_call_count, 0)
+
+    def test_contract_error_sanitizes_invalid_trace_types(self):
+        loader = FakeLoader()
+        with client_for(loader) as client:
+            response = client.post("/v1/generate", json={"documentId": 42, "workflowId": []})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIsNone(response.json()["documentId"])
+        self.assertIsNone(response.json()["workflowId"])
+
+    def test_contract_generate_reports_not_ready_with_retryable_standard_error(self):
+        loader = FakeLoader()
+        request = {
+            "schemaVersion": "2.0",
+            "requestId": "req-1",
+            "documentId": "doc-1",
+            "workflowId": "wf-1",
+            "task": "summarize",
+            "prompt": "Özetle.",
+        }
+        with client_for(loader, gpu_available=False) as client:
+            response = client.post("/v1/generate", json=request)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["category"], "dependency")
+        self.assertTrue(response.json()["retryable"])
+        self.assertEqual(loader.generate_call_count, 0)
 
     def test_generate_rejects_malformed_json_with_400(self):
         loader = FakeLoader()
