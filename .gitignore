@@ -2,4 +2,5 @@
 .compose.local.generated.yml
 __pycache__/
 *.pyc
+TEKNOFEST_SUNUM.pdf
 
