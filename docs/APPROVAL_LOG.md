@@ -7,13 +7,13 @@
 ## Active Entry
 
 - **Status**: Approved
-- **Stage**: Solution Architecture
+- **Stage**: Implementation
 - **Session Started**: 2026-08-25
-- **Related Doc(s)**: approved `docs/design/DESIGN_8c16689_f05.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_f84cffd_f05.md`
+- **Related Doc(s)**: approved `docs/design/DESIGN_8c16689_f05.md`; approved `docs/architecture/ARCHITECTURE_f84cffd_f05.md`; `docs/implementation/IMPLEMENTATION_LOG.md`; `services/workflow/`; `tests/test_routing_service.py`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Defines F-05 PostgreSQL routing/job/notification entities, predicates, recovery, and read projection.
-  - Selects durable event/reconciliation routing and an active Others/Uncategorized taxonomy fallback.
+  - Implements F-05 PostgreSQL routing/job/notification entities, recovery, and current-revision read projection.
+  - Verifies automatic F-04 routing plus real local BGE-M3/Jamba/PostgreSQL acceptance and the required mock baseline.
 - **Open Questions Resolved This Session**:
   - None.
 - **Approved By**: Serda

@@ -19,7 +19,11 @@ CORPUS_VERSION = "demo-municipality-regulations-v1"
 PROMPT_SCHEMA_VERSION = "f04-correspondence-v1"
 
 SCHEMA_SQL = """
-ALTER TABLE current_validation_states ADD COLUMN IF NOT EXISTS current_correspondence_generation_id uuid NULL;
+DO $$ BEGIN
+ IF to_regclass('public.current_validation_states') IS NOT NULL THEN
+  ALTER TABLE current_validation_states ADD COLUMN IF NOT EXISTS current_correspondence_generation_id uuid NULL;
+ END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS correspondence_generations (
  generation_id uuid PRIMARY KEY, case_id uuid NOT NULL, document_id text NOT NULL, workflow_id uuid NOT NULL,
  source_case_revision bigint NOT NULL CHECK (source_case_revision > 0), request_type_id text NOT NULL,
@@ -43,6 +47,35 @@ CREATE TABLE IF NOT EXISTS correspondence_replays (
  principal_id text NOT NULL, case_id uuid NOT NULL, idempotency_key uuid NOT NULL, source_case_revision bigint NOT NULL,
  request_fingerprint text NOT NULL, generation_id uuid NOT NULL REFERENCES correspondence_generations(generation_id), job_id uuid NOT NULL REFERENCES correspondence_generation_jobs(job_id),
  response_status integer NOT NULL, response_body jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (principal_id, case_id, idempotency_key)
+);
+CREATE TABLE IF NOT EXISTS routing_operations (
+ routing_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
+ source_generation_id uuid NULL REFERENCES correspondence_generations(generation_id), request_type_id text NOT NULL,
+ route_kind text NOT NULL CHECK (route_kind IN ('classified','fallback')),
+ target_department_id text NOT NULL, target_department_label text NOT NULL, target_unit_id text NOT NULL, target_unit_label text NOT NULL,
+ taxonomy_version text NOT NULL, routing_status text NOT NULL CHECK (routing_status IN ('routed','failed')),
+ routing_reason jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now(), routed_at timestamptz NULL,
+ UNIQUE (case_id, source_case_revision)
+);
+CREATE TABLE IF NOT EXISTS routing_jobs (
+ job_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
+ source_generation_id uuid NULL REFERENCES correspondence_generations(generation_id), recovery_reason text NULL,
+ state text NOT NULL CHECK (state IN ('pending','claimed','completed','rejected')), attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+ claimed_until timestamptz NULL, rejection_code text NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE (case_id, source_case_revision)
+);
+CREATE TABLE IF NOT EXISTS notification_records (
+ notification_id uuid PRIMARY KEY, routing_id uuid NOT NULL REFERENCES routing_operations(routing_id),
+ audience text NOT NULL CHECK (audience IN ('applicant','target_unit')),
+ generation_status text NOT NULL CHECK (generation_status IN ('queued','processing','completed','failed')),
+ payload jsonb NULL, model_id text NULL, model_revision text NULL,
+ attempt_count smallint NOT NULL DEFAULT 0 CHECK (attempt_count BETWEEN 0 AND 2), error_code text NULL,
+ created_at timestamptz NOT NULL DEFAULT now(), completed_at timestamptz NULL, UNIQUE (routing_id, audience)
+);
+CREATE TABLE IF NOT EXISTS notification_jobs (
+ job_id uuid PRIMARY KEY, notification_id uuid NOT NULL UNIQUE REFERENCES notification_records(notification_id),
+ state text NOT NULL CHECK (state IN ('pending','claimed','completed')), attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+ claimed_until timestamptz NULL, rejection_code text NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
 """
 
@@ -71,8 +104,16 @@ def _headers(request):
 
 
 def ensure_schema():
+    # PostgreSQL's `CREATE TABLE IF NOT EXISTS` is not safe against two fresh
+    # containers concurrently creating the same composite type.  The API and
+    # workers therefore serialize first boot without introducing another
+    # dependency or losing a durable job.
     with psycopg.connect(DATABASE_URL, autocommit=True) as db:
-        db.execute(SCHEMA_SQL)
+        db.execute("SELECT pg_advisory_lock(hashtext('coreaigent-workflow-schema-v1'))")
+        try:
+            db.execute(SCHEMA_SQL)
+        finally:
+            db.execute("SELECT pg_advisory_unlock(hashtext('coreaigent-workflow-schema-v1'))")
 
 
 def create_app():
@@ -165,6 +206,29 @@ def create_app():
         if row[1] == "failed":
             return base | {"generation_id": str(row[0]), "generation_status": "failed", "error_code": row[10]}
         return base | {"generation_id": str(row[0]), "generation_status": "completed", "source_status": row[2], "result_status": row[3], "corpus_version": row[4], "document_summary": row[5], "recommended_correspondence_type": row[6], "correspondence_type_detail": row[7], "draft_text": row[8], "regulation_suggestions": row[9]}
+
+    @app.get("/cases/{case_id}/routing")
+    def routing(case_id: str, request: Request):
+        """Read-only, current-revision F-05 status without notification content."""
+        if not _authorized(request):
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        try:
+            case = uuid.UUID(case_id)
+            with psycopg.connect(DATABASE_URL) as db:
+                state = db.execute("SELECT revision FROM current_validation_states WHERE case_id=%s", (case,)).fetchone()
+                if not state:
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                route = db.execute("SELECT routing_id,routing_status,route_kind,target_department_id,target_department_label,target_unit_id,target_unit_label FROM routing_operations WHERE case_id=%s AND source_case_revision=%s", (case, state[0])).fetchone()
+                if not route:
+                    return {"case_id": case_id, "case_revision": state[0], "routing_status": "not_routed", "result": None}
+                notifications = db.execute("SELECT audience,generation_status,error_code FROM notification_records WHERE routing_id=%s ORDER BY audience", (route[0],)).fetchall()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {
+            "case_id": case_id, "case_revision": state[0], "routing_id": str(route[0]), "routing_status": route[1], "route_kind": route[2],
+            "target_department": {"id": route[3], "label": route[4]}, "target_unit": {"id": route[5], "label": route[6]},
+            "notifications": [{"audience": item[0], "generation_status": item[1], "error_code": item[2]} for item in notifications],
+        }
 
     return app
 

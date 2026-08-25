@@ -132,6 +132,25 @@ In production extraction mode, set `EXTRACTOR_MODE=jamba` and run the real
 `/ready` reports 503 if PostgreSQL, the registry, or the configured Jamba
 dependency is unavailable.
 
+F-04 correspondence and the automatic F-05 route/notification flow run in the
+same real PostgreSQL overlay. F-04 completion creates a durable routing job;
+the routing worker persists the target decision and two notification records
+only—there is no external e-mail dispatch. This command uses the local pinned
+Jamba and BGE-M3 artifacts, rather than a mock response:
+
+```bash
+export HF_CACHE_DIR=/media/serda/home_extra/hf-cache
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml up --build -d
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_correspondence_intake.py
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml down --volumes --remove-orphans
+```
+
+The acceptance runner calls real OCR, classification, validation, BGE-M3,
+Jamba, PostgreSQL workers, and `GET /cases/{case_id}/routing`. It verifies one
+current-revision route, the active `diger` / `siniflandirilmamis` fallback for
+`review_required`, and separately persisted applicant/target-unit Jamba
+notifications. It must not be described as the mock baseline.
+
 Pull requests run this same Docker mock suite automatically in GitHub Actions;
 see [the PR workflow](.github/workflows/pr-contract-tests.yml).
 

@@ -56,6 +56,19 @@ def wait_for_generation(case_id):
     raise AssertionError("real F-04 generation did not reach a terminal state within six minutes")
 
 
+def wait_for_routing(case_id):
+    """Observe F-05's real durable event and two real Jamba notification jobs."""
+    for _ in range(720):
+        result, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/routing", method="GET", headers=AUTH)
+        states = {item["audience"]: item["generation_status"] for item in result.get("notifications", [])}
+        if result["routing_status"] == "routed" and states == {"applicant": "completed", "target_unit": "completed"}:
+            return result
+        if any(state == "failed" for state in states.values()):
+            raise AssertionError(f"real F-05 notification failed: {result}")
+        time.sleep(0.5)
+    raise AssertionError("real F-05 routing did not complete within six minutes")
+
+
 def main():
     document_id = "f04-real-" + uuid.uuid4().hex
     text = (
@@ -116,6 +129,21 @@ def main():
     else:
         assert result["source_status"] == "no_relevant_source" and result["result_status"] == "review_required", result
         assert result["regulation_suggestions"] == [], result
+
+    routed = wait_for_routing(case_id)
+    assert routed["case_revision"] == 1 and routed["routing_status"] == "routed", routed
+    expected_kind = "classified" if result["result_status"] == "draft_ready" else "fallback"
+    assert routed["route_kind"] == expected_kind, routed
+    if expected_kind == "fallback":
+        assert routed["target_department"]["id"] == "diger" and routed["target_unit"]["id"] == "siniflandirilmamis", routed
+    with psycopg.connect(DATABASE_URL) as db:
+        route_count = db.execute("SELECT count(*) FROM routing_operations WHERE case_id=%s AND source_case_revision=1", (case_id,)).fetchone()
+        notifications = db.execute("SELECT audience,payload FROM notification_records WHERE routing_id=(SELECT routing_id FROM routing_operations WHERE case_id=%s AND source_case_revision=1)", (case_id,)).fetchall()
+    assert route_count == (1,), route_count
+    payloads = {audience: payload for audience, payload in notifications}
+    assert set(payloads) == {"applicant", "target_unit"}, payloads
+    assert "case_context" not in payloads["applicant"] and payloads["applicant"]["email_placeholder"] is None, payloads
+    assert "case_context" in payloads["target_unit"] and payloads["target_unit"]["email_placeholder"] is None, payloads
 
     changed, changed_headers = call(
         f"http://validation:8080/cases/{case_id}/supplemental-information",

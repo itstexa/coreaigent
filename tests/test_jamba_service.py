@@ -200,12 +200,12 @@ class JambaServiceAcceptanceTests(unittest.TestCase):
         ])
         self.assertEqual(loader.generate_call_count, 0)
 
-    def test_prompt_token_limit_accepts_1023_and_1024_but_rejects_1025(self):
+    def test_prompt_token_limit_accepts_8191_and_8192_but_rejects_8193(self):
         loader = FakeLoader()
         with client_for(loader) as client:
-            below = client.post("/generate", json={"prompt": "kelime " * 1023})
-            exact = client.post("/generate", json={"prompt": "kelime " * 1024})
-            above = client.post("/generate", json={"prompt": "kelime " * 1025})
+            below = client.post("/generate", json={"prompt": "kelime " * 8191})
+            exact = client.post("/generate", json={"prompt": "kelime " * 8192})
+            above = client.post("/generate", json={"prompt": "kelime " * 8193})
 
         self.assertEqual(below.status_code, 200)
         self.assertEqual(exact.status_code, 200)

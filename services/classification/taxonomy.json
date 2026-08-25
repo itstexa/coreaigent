@@ -1,18 +1,20 @@
 {
   "taxonomyVersion": "demo-belediyesi-v1",
   "departments": [
-    {"id": "vatandas-hizmetleri", "label": "Vatandaş Hizmetleri Müdürlüğü"},
-    {"id": "bilgi-islem", "label": "Bilgi İşlem Müdürlüğü"},
-    {"id": "mali-hizmetler", "label": "Mali Hizmetler Müdürlüğü"},
-    {"id": "imar-sehircilik", "label": "İmar ve Şehircilik Müdürlüğü"},
-    {"id": "zabita", "label": "Zabıta Müdürlüğü"}
+    {"id": "vatandas-hizmetleri", "label": "Vatandaş Hizmetleri Müdürlüğü", "active": true},
+    {"id": "bilgi-islem", "label": "Bilgi İşlem Müdürlüğü", "active": true},
+    {"id": "mali-hizmetler", "label": "Mali Hizmetler Müdürlüğü", "active": true},
+    {"id": "imar-sehircilik", "label": "İmar ve Şehircilik Müdürlüğü", "active": true},
+    {"id": "zabita", "label": "Zabıta Müdürlüğü", "active": true},
+    {"id": "diger", "label": "Diğer / Sınıflandırılamayan Başvurular Müdürlüğü", "active": true}
   ],
   "units": [
-    {"id": "beyaz-masa", "label": "Beyaz Masa Birimi", "departmentId": "vatandas-hizmetleri"},
-    {"id": "dijital-hizmetler", "label": "Dijital Hizmetler Birimi", "departmentId": "bilgi-islem"},
-    {"id": "gelir-tahakkuk", "label": "Gelir ve Tahakkuk Birimi", "departmentId": "mali-hizmetler"},
-    {"id": "ruhsat", "label": "Ruhsat Birimi", "departmentId": "imar-sehircilik"},
-    {"id": "denetim", "label": "Denetim Birimi", "departmentId": "zabita"}
+    {"id": "beyaz-masa", "label": "Beyaz Masa Birimi", "departmentId": "vatandas-hizmetleri", "active": true},
+    {"id": "dijital-hizmetler", "label": "Dijital Hizmetler Birimi", "departmentId": "bilgi-islem", "active": true},
+    {"id": "gelir-tahakkuk", "label": "Gelir ve Tahakkuk Birimi", "departmentId": "mali-hizmetler", "active": true},
+    {"id": "ruhsat", "label": "Ruhsat Birimi", "departmentId": "imar-sehircilik", "active": true},
+    {"id": "denetim", "label": "Denetim Birimi", "departmentId": "zabita", "active": true},
+    {"id": "siniflandirilmamis", "label": "Diğer / Sınıflandırılamayan Başvurular Birimi", "departmentId": "diger", "active": true}
   ],
   "requestTypes": [
     {"id": "adres-bildirimi", "label": "Adres Değişikliği Bildirimi", "unitId": "beyaz-masa", "documentType": "application", "keywords": ["adres", "değişiklik", "ikamet", "bildirim", "kayıt"]},

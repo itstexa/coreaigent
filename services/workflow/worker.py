@@ -6,6 +6,7 @@ import json
 import os
 import time
 import urllib.request
+import uuid
 from pathlib import Path
 
 import psycopg
@@ -91,6 +92,7 @@ def _prompt(*, row, semantic_fields, sanitized_document, chunks, repair_error=No
     retry_rule = " Önceki yanıt kabul edilmedi: " + repair_error + "." if repair_error else ""
     return (
         "Türkçe resmî yazışma taslağı üret. Sadece tek bir JSON nesnesi döndür; markdown, açıklama veya başka anahtar ekleme. "
+        "JSON nesnesini mutlaka kapat ve nesneden sonra yazmayı durdur. draft_text 2-4 kısa cümle ve en fazla 1200 karakter olsun. "
         "Zorunlu şema: document_summary(string, en fazla 600 karakter), recommended_correspondence_type(" 
         "response_letter|information_letter|referral_letter|cover_letter|other), draft_text(string, en fazla 6000 karakter), "
         "used_source_refs(string dizisi). other seçilirse correspondence_type_detail(string, en fazla 200 karakter) eklenebilir. "
@@ -121,6 +123,9 @@ def _mark_completed(job, source_status, output, chunks, model, attempts):
     result_status = "draft_ready" if source_status == "relevant_source_found" else "review_required"
     with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
         cur.execute("UPDATE correspondence_generations SET generation_status='completed',source_status=%s,result_status=%s,correspondence_type=%s,correspondence_type_detail=%s,document_summary=%s,draft_text=%s,regulation_suggestions=%s,model_id=%s,model_revision=%s,model_attempt_count=%s,completed_at=now() WHERE generation_id=%s AND generation_status='processing'", (source_status, result_status, output["recommended_correspondence_type"], output.get("correspondence_type_detail"), output["document_summary"], output["draft_text"], Jsonb(citations), model.get("model"), model.get("modelRevision"), attempts, job[1]))
+        cur.execute("SELECT case_id,source_case_revision FROM correspondence_generations WHERE generation_id=%s", (job[1],))
+        case_id, revision = cur.fetchone()
+        cur.execute("INSERT INTO routing_jobs (job_id,case_id,source_case_revision,source_generation_id,state) VALUES (%s,%s,%s,%s,'pending') ON CONFLICT (case_id,source_case_revision) DO NOTHING", (uuid.uuid4(), case_id, revision, job[1]))
         cur.execute("UPDATE correspondence_generation_jobs SET state='completed',claimed_until=NULL,updated_at=now() WHERE job_id=%s", (job[0],))
 
 

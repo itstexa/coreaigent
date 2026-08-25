@@ -5,6 +5,50 @@ traceable history of completed and paused implementation work.
 
 ---
 
+## Pass: 2026-08-25 — US-110 F-05 final routing and notifications
+
+**Branch:** `feature/jamba-inference`.
+**Traces to:** `docs/design/DESIGN_8c16689_f05.md` (US-110) and
+`docs/architecture/ARCHITECTURE_f84cffd_f05.md`.
+**Approval basis:** Requirement Analysis and Solution Architecture approved by
+Serda on 2026-08-25 (see `docs/APPROVAL_LOG.md`).
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Automatic exactly-once F-04 routing | ✅ Pass | F-04 completion atomically enqueues `routing_jobs`; `UNIQUE(case_id, source_case_revision)` protects the immutable route. The real acceptance runner asserts one route row. |
+| Recovery of unrequested/missed work | ✅ Pass | `routing_worker.recover_once()` scans complete/classified current state and enqueues a lease-safe PostgreSQL reconciliation job. |
+| Active classified/fallback target selection | ✅ Pass | `tests/test_routing_service.py` rejects `needs_review`, incomplete and inactive chains, and asserts `review_required`/`not_requested` select `diger` / `siniflandirilmamis`. |
+| Separate persisted notifications | ✅ Pass | One `notification_records` row per `applicant` and `target_unit`; real Jamba/PostgreSQL acceptance verifies completed independent payloads and null e-mail placeholders. |
+| Notification failure preserves routing | ✅ Pass | Route commit and notification jobs are separate transactions; a structured-output failure stores no partial payload and cannot mutate a routed operation. |
+| Read-only UI projection | ✅ Pass | `GET /cases/{case_id}/routing` returns current revision route and notification states, never notification payload content. |
+
+### Predicates / Invariants Matched
+
+| Entity/Predicate | Invariant / Boundary / Concurrency Rule | Verified By |
+|---|---|---|
+| `RoutingOperation` | One immutable logical target per case revision; Jamba cannot select department/unit. | PostgreSQL unique key, taxonomy resolver, pure routing tests, real F-04→F-05 run. |
+| `RoutingJob` | F-04 event and reconciliation are PostgreSQL leased durable work; a stale revision is rejected. | Atomic F-04 insert, `FOR UPDATE SKIP LOCKED` claim, worker revision check. |
+| `NotificationRecord` | Applicant and target-unit payloads are separate; applicant cannot receive operational context; e-mail remains null placeholder. | Projection tests and real persisted-payload assertions. |
+| Current read model | Previous revision routes are not returned as current after F-03 changes. | Current-revision lookup by `(case_id, revision)` in the authorized GET endpoint. |
+
+### Open Questions Raised This Pass
+
+| ID | Question | Status | Resolution |
+|---|---|---|---|
+| — | None. | — | All F-05 behavior was covered by the approved design and architecture. |
+
+### Deviations From Approved DESIGN/ARCHITECTURE
+
+None.
+
+### Version Control Actions
+
+- Commit: `feat(workflow): add durable final routing`.
+
+---
+
 ## Pass: 2026-08-25 — US-108 F-03 information extraction and missing information
 
 **Branch:** Existing `feature/jamba-inference` worktree; no branch, commit, or

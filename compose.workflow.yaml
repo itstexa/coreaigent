@@ -31,6 +31,23 @@ services:
     volumes:
       - "${HF_CACHE_DIR:-llm-hf-cache}:/var/cache/huggingface"
 
+  routing-worker:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    image: coreaigent/workflow:local
+    command: ["python", "routing_worker.py"]
+    environment:
+      DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      JAMBA_URL: http://llm:8080/generate
+      TAXONOMY_PATH: /app/taxonomy.json
+      WORKER_POLL_SECONDS: "0.05"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - "./services/classification/taxonomy.json:/app/taxonomy.json:ro"
+
   contract-tests:
     environment:
       DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
