@@ -8,20 +8,37 @@ başvuru evrakı değildir).
 - `3071_dilekce_kanunu.md` — 3071 sayılı Dilekçe Hakkının Kullanılmasına Dair
   Kanun, tam metin (11 madde + geçici madde 1). Kaynak:
   av-saimincekas.com üzerinden doğrulandı, 2026-08-16.
-- `2646_resmi_yazisma_yonetmeligi_madde5.md` — Resmî Yazışmalarda
-  Uygulanacak Usul ve Esaslar Hakkında Yönetmelik, yalnızca Madde 5 (kağıt
-  boyutu/biçim kuralları). Kaynak: web araması sonucu doğrulanmış alıntı,
-  2026-08-16.
+- `offline_docs/6698_KVKK.txt` — 6698 sayılı Kişisel Verilerin Korunması
+  Kanunu, tam metin (Madde 1-33 + geçici madde 1). Kaynak: mgm.adalet.gov.tr
+  resmi PDF nüshası, WebFetch ile indirilip Read (PDF) aracıyla sayfa sayfa
+  doğrulanarak transkribe edildi, 2026-08-26.
+- `offline_docs/4982_Bilgi_Edinme.txt` — 4982 sayılı Bilgi Edinme Hakkı
+  Kanunu, tam metin (Madde 1-33). Kaynak: tubimer.tubitak.gov.tr resmi PDF
+  nüshası, aynı yöntemle doğrulandı, 2026-08-26.
+- `offline_docs/Resmi_Yazismalarda_Uygulanacak_Usul_ve_Esaslar.txt` — 2646
+  Karar Sayılı Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında
+  Yönetmelik (10 Haziran 2020, RG Sayı 31151), tam metin (Madde 1-39 +
+  geçici madde 1). Kaynak: iidb.adalet.gov.tr resmi PDF nüshası, aynı
+  yöntemle doğrulandı, 2026-08-26.
 
-## Neden sadece 2 belge, plandaki 5 değil
+Bu 3 belge `offline_docs/metadata.json` ile eşleştirilir ve
+`mevzuat_rag.ingestion.local_corpus.load_offline_docs()` üzerinden ağa hiç
+çıkmadan indekslenir (air-gapped mod, bkz. `mevzuat_gov_tr.py` /
+`resmi_gazete.py` içindeki `OFFLINE_MODE` kilidi).
 
-Bu geliştirme oturumunun çalıştığı sandbox ortamından `mevzuat.gov.tr` ve
-`resmigazete.gov.tr`'ye doğrudan ağ erişimi kurulamadı (TLS/bağlantı hatası,
-hem yerel HTTP client hem gerçek tarayıcı üzerinden denendi). Yasal bir
-sistemde uydurma/doğrulanmamış kanun metni bulundurmak gerçek zarar riski
-taşıdığından, yalnızca içeriği başka kaynaklardan tam ve doğrulanabilir
-şekilde teyit edilebilen 2 belge eklendi. Kalan 3 belge (4982 sayılı Bilgi
-Edinme Hakkı Kanunu, 6698 sayılı KVKK, 2577 sayılı İYUK seçili maddeler),
-`mevzuat_rag/ingestion/mevzuat_gov_tr.py` konektörü normal internet erişimi
-olan bir ortamda doğrulanıp çalıştırıldığında eklenmelidir — bkz. ana
-`README.md` ve `NOTES.md`.
+**Not (2026-08-26):** Daha önce burada duran `2646_resmi_yazisma_yonetmeligi_
+madde5.md` kaldırıldı — içeriği "Madde 5" diye etiketlenmiş kâğıt boyutu
+kuralı, yürürlükteki (2020) yönetmeliğin gerçekte **Madde 6**'sına ait
+(Madde 5 "Nüsha sayısı" başlıklıdır). Aynı kanun_no (2646) altında iki farklı
+metin tutmak indekste çakışan/çelişen içerik üretiyordu; tam ve doğru metin
+artık `offline_docs/Resmi_Yazismalarda_Uygulanacak_Usul_ve_Esaslar.txt`
+içinde tek kaynak olarak duruyor.
+
+## Kapsam
+
+Demo kapsamındaki 4 belge (3071, 6698, 4982, 2646) resmi kaynaklardan
+doğrulanmış tam metinlerdir. 2577 sayılı İYUK seçili maddeler henüz
+eklenmedi — `mevzuat_rag/ingestion/mevzuat_gov_tr.py` air-gapped modda
+kilitli olduğundan, gerektiğinde aynı doğrulama yöntemiyle (resmi PDF indir
+→ Read ile sayfa sayfa oku → transkribe et) `offline_docs/` altına elle
+eklenmelidir.

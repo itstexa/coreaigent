@@ -1,0 +1,20 @@
+{
+  "6698_KVKK.txt": {
+    "kanun_no": "6698",
+    "kanun_adi": "Kişisel Verilerin Korunması Kanunu",
+    "mevzuat_turu": "kanun",
+    "kaynak_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=6698&MevzuatTur=1&MevzuatTertip=5 (offline doğrulama: mgm.adalet.gov.tr resmi PDF nüshası, 2026-08-26)"
+  },
+  "4982_Bilgi_Edinme.txt": {
+    "kanun_no": "4982",
+    "kanun_adi": "Bilgi Edinme Hakkı Kanunu",
+    "mevzuat_turu": "kanun",
+    "kaynak_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=4982&MevzuatTur=1&MevzuatTertip=5 (offline doğrulama: tubimer.tubitak.gov.tr resmi PDF nüshası, 2026-08-26)"
+  },
+  "Resmi_Yazismalarda_Uygulanacak_Usul_ve_Esaslar.txt": {
+    "kanun_no": "2646",
+    "kanun_adi": "Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik",
+    "mevzuat_turu": "yönetmelik",
+    "kaynak_url": "https://mevzuat.gov.tr/MevzuatMetin/21.5.2646.pdf (offline doğrulama: iidb.adalet.gov.tr resmi PDF nüshası, 2026-08-26)"
+  }
+}

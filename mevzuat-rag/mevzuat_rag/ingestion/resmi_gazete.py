@@ -12,9 +12,20 @@ import feedparser
 
 from mevzuat_rag.ingestion.base import SourceRef
 
+# Air-gapped kamu ortamı: canlı RSS erişimi devre dışı. Mevzuat metinleri
+# sample_data/legislation/offline_docs/ altına elle eklenip
+# mevzuat_rag.ingestion.local_corpus.load_offline_docs() ile indekslenir.
+OFFLINE_MODE = True
+
 
 class ResmiGazeteRSSConnector:
     def __init__(self, rss_url: str = "https://www.resmigazete.gov.tr/rss"):
+        if OFFLINE_MODE:
+            raise RuntimeError(
+                "ResmiGazeteRSSConnector devre dışı (air-gapped mod). Mevzuatı "
+                "sample_data/legislation/offline_docs/ altına ekleyip local_corpus "
+                "üzerinden indeksleyin."
+            )
         self.rss_url = rss_url
 
     def list_updates(self, since=None) -> list[SourceRef]:

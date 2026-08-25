@@ -21,9 +21,20 @@ from mevzuat_rag.ingestion.normalize import html_to_text
 SEARCH_URL = "https://www.mevzuat.gov.tr/anasayfa/MevzuatFihristDetayIframe"
 BASE_URL = "https://www.mevzuat.gov.tr"
 
+# Air-gapped kamu ortamı: canlı scraper devre dışı. Mevzuat metinleri
+# sample_data/legislation/offline_docs/ altına elle eklenip
+# mevzuat_rag.ingestion.local_corpus.load_offline_docs() ile indekslenir.
+OFFLINE_MODE = True
+
 
 class MevzuatGovTrConnector:
     def __init__(self, http_client: httpx.Client | None = None, rate_limit_s: float = 1.0):
+        if OFFLINE_MODE:
+            raise RuntimeError(
+                "MevzuatGovTrConnector devre dışı (air-gapped mod). Mevzuatı "
+                "sample_data/legislation/offline_docs/ altına ekleyip local_corpus "
+                "üzerinden indeksleyin."
+            )
         self.client = http_client or httpx.Client(timeout=20.0, follow_redirects=True)
         self.rate_limit_s = rate_limit_s
 

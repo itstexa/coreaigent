@@ -28,6 +28,11 @@ def main() -> None:
     for source in result["sources"]:
         print(f"  [{source['score']:.3f}] {source['citation']}")
 
+    if "post_hoc_verdict" in result:
+        is_valid = result["post_hoc_verdict"] not in ("REJECTED_BY_CRITIC", "STRUCTURAL_FAIL")
+        print(f"\nHakem Ajan (Critic Agent) kararı: {{\"is_valid\": {str(is_valid).lower()}, \"reason\": {result.get('post_hoc_reason', '')!r}}}")
+        print(f"  (post_hoc_verdict={result['post_hoc_verdict']})")
+
 
 if __name__ == "__main__":
     main()

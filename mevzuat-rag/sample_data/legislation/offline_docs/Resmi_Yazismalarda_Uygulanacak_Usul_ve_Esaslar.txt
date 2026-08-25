@@ -1,0 +1,169 @@
+RESMÎ YAZIŞMALARDA UYGULANACAK USUL VE ESASLAR HAKKINDA YÖNETMELİK
+
+Karar Sayısı: 2646
+Yayım Tarihi: 10 Haziran 2020, Resmî Gazete Sayı: 31151
+
+BİRİNCİ BÖLÜM
+Genel Hükümler
+
+MADDE 1- (1) Bu Yönetmeliğin amacı; güvenli elektronik imza kullanılarak elektronik ortamda veya el yazısıyla atılan imza ile fiziksel ortamda yapılan resmî yazışmalara ilişkin kuralları belirlemek, bilgi veya belge alışverişini, hızlı ve güvenli bir biçimde yürütmek ve uygulama birliğini sağlamaktır.
+(2) Bu Yönetmelik, bütün kamu kurum ve kuruluşlarını kapsar.
+
+MADDE 2- (1) Bu Yönetmelik, 1 sayılı Cumhurbaşkanlığı Teşkilatı Hakkında Cumhurbaşkanlığı Kararnamesinin 6 ncı ve 7 nci maddeleri hükümlerine dayanılarak hazırlanmıştır.
+
+MADDE 3- (1) Bu Yönetmelikte geçen;
+a) Aidiyet zinciri: Belgenin hazırlanmasından tasfiyesine kadar olan sürecini,
+b) Arşiv imza: Kriptografik metodların zaman içerisinde koruyucu özelliğini yitirmesine karşı, periyodik olarak alınan zaman damgası ile korunan elektronik imzayı,
+c) Belge: Herhangi bir bireysel işlemin, kurumsal fonksiyonun veya kurumsal işlemin yerine getirilmesi için üretilmiş ya da idare tarafından hazırlanmış; içerik, ilişki ve formatı ile ait olduğu fonksiyon veya işlem için delil teşkil ederek aidiyet zincirini muhafaza eden, güvenli elektronik imza ya da el yazısıyla imzalanmış ve kayıt altına alınmış her türlü bilgiyi,
+ç) Devlet Teşkilatı Merkezi Kayıt Sistemi (DETSİS): Dijital Dönüşüm Ofisi Başkanlığı tarafından yürütülen kurumsal fonksiyonun veya idarelerin merkez, taşra ve yurt dışı teşkilatındaki birimlerin Türkiye Cumhuriyeti Devlet Teşkilatı Numarası ile tanımlandığı sistemi,
+d) Elektronik Belge Yönetim Sistemi (EBYS): İdarelerin faaliyetlerini yerine getirirken hazırladıkları ve faaliyetlerinin delili olabilecek belgelerin içerik, üstveri ve ilişkisel özelliklerini koruyan, belgelerin ait olduğu fonksiyon veya işlem için delil teşkil eden ve aidiyet zinciri içerisindeki yönetimini elektronik ortamda sağlayan sistemi,
+e) Elektronik onay: Güvenli elektronik imza kullanılmayan durumlarda paraf yerine geçecek kaydın elektronik ortamda alınmasını,
+f) Elektronik ortam: EBYS içerisinde e-Yazışma Teknik Rehberi'ne uygun olarak güvenli elektronik imza ile imzalanmış belgelerin hazırlandığı, kayıt altına alındığı, saklandığı ve gönderildiği ortamı,
+g) e-Yazışma Teknik Rehberi: Elektronik ortamda yapılacak resmî yazışmalar kapsamında oluşturulan belgelerin yapısı, formatı, imzalama ve şifreleme mekanizmaları gibi teknik hususları tanımlayan ve Dijital Dönüşüm Ofisi Başkanlığı tarafından yayımlanan güncel rehberi,
+ğ) Fiziksel ortam: Kâğıt ortamında yapılan işlemleri,
+h) Form: Biçimli belgeyi,
+ı) Format: Elektronik dosya türlerini,
+i) Günlük rapor: EBYS'de yapılan ekleme, değiştirme, silme, arama, görüntüleme, gönderme ve alma gibi işlemlerin hangi EBYS elemanı üzerinde ve kim tarafından gerçekleştirildiği ile işlemin gerçekleştirildiği tarih ve saat bilgisini ihtiva eden kayıtları,
+j) Güvenli elektronik imza: Münhasıran imza sahibine bağlı olan, sadece imza sahibinin tasarrufunda bulunan güvenli elektronik imza oluşturma aracı ile oluşturulan, nitelikli elektronik sertifikaya dayanarak imza sahibinin kimliğinin ve imzalanmış elektronik veride sonradan herhangi bir değişiklik yapılıp yapılmadığının tespitini sağlayan elektronik imzayı,
+k) İdare: Kamu kurum ve kuruluşlarını,
+l) İmza sahibi: Güvenli elektronik imza oluşturma aracını kullanan veya zorunlu hâllerde hazırlanan belgeyi el yazısıyla imzalayan gerçek kişiyi,
+m) Kurumsal belge kayıt sistemi: Mevzuatı sebebiyle EBYS kullanamayan idare tarafından ya da "Çok Gizli" nitelikteki belgeler ile olağanüstü durumlarda hazırlanan belgelere sayı almak için kullanılan defter ve benzeri fiziksel veya EBYS harici tutulan elektronik kaydı,
+n) Olağanüstü durum: Gerçekleşmesi hâlinde devleti veya kurumları olumsuz etkileyecek veya uzun süreli elektrik kesintileri, donanım ve yazılım sorunları gibi teknik gerekçelerle EBYS'nin uzun süreli olarak çalışmamasından dolayı belgenin fiziksel ortamda hazırlanması gereken durumları,
+o) Resmî yazışma: İdarelerin kendi içlerinde, birbirleriyle veya gerçek ya da tüzel kişiler ile iletişim sağlamak amacıyla güvenli elektronik imza kullanılarak elektronik ortamda ve zorunlu hâllerde veya olağanüstü durumlarda el yazısıyla atılan imza ile fiziksel ortamda yürüttükleri süreci,
+ö) Standart dosya planı: Kurumsal işlemler ve bu işlemler sonucunda oluşturulan veya alınan belgelerin üretim yerleri ile olan ilişkisi belirtilerek konu veya fonksiyon esasına göre dosyalanmasını sağlamak amacıyla geliştirilen ve Devlet Arşivleri Başkanlığı tarafından yayımlanan sınıflama şemasını,
+p) Üstveri: Bir belgeyi tanımlayan gönderici, konu, tarih, sayı ve benzeri tüm bilgileri,
+r) Üst yazı: Belgenin, varsa ek veya ekleri hariç kısmını,
+s) Yetkili makam: Mevzuatta belirtilen görevleri yerine getirme hususunda yürütme ve karar verme yetkisine sahip görevlileri,
+ş) Zaman damgası: Bir elektronik verinin üretildiği, değiştirildiği, gönderildiği, alındığı ve/veya kaydedildiği zamanın tespit edilmesi amacıyla elektronik sertifika hizmet sağlayıcısı tarafından güvenli elektronik imza ile doğrulanan zaman kaydını,
+t) Zorunlu hâl: İlgili mevzuattaki özel hükümlere göre belgenin fiziksel ortamda hazırlanması gereken hâlleri,
+ifade eder.
+
+İKİNCİ BÖLÜM
+Belgenin Özellikleri
+
+MADDE 4- (1) Kamu kurum ve kuruluşlarınca resmî yazışmalar, elektronik ortamda e-Yazışma Teknik Rehberi'ne uygun olarak hazırlanan ve güvenli elektronik imza ile imzalanan belgelerle yapılır. Bu belgeler, elektronik ortamda muhatapları ile paylaşılır ve elektronik ortamda saklanır. Ayrıca güvenli elektronik imza ile paylaşılır ve elektronik ortamda saklanır. Ayrıca güvenli elektronik imza ile imzalanan belgeler, çıktısı alınarak el yazısıyla atılan imza ile imzalanmaz ve fiziksel ortamda saklanmaz.
+(2) Zorunlu hâllerde veya olağanüstü durumlarda resmî yazışmalar, el yazısıyla imzalanan belgelerle yapılır. Bu belgelerin gönderilmesi ve saklanması fiziksel ortam şartlarına göre gerçekleştirilir.
+
+MADDE 5- (1) Elektronik ortamda güvenli elektronik imza ile imzalanan belgeler tek nüsha olarak hazırlanır.
+(2) Zorunlu hâllerde veya olağanüstü durumlarda hazırlanacak belgeler, paraflı nüshası hazırlayan idarede kalacak şekilde en az iki nüsha olarak düzenlenir.
+
+MADDE 6- (1) Belgeler, A4 (210x297 mm) boyutu dikkate alınarak hazırlanır.
+(2) Belge ekleri farklı form, format veya ebatlarda hazırlanabilir.
+(3) Zorunlu hâllerde veya olağanüstü durumlarda hazırlanacak belgelerin üst yazıları için kâğıdın bir yüzü kullanılır. Ancak üst yazının ekleri için kâğıdın her iki yüzü de kullanılabilir.
+
+MADDE 7- (1) Hazırlanan belgelerde "Times New Roman" veya "Arial" yazı tipi normal yazı stilinde kullanılır. Harf büyüklüğünün Times New Roman için 12 punto, Arial için 11 punto olması esastır. Ancak gerekli hâllerde yazı alanında harf büyüklüğü 9 puntoya, iletişim bilgileri kısmında ise 8 puntoya kadar düşürülebilir. Belge eklerinde farklı yazı tipi ve harf büyüklüğü kullanılabilir.
+
+ÜÇÜNCÜ BÖLÜM
+Belgenin Bölümleri
+
+MADDE 8- (1) Belgenin yazı alanı sayfanın üst, sol ve sağ kenarından 1,5 cm boşluk bırakılarak düzenlenir. İdare, logo kullanmak istediğinde sayfanın üst boşluğu 0,5 cm olarak düzenlenir.
+
+MADDE 9- (1) İdareler, tercihen kurumsal logo kullanabilir. Logo, tek kullanıldığında belgenin en üst orta kısmında "T.C." ibaresini ortalayacak şekilde veya "Başlık" alanını ortalayacak şekilde belgenin üst sol kısmında yer alır. Belge üzerinde iki ayrı logo kullanıldığında ise "Başlık" alanını ortalayacak şekilde hiyerarşi yönünden üst olan idareye ait logo solda, alt olan idareye ait logo sağda kullanılır. Belge üzerinde en fazla iki logo kullanılabilir.
+
+MADDE 10- (1) Başlık (antet), belgeyi gönderen idarenin adının belirtildiği bölümdür.
+(2) Başlık, belgenin yazı alanının üst kısmına ortalanarak yazılır. İlk satıra "T.C." kısaltması, ikinci satıra idarenin adı büyük harflerle, üçüncü satıra birimin adı ilk harfleri büyük diğerleri küçük harflerle ortalanarak yazılır. Ancak bağlı veya ilgili idarelerde ilk satıra bağlı olunan idarenin adı büyük harflerle, üçüncü satıra idarenin adı ilk harfi büyük diğerleri küçük harflerle ve dördüncü satıra da birimin adı ilk harfi büyük diğerleri küçük harflerle ortalanarak yazılabilir.
+(3) İdarelerin il ve ilçe teşkilatlarında kullanılan başlıklar, 10/6/1949 tarihli ve 5442 sayılı İl İdaresi Kanunu hükümlerine uygun olarak, ilk satıra "T.C." kısaltması, ikinci satıra bağlı olunan mülki idarenin adı büyük harflerle, üçüncü satıra ilgili birimin adı ilk harfi büyük diğerleri küçük harflerle yazılır. Dış temsilciliklerde başlıklar, il ve ilçe teşkilatında olduğu gibi yazılır.
+(4) Bölge müdürlüklerinde hangi bölge teşkilatı olduğu yazılır.
+(5) Doğrudan merkezî teşkilata bağlı taşra birimlerinde, başlıkta merkezî teşkilat ve taşra teşkilatı adlarına yer verilir.
+(6) Başlığın yazımında DETSİS'te yer alan başlık kayıtları esas alınır.
+
+MADDE 11- (1) Belgelerde sayı bulunması zorunludur. "Sayı:" ibaresi sırasıyla; belgenin hazırlanma sürecini ifade eden elektronik ortam için "E", zorunlu hâller için "Z" veya olağanüstü durumlar için "O" ibarelerinden uygun olanı, DETSİS'te belirtilen Türkiye Cumhuriyeti Devlet Teşkilatı Numarası, standart dosya planı kodu ile kayıt numarasından oluşur ve bunların arasına kısa çizgi işareti (-) konulur.
+(2) "Sayı:" yan başlığı, başlığın son satırından itibaren iki satır boşluk bırakılarak ve yazı alanının solundan başlanarak yazılır. Kayıt numarası, belge hazırlanırken EBYS üzerinden alınır ve belge üzerinde gösterilir. Zorunlu hâllerde hazırlanan belgenin kayıt numarası, el yazısıyla imzalandıktan sonra EBYS veya kurumsal belge kayıt sistemi üzerinden alınır.
+(3) Olağanüstü durumlarda belge, fiziksel ortam esaslarına uygun olarak hazırlanır ve belgeye yetkili birim tarafından kurumsal belge kayıt sisteminden kayıt numarası alınır. EBYS'ye erişim sağlandığında ise belge ve üstveri bilgileri EBYS'ye kaydedilir.
+
+MADDE 12- (1) Tarih; sayı ile aynı satırda olmak üzere yazı alanının en sağında gün, ay, yıl olarak rakamla ve aralarına nokta işareti "." konularak yazılır. Gün ve ay iki haneli, yıl ise dört haneli olarak düzenlenir. Ay adları, harfle de yazılabilir.
+(2) Belgenin en son yetkili tarafından güvenli elektronik imza ile imzalandığı zamanı gösteren zaman damgasındaki tarih bilgisi, belge tarihi olarak esas alınır ve tarih bilgisi üstveri alanında yer alır.
+(3) Zorunlu hâllerde veya olağanüstü durumlarda hazırlanan belgede tarih, belgenin imzalandığı zamanı belirtir ve belge imzalandığı tarihte kayıt altına alınır.
+(4) Tutanak, rapor, tebliğ-tebellüğ belgesi ve benzeri belgelerde tarih, metnin bitiminde yer alabilir.
+
+MADDE 13- (1) "Konu:" yan başlığı, "Sayı:" yan başlığının bir alt satırına yazılır. Belgenin konusu, yazı alanının dikey orta hizasına kelimelerin baş harfleri büyük olarak sonuna herhangi bir noktalama işareti konulmaksızın yazılır. Konu, bir satırı geçerse ikinci ve devamındaki satırlar "Konu:" yan başlığının altı boş bırakılarak yazılır.
+(2) Konu, belgenin içeriği hakkında kısa ve öz bilgi barındırır.
+
+MADDE 14- (1) Muhatap, belgenin gönderildiği idareyi veya kişiyi belirtir. Bu bölüm konunun son satırından itibaren, iki satır boşluk bırakılarak ve sayfa ortalanarak yazılır.
+(2) Muhatabın idare veya özel hukuk tüzel kişisi olması durumunda, adı büyük harflerle ve sonuna yönelme hâli eklerinin uygun olanı getirilerek yazılır. Muhatap idarenin adının yazımında DETSİS'te yer alan kayıtlar esas alınır.
+(3) İdare dışına gönderilen belgelerde, gerekiyorsa belgenin gideceği yerin adresi, muhatap satırının altına, satır ortalanarak ilk harfleri büyük diğerleri küçük harflerle yazılır.
+(4) Bağlı, ilgili veya ilişkili idarelere gönderilecek belgeler doğrudan o idareye gönderilebilir. Ancak idarenin bağlı veya ilgili olduğu idarenin bilgi sahibi olmasının gerekli görüldüğü durumlarda belge, söz konusu bağlı veya ilgili olunan idare aracılığıyla gönderilir.
+
+MADDE 15- (1) İlgi, belgenin bağlantılı olduğu diğer belge veya belgelerin belirtildiği bölümdür.
+(2) "İlgi:" yan başlığı, muhatap bölümünün son satırından itibaren iki satır boşluk bırakılarak ve yazı alanının solundan başlanarak yazılır.
+(3) İlginin birden fazla olması durumunda, belgeler önceki tarihli olandan başlanarak tarih sırasına göre sıralanır.
+(4) İlgide, ilgi tutulan belgeyi gönderen idarenin adı ile belgenin tarihi ve sayısı belirtilir.
+(7) İlgide, "… tarihli ve … sayılı …" ibaresi kullanılır ve ilginin sonuna nokta (.) işareti konulur.
+
+MADDE 16- (1) Metin alanı, "Muhatap" veya varsa "İlgi" ile "İmza" arasındaki kısımdır.
+(2) "İlgi" ile metin başlangıcı arasında bir satır, "İlgi" yoksa belgenin muhatabı ile metin başlangıcı arasında iki satır boşluk bulunur.
+(3) Metindeki kelime aralarında ve noktalama işaretlerinden sonra bir karakter boşluk bırakılır. Noktalama işaretleri kendinden önce gelen harfe bitişik yazılır.
+(4) Paragrafa 1,25 cm içeriden başlanır ve metin iki yana hizalanır. Paragraflar arasında satır boşluğu bırakılmaz.
+(6) Metin içinde geçen sayılar, rakamla veya harfle yazılabilir.
+(9) Metin içinde yer alan alıntılar tırnak içinde ve/veya eğik (italik) olarak yazılabilir.
+(11) Metin içinde kısaltma kullanılacak ise ifadenin ilk kullanıldığı yerde açık biçimi, sonra parantez içinde kısaltılmış biçimi yazılır (Örnek: Türkiye Büyük Millet Meclisi (TBMM), Kayıtlı Elektronik Posta (KEP)).
+(12) Metnin son bölümü:
+a) Yazışma yapan makamlar arasındaki hiyerarşi yönünden alt makamlara "… rica ederim.", üst ve aynı düzeydeki makamlara "… arz ederim." ibaresiyle bitirilir.
+b) Üst, aynı düzey ve alt makamlara birlikte dağıtımlı olarak yapılan yazışmalar "… arz ve rica ederim." veya "… arz/rica ederim." ibaresiyle bitirilir.
+
+MADDE 17- (1) Metnin bitiminden itibaren iki ilâ dört satır boşluk bırakılarak, belgeyi imzalayacak olan makam sahibinin adına, soyadına ve bunların altında unvanına, yazı alanının en sağında ortalanarak yer verilir.
+(2) Belgeyi imzalayanın adı ilk harfi büyük diğerleri küçük, soyadı ise büyük harflerle yazılır. Unvan, ad ve soyadın altına ilk harfleri büyük diğerleri küçük harflerle yazılır.
+(3) Elektronik ortamda yapılacak resmî yazışmalarda, imza atmaya yetkili makam belgeyi güvenli elektronik imza ile imzalar.
+
+MADDE 18- (1) Belgede ek olması hâlinde "Ek:" başlığı imza bölümünden sonra uygun satır boşluğu bırakılarak ve yazı alanının solundan başlanarak yazılır.
+(2) Belgenin sadece bir eki olması durumunda "Ek:" başlığının sağında eki belirtecek ibareye yer verilir. Belgede birden fazla ek varsa "Ek:" başlığının altında ekler numaralandırılır ve ekleri belirtecek ibarelere yer verilir.
+
+MADDE 19- (1) Belgenin birden fazla muhataba gönderilmesi durumunda dağıtım bölümüne yer verilir. "Dağıtım:" başlığı ek varsa "Ek:" bölümünden sonra, ek yoksa imza bölümünden sonra uygun satır boşluğu bırakılarak yazı alanının solundan başlanarak yazılır.
+(2) Belgenin gereğini yerine getirme durumunda olanlar "Gereği:" kısmına, belgenin içeriği hakkında bilgi sahibi olması istenenler ise "Bilgi:" kısmına yazılır.
+
+MADDE 20- (1) Makam oluru alınan belgeler, ilgili birimin yöneticisi tarafından güvenli elektronik imza ile teklif edilir ve oluru alınan makam tarafından güvenli elektronik imza ile imzalanır. Zorunlu hâllerde veya olağanüstü durumlarda ise olur yazısıyla atılır.
+
+MADDE 21- (1) Paraf bölümünde tarih, unvan, ad ve soyad bilgileri kısaltma kullanılmadan ast-üst ilişkisine uygun olarak belirtilir.
+
+MADDE 22- (1) İdare içinde birden fazla birimin iş birliği ile hazırlanan ve yetkili makamın imzasına sunulan belgelerde, belgeyi hazırlayan birime ait paraf hiyerarşisinden sonra "Koordinasyon" seçimi yapılır ve iş birliğine dâhil olan ilgililerin unvanları, adları ve soyadları belirtilir.
+
+MADDE 23- (1) Elektronik ortamda güvenli elektronik imza ile imzalanan belgelerde, "İletişim bilgileri" alanının üst sınırını belirleyen çizginin üzerinde iki satırlık alanın ilk satırında "Bu belge, güvenli elektronik imza ile imzalanmıştır." ibaresi bulunur.
+
+MADDE 24- (1) İletişim bilgileri; solda belgeyi gönderen idarenin adresini, posta kodunu, telefonunu, faks numarasını, e-posta adresini, kayıtlı elektronik posta (KEP) adresini ve internet adresini; sağda bilgi alınacak kişinin adını, soyadını, unvanını ve telefon numarasını içerecek şekilde sayfa sonuna yazılır ve çizgi ile ayrılır.
+
+MADDE 25- (1) "Hizmete Özel" gizlilik derecesi bulunan belgelerin hazırlanması, kaydedilmesi, saklanması, gönderilmesi, alınması ve diğer işlemleri elektronik ortamda gerçekleştirilir.
+(2) "Özel" ve üstü gizlilik dereceli belgelerin hazırlanması, kaydedilmesi, saklanması, alınması ve diğer işlemler ilgili mevzuatta belirtilen hükümlere uygun fiziksel ortamda gerçekleştirilir.
+
+MADDE 26- (1) Güvenli elektronik imza ile imzalanan süreli belgelerde "ACELE" veya "GÜNLÜDÜR" ibaresine üstveride ve üst yazı üzerinde yer verilir.
+(2) "ACELE" ibaresi taşıyan belgeye derhâl ve süratle; "GÜNLÜDÜR" ibaresi taşıyan belgeye belirtilen süre içinde cevap verilir.
+(4) "KİŞİYE ÖZEL" ibaresi, belgenin ilgilisine teslim edilmesini ve sonrasında yürütülecek süreci ifade eder.
+
+MADDE 27- (1) Birden fazla sayfa tutan belgelere sayfa numarası verilir. Sayfa numarası, iletişim bilgilerinin altında ve sayfanın ortasında, toplam sayfa sayısının kaçıncısı olduğunu gösterecek şekilde belirtilir.
+
+MADDE 28- (1) Güvenli elektronik imza ile imzalanan belgelerde asgari olarak e-Yazışma Teknik Rehberi'nde belirtilen üstveri elemanları kullanılır.
+
+DÖRDÜNCÜ BÖLÜM
+Belgenin Çoğaltılması, Gönderilmesi, Alınması ve İade Edilmesi
+
+MADDE 29- (1) Güvenli elektronik imza ile imzalanan belgenin çoğaltılması, yetkilendirilmiş görevliler tarafından çıktı alınarak gerçekleştirilir.
+
+MADDE 30- (1) Güvenli elektronik imza ile imzalanan belgelerin gönderilmesi ve alınması işlemlerinin, elektronik ortamda ilgili mevzuatla yetki verilmiş üçüncü taraf aracılığıyla kayıt altına alınması esastır.
+(3) İdare, resmî yazışma kapsamında kendisine iletilen ve e-Yazışma Teknik Rehberi'ne uygun şekilde hazırlanmış belgeleri işleme koymakla yükümlüdür.
+(4) İdare, başka bir idareden kendisine resmî yazışma kapsamında iletilen ve e-Yazışma Teknik Rehberi'nde tanımlanan kurallara uygun şekilde hazırlanmamış bir belgeyi reddetme hakkına sahiptir. Bu durumda, kendisine iletilen belgeyi reddeden idare, gönderen idareye bu durumu sebepleriyle birlikte belgenin kendisine ulaştığı tarihi takip eden ikinci iş gününün sonuna kadar bildirir.
+
+MADDE 31- (1) Muhatabına elektronik olarak iletiminin mümkün olmadığı durumlarda, yetkilendirilmiş görevliler tarafından çıktısı alınan güvenli elektronik imzalı belge, elektronik ortamdaki aslına erişim amacı ile fiziksel ortamda gönderilir.
+(7) Kişiler tarafından idareye yazılan dilekçelerin; "… arz ederim." şeklinde bitirilmemesi veya "… rica ederim." ibaresiyle ya da başka ibarelerle bitirilmesi dilekçenin işleme alınmasına engel değildir.
+
+MADDE 32- (1) İdareye muhatabı olmadığı hâlde elektronik ortamda güvenli elektronik imzalı bir belge gelmesi durumunda, belgenin muhatabı olunmadığı bilgisi ve söz konusu belgeye ilişkin tanımlayıcı bilgiler, gönderene elektronik ortamda iletilir.
+
+BEŞİNCİ BÖLÜM
+Çeşitli ve Son Hükümler
+
+MADDE 33- (1) İdare içi ve idare dışı görüş, bilgi ve belge talep yazıları günlüdür. İdareler, ilgili mevzuattaki özel hükümler saklı kalmak kaydıyla süre belirtilmeyen belge taleplerini, talebin kendilerine ulaşmasından itibaren en geç beş iş günü; süre belirtilmeyen bilgi ve görüş taleplerini ise talebin kendilerine ulaşmasından itibaren en geç on beş iş günü içinde yerine getirir.
+
+MADDE 34- (1) Belgeye süresi içinde cevap verilmemesi durumunda muhataba tekit yazısı yazılabilir.
+
+MADDE 35- (1) Bu Yönetmeliğe uygun olarak yazılmayan belgelere verilecek cevabî yazılarda, bu Yönetmeliğin ilgili maddeleri belirtilmek suretiyle muhatap uyarılabilir. Söz konusu durumun devam etmesi hâlinde, süreli belgeler hariç müteakip belgeler gerekçesi belirtilerek iade edilir.
+
+MADDE 36- (1) Cumhurbaşkanlığı İdari İşler Başkanlığınca, bu Yönetmeliğin uygulama birliğinin sağlanması ve idari işleyişin verimli yürütülebilmesi amacıyla "Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik Kılavuzu" hazırlanır ve duyurulur.
+(2) İdareler, resmî yazışmalarla ilgili olarak bu Yönetmeliğe aykırı olmamak kaydıyla ek düzenleme yapabilir.
+
+MADDE 37- (1) 15/12/2014 tarihli ve 2014/7074 sayılı Bakanlar Kurulu Kararı ile yürürlüğe konulan Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik yürürlükten kaldırılmıştır.
+(2) Diğer mevzuatta, birinci fıkrada belirtilen mülga yönetmeliğe yapılan atıflar bu Yönetmeliğe yapılmış sayılır.
+
+GEÇİCİ MADDE 1- (1) Bu Yönetmeliğin yürürlüğe girdiği tarihten önce kurulan EBYS'ler, idarelerce altı ay içinde bu Yönetmelik hükümlerine uyumlu hâle getirilir. Bu Yönetmeliğin yürürlüğe girdiği tarihten sonra kurulacak olan EBYS'ler, bu Yönetmelik hükümlerine uyumlu şekilde kurulur.
+(2) 30 uncu maddenin birinci fıkrasında belirtilen güvenli elektronik imza ile imzalanan belgelerin, elektronik ortamda gönderilmesi ve alınması işlemlerini sağlamak amacıyla yetki verilmiş üçüncü taraf aracılığıyla oluşturulacak kullanıcı hesaplarını temin etmeyen idareler, bu Yönetmeliğin yürürlüğe girdiği tarihten itibaren üç ay içinde kullanıcı hesaplarını temin ederek DETSİS'e kaydeder ve faal olarak kullanımını sağlar.
+
+MADDE 38- (1) Bu Yönetmelik yayımını takip eden ayın birinci günü yürürlüğe girer.
+
+MADDE 39- (1) Bu Yönetmelik hükümlerini Cumhurbaşkanı yürütür.

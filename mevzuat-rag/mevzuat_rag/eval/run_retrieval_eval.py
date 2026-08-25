@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 
 from mevzuat_rag.engine import RAGEngine
-from mevzuat_rag.eval.retrieval_metrics import mrr, recall_at_k
+from mevzuat_rag.eval.retrieval_metrics import mrr, precision_at_k, recall_at_k
 
 GOLDEN_SET_PATH = Path(__file__).parent / "golden_set.jsonl"
 K_VALUES = (1, 3, 5)
@@ -61,6 +61,7 @@ def run(engine: RAGEngine | None = None) -> dict:
         else:
             for k in K_VALUES:
                 row[f"recall@{k}"] = round(recall_at_k(retrieved, relevant, k), 3)
+                row[f"precision@{k}"] = round(precision_at_k(retrieved, relevant, k), 3)
             row["mrr"] = round(mrr(retrieved, relevant), 3)
         per_case.append(row)
 
@@ -72,6 +73,7 @@ def run(engine: RAGEngine | None = None) -> dict:
     if positive_cases:
         np_ = len(positive_cases)
         summary.update({f"recall@{k}": round(sum(r[f"recall@{k}"] for r in positive_cases) / np_, 3) for k in K_VALUES})
+        summary.update({f"precision@{k}": round(sum(r[f"precision@{k}"] for r in positive_cases) / np_, 3) for k in K_VALUES})
         summary["mrr"] = round(sum(r["mrr"] for r in positive_cases) / np_, 3)
     if refuse_cases:
         summary["refuse_accuracy"] = round(sum(r["refused_correctly"] for r in refuse_cases) / len(refuse_cases), 3)

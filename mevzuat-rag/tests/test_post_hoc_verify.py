@@ -1,8 +1,7 @@
-"""[8] Post-hoc Atıf Doğrulama testleri.
+"""[8] Hakem Ajan (Critic Agent) testleri.
 
 Yapısal kontrol testleri gerçek/LLM'siz (her zaman doğru sonuç verir).
-LLM tabanlı kanıt kontrolü mock'lu — bu oturumda çalışan bir DeepSeek key'i
-yoktu, bkz. post_hoc_verify.py'nin başındaki not.
+LLM tabanlı Hakem Ajan kontrolü mock'lu.
 """
 from __future__ import annotations
 
@@ -10,7 +9,13 @@ import json
 from unittest.mock import MagicMock, patch
 
 from mevzuat_rag.pipeline.context import PipelineContext
-from mevzuat_rag.pipeline.stages.post_hoc_verify import REFUSAL_TEXT, PostHocVerifyStage, _structural_check
+from mevzuat_rag.pipeline.stages.post_hoc_verify import (
+    HAKEM_BLOCKED_TEXT,
+    REFUSAL_TEXT,
+    PostHocVerifyStage,
+    _structural_check,
+    verify_answer,
+)
 
 
 def _fake_response(content: str) -> MagicMock:
@@ -50,16 +55,16 @@ def test_stage_rejects_out_of_range_citation_without_calling_llm():
         result = PostHocVerifyStage(enabled=True).run(ctx)
         mock_get_client.assert_not_called()  # yapısal hata varken LLM çağrısı gereksiz maliyet
 
-    assert result.answer["answer"] == REFUSAL_TEXT
+    assert result.answer["answer"] == HAKEM_BLOCKED_TEXT
     assert result.answer["citations"] == []
     assert result.answer["post_hoc_verdict"] == "STRUCTURAL_FAIL"
 
 
 @patch("mevzuat_rag.pipeline.stages.post_hoc_verify.get_client")
-def test_stage_keeps_answer_on_supported_verdict(mock_get_client):
+def test_stage_keeps_answer_on_valid_verdict(mock_get_client):
     fake_client = MagicMock()
     fake_client.chat.completions.create.return_value = _fake_response(
-        json.dumps({"verdict": "SUPPORTED", "reason": "kaynakla uyumlu"})
+        json.dumps({"is_valid": True, "reason": "kaynakla uyumlu"})
     )
     mock_get_client.return_value = fake_client
 
@@ -67,23 +72,24 @@ def test_stage_keeps_answer_on_supported_verdict(mock_get_client):
     result = PostHocVerifyStage(enabled=True).run(ctx)
 
     assert result.answer["answer"] == "Cevap [1]'e göre doğrudur."
-    assert result.answer["post_hoc_verdict"] == "SUPPORTED"
+    assert result.answer["post_hoc_verdict"] == "VALID"
 
 
 @patch("mevzuat_rag.pipeline.stages.post_hoc_verify.get_client")
-def test_stage_refuses_answer_on_unsupported_verdict(mock_get_client):
+def test_stage_blocks_answer_on_invalid_verdict(mock_get_client):
     fake_client = MagicMock()
     fake_client.chat.completions.create.return_value = _fake_response(
-        json.dumps({"verdict": "UNSUPPORTED", "reason": "kaynakta bu iddia yok"})
+        json.dumps({"is_valid": False, "reason": "kaynakta bu iddia yok — uydurma süre"})
     )
     mock_get_client.return_value = fake_client
 
     ctx = _make_ctx("Cevap [1]'e göre kesinlikle doğrudur.", n_sources=1)
     result = PostHocVerifyStage(enabled=True).run(ctx)
 
-    assert result.answer["answer"] == REFUSAL_TEXT
+    assert result.answer["answer"] == HAKEM_BLOCKED_TEXT
     assert result.answer["citations"] == []
-    assert result.answer["post_hoc_verdict"] == "UNSUPPORTED"
+    assert result.answer["post_hoc_verdict"] == "REJECTED_BY_CRITIC"
+    assert "uydurma" in result.answer["post_hoc_reason"]
 
 
 @patch("mevzuat_rag.pipeline.stages.post_hoc_verify.get_client")
@@ -119,6 +125,14 @@ def test_already_refused_answer_is_not_reverified():
     assert result.answer["answer"] == REFUSAL_TEXT
 
 
+def test_already_blocked_answer_is_not_reverified():
+    ctx = _make_ctx(HAKEM_BLOCKED_TEXT, n_sources=0)
+    with patch("mevzuat_rag.pipeline.stages.post_hoc_verify.get_client") as mock_get_client:
+        result = PostHocVerifyStage(enabled=True).run(ctx)
+        mock_get_client.assert_not_called()
+    assert result.answer["answer"] == HAKEM_BLOCKED_TEXT
+
+
 def test_disabled_stage_does_not_run():
     ctx = _make_ctx("Cevap [1] ve [99]'a göre doğrudur.", n_sources=1)
     stage = PostHocVerifyStage(enabled=False)
@@ -126,3 +140,20 @@ def test_disabled_stage_does_not_run():
     # Pipeline runner devre dışı stage'i hiç çağırmaz (bkz. runner.py) —
     # burada doğrudan .run() çağırmıyoruz, yalnızca enabled=False'ın
     # kaydedildiğini doğruluyoruz.
+
+
+@patch("mevzuat_rag.pipeline.stages.post_hoc_verify.get_client")
+def test_verify_answer_function_directly(mock_get_client):
+    """verify_answer() pipeline dışında da doğrudan çağrılabilir (Hakem
+    Ajan'ı elle test etmek için, bkz. scripts/test_hakem_agent.py)."""
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = _fake_response(
+        json.dumps({"is_valid": False, "reason": "cevaptaki 90 günlük süre kaynakta yok"})
+    )
+    mock_get_client.return_value = fake_client
+
+    result = verify_answer(
+        "Başvurular 90 gün içinde sonuçlandırılır [1].",
+        [{"citation": "3071 sayılı Kanun, Madde 8", "text": "Kurul, gönderilen dilekçeleri en geç altmış gün içinde cevaplandırır."}],
+    )
+    assert result == {"is_valid": False, "reason": "cevaptaki 90 günlük süre kaynakta yok"}

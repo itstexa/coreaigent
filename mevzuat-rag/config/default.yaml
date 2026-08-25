@@ -120,10 +120,11 @@ citation_expansion:         # [9] Atıf Genişletme (GraphRAG-lite) — regex ta
   token_budget_fraction: 0.6
   context_window_tokens: 8000
 
-post_hoc_verify:             # [8] Post-hoc Atıf Doğrulama — [7] Generate'ten sonra çalışır
-  enabled: false              # 2026-08-22: yapısal [N]-indeks kontrolü LLM'siz gerçek testlerle doğrulandı; LLM tabanlı
-                              # kanıt kontrolü yalnızca mock'lu testlerle doğrulandı, gerçek DeepSeek key'i yoktu. Aynı
-                              # gerekçeyle varsayılan kapalı — bkz. citation_expansion.
+post_hoc_verify:             # [8] Hakem Ajan (Critic Agent) — [7] Generate'ten sonra, cevap kullanıcıya
+                              # gösterilmeden önce çalışır (bkz. pipeline/stages/post_hoc_verify.py:verify_answer)
+  enabled: true               # 2026-08-26: geçerli DEEPSEEK_API_KEY ile uçtan uca doğrulandı (scripts/demo_hakem_agent.py
+                              # + canlı CLI testleri, bkz. rapor) — hem yapısal [N]-indeks kontrolü hem LLM tabanlı
+                              # Hakem Ajan kararı gerçek anahtarla çalışır durumda.
   llm_check: true             # false ise yalnızca ücretsiz yapısal kontrol çalışır, LLM çağrısı yapılmaz
   model: deepseek-chat
 

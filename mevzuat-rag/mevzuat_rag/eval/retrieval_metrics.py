@@ -14,3 +14,11 @@ def mrr(retrieved_ids: list[str], relevant_ids: set[str]) -> float:
         if chunk_id in relevant_ids:
             return 1.0 / rank
     return 0.0
+
+
+def precision_at_k(retrieved_ids: list[str], relevant_ids: set[str], k: int) -> float:
+    """K adet getirilen doküman içindeki doğru doküman sayısı / K."""
+    if k <= 0:
+        return 0.0
+    top_k = set(retrieved_ids[:k])
+    return len(top_k & relevant_ids) / k

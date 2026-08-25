@@ -5,9 +5,24 @@
 {"query": "Hangi dilekçeler incelenemez?", "expected": [{"kanun_no": "3071", "madde_no": 6}]}
 {"query": "Başvurunun sonucu vatandaşa kaç gün içinde bildirilir?", "expected": [{"kanun_no": "3071", "madde_no": 7}]}
 {"query": "Yabancılar dilekçe hakkından hangi şartlarla yararlanabilir?", "expected": [{"kanun_no": "3071", "madde_no": 3}]}
-{"query": "Resmi yazışmalarda kullanılacak kağıt boyutu nedir?", "expected": [{"kanun_no": "2646", "madde_no": 5}]}
-{"query": "Üst yazının ekleri farklı ebatlarda hazırlanabilir mi?", "expected": [{"kanun_no": "2646", "madde_no": 5}]}
+{"query": "Resmi yazışmalarda kullanılacak kağıt boyutu nedir?", "expected": [{"kanun_no": "2646", "madde_no": 6}]}
+{"query": "Üst yazının ekleri farklı ebatlarda hazırlanabilir mi?", "expected": [{"kanun_no": "2646", "madde_no": 6}]}
+{"query": "Elektronik ortamda resmî yazışmalarda belgeyi kim ve nasıl imzalar?", "expected": [{"kanun_no": "2646", "madde_no": 17}]}
 {"query": "Türkiye'nin başkenti neresidir?", "expected": [], "must_refuse": true}
-{"query": "Elektronik ortamda güvenli elektronik imza nasıl atılır, hangi sertifika gerekir?", "expected": [], "must_refuse": true}
 {"query": "En iyi Türk yemeği nedir?", "expected": [], "must_refuse": true}
 {"query": "Bugün hava nasıl?", "expected": [], "must_refuse": true}
+{"query": "Özel nitelikli kişisel veriler hangi hâllerde açık rıza aranmaksızın işlenebilir?", "expected": [{"kanun_no": "6698", "madde_no": 6}]}
+{"query": "Kişisel verilerin yurt dışına aktarılması için hangi şartlar aranır?", "expected": [{"kanun_no": "6698", "madde_no": 9}]}
+{"query": "Veri sorumlusu başvuruda yer alan talepleri en geç kaç gün içinde sonuçlandırır?", "expected": [{"kanun_no": "6698", "madde_no": 13}]}
+{"query": "İlgili kişi veri sorumlusunun cevabını yetersiz bulursa Kurula ne zaman şikâyette bulunabilir?", "expected": [{"kanun_no": "6698", "madde_no": 14}]}
+{"query": "Veri güvenliğine ilişkin yükümlülüklerini yerine getirmeyenlere ne kadar idari para cezası uygulanır?", "expected": [{"kanun_no": "6698", "madde_no": 18}]}
+{"query": "Bilgi edinme başvurusuna kaç iş günü içinde erişim sağlanır?", "expected": [{"kanun_no": "4982", "madde_no": 11}]}
+{"query": "Devlet sırrı niteliğindeki bilgi veya belgeler bilgi edinme hakkı kapsamında mıdır?", "expected": [{"kanun_no": "4982", "madde_no": 16}]}
+{"query": "Bilgi Edinme Değerlendirme Kurulu kaç üyeden ve kimlerden oluşur?", "expected": [{"kanun_no": "4982", "madde_no": 14}]}
+{"query": "Yayımlanmış veya kamuya açıklanmış bilgi veya belgeler bilgi edinme başvurusuna konu olur mu?", "expected": [{"kanun_no": "4982", "madde_no": 8}]}
+{"query": "Kurum ve kuruluşlar bilgi edinme başvurularına ilişkin istatistik raporunu ne zaman ve kime gönderir?", "expected": [{"kanun_no": "4982", "madde_no": 30}]}
+{"query": "Resmi yazışmalarda hangi yazı tipleri ve punto büyüklükleri kullanılır?", "expected": [{"kanun_no": "2646", "madde_no": 7}]}
+{"query": "Belgelerde sayı hangi bileşenlerden oluşur?", "expected": [{"kanun_no": "2646", "madde_no": 11}]}
+{"query": "Süreli belgelerde ACELE ve GÜNLÜDÜR ibareleri ne anlama gelir?", "expected": [{"kanun_no": "2646", "madde_no": 26}]}
+{"query": "Hizmete Özel gizlilik dereceli belgeler hangi ortamda işlem görür?", "expected": [{"kanun_no": "2646", "madde_no": 25}]}
+{"query": "İdare, e-Yazışma Teknik Rehberi'ne uygun hazırlanmamış bir belgeyi reddedebilir mi?", "expected": [{"kanun_no": "2646", "madde_no": 30}]}
