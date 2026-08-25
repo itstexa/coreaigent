@@ -63,14 +63,19 @@ Zorunlu akışlar:
 5. Gerçek Jamba'da `/health`, `/ready` ve `/v1/generate` smoke çağrıları
 6. F-02 için `docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml up --build -d` ve `run_classification_intake.py`
 7. F-03 için OCR + classification + validation overlay ile `run_validation_intake.py`
-8. Tüm gerçek image'lar yayınlandıktan sonra `scripts/coreaigent.ps1 e2e` ve `--mode real`
+8. F-04/F-05/F-06 için OCR + classification + validation + llm + workflow overlay ile `run_correspondence_intake.py`
+9. Aynı stack'te F-02 `needs_review` negative-path için `run_orchestration_intake.py`
+10. Tüm gerçek image'lar yayınlandıktan sonra `scripts/coreaigent.ps1 e2e` ve `--mode real`
 
 İlk üç adım mock sözleşme kontrolüdür; Jamba'nın gerçekten yüklendiğini
 kanıtlamaz. Dördüncü ve beşinci adım GPU/cache gerektirir. Altıncı adımda OCR,
 classification ve durable worker gerçektir; kalan servisler mock'tur. `dev llm`
 testinde yalnızca `llm` gerçek, diğer servisler mock'tur. F-03 CPU acceptance
 akışında OCR, classification, worker ve validation gerçektir; semantic extractor
-açıkça deterministic test double'dır ve gerçek Jamba değildir.
+açıkça deterministic test double'dır ve gerçek Jamba değildir. Sekizinci ve
+dokuzuncu adım gerçek Jamba/BGE-M3/PostgreSQL workflow koşumlarıdır; mock
+scenario response'u kullanmazlar. Tam komutlar README'nin F-04/F-05/F-06
+çalıştırma bölümündedir.
 
 ## Definition of Done
 
