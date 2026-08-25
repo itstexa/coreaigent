@@ -35,6 +35,7 @@ switch ($Command) {
     Assert-Service $Service; Assert-Dockerfile $Service; Write-LocalOverride $Service
     $Files = @("compose.yaml")
     if ($Service -eq "llm") { $Files += "compose.llm.yaml" }
+    if ($Service -eq "ocr") { $Files += "compose.ocr.yaml" }
     $Files += ".compose.local.generated.yml"
     Invoke-Compose -ComposeFiles $Files -ComposeArguments @("up", "--build", "-d")
   }
@@ -42,10 +43,11 @@ switch ($Command) {
     Assert-Service $Service; Assert-Dockerfile $Service; Write-LocalOverride $Service
     $Files = @("compose.yaml", "compose.integration.yaml")
     if ($Service -eq "llm") { $Files += "compose.llm.yaml" }
+    if ($Service -eq "ocr") { $Files += "compose.ocr.yaml" }
     $Files += ".compose.local.generated.yml"
     Invoke-Compose -ComposeFiles $Files -ComposeArguments @("up", "--build", "-d")
   }
-  "e2e" { Invoke-Compose -ComposeFiles @("compose.yaml", "compose.integration.yaml", "compose.llm.yaml") -ComposeArguments @("up", "-d") }
+  "e2e" { Invoke-Compose -ComposeFiles @("compose.yaml", "compose.integration.yaml") -ComposeArguments @("up", "-d") }
   "test" {
     $Mode = $Service
     $Local = $args[0]
@@ -53,12 +55,12 @@ switch ($Command) {
     $Files = @("compose.yaml")
     $TestArgs = @("--profile", "tests", "run", "--build", "--rm", "contract-tests")
     if ($Mode -eq "mock") { $TestArgs += @("--mode", "mock") }
-    elseif ($Mode -eq "development") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; if ($Local -eq "llm") { $Files += "compose.llm.yaml" }; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "development", "--local", $Local) }
-    elseif ($Mode -eq "integration") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; $Files += "compose.integration.yaml"; if ($Local -eq "llm") { $Files += "compose.llm.yaml" }; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "real") }
-    else { $Files += "compose.integration.yaml", "compose.llm.yaml"; $TestArgs += @("--mode", "real") }
+    elseif ($Mode -eq "development") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; if ($Local -eq "llm") { $Files += "compose.llm.yaml" }; if ($Local -eq "ocr") { $Files += "compose.ocr.yaml" }; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "development", "--local", $Local) }
+    elseif ($Mode -eq "integration") { Assert-Service $Local; Assert-Dockerfile $Local; Write-LocalOverride $Local; $Files += "compose.integration.yaml"; if ($Local -eq "llm") { $Files += "compose.llm.yaml" }; if ($Local -eq "ocr") { $Files += "compose.ocr.yaml" }; $Files += ".compose.local.generated.yml"; $TestArgs += @("--mode", "real") }
+    else { $Files += "compose.integration.yaml"; $TestArgs += @("--mode", "real") }
     Invoke-Compose -ComposeFiles $Files -ComposeArguments $TestArgs
   }
   "logs" { Invoke-Compose -ComposeFiles @("compose.yaml") -ComposeArguments @("logs", "-f", "--tail", "100") }
-  "reset" { Invoke-Compose -ComposeFiles @("compose.yaml") -ComposeArguments @("down", "--volumes", "--remove-orphans"); Remove-Item .compose.local.generated.yml -Force -ErrorAction SilentlyContinue }
+  "reset" { Invoke-Compose -ComposeFiles @("compose.yaml", "compose.ocr.yaml") -ComposeArguments @("down", "--volumes", "--remove-orphans"); Remove-Item .compose.local.generated.yml -Force -ErrorAction SilentlyContinue }
   "validate" { & docker build -f tests/Dockerfile -t coreaigent/contract-tests:1.0 .; & docker run --rm --entrypoint python coreaigent/contract-tests:1.0 /app/validate_contracts.py }
 }

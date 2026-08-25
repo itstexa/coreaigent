@@ -40,13 +40,16 @@ def error_contract(service):
 
 
 def document(item):
-    return {"schemaVersion": "1.0", "requestId": "test-" + item["id"], "documentId": "doc-" + item["id"], "scenarioId": item["id"], "contentType": "text/plain", "content": item["text"], "fileName": None, "source": "test"}
+    text = item["text"]
+    if len(text) < 40:
+        text += " Test senaryosu için ek açıklama."
+    return {"schemaVersion": "2.0", "requestId": "test-" + item["id"], "documentId": "doc-" + item["id"], "sourceType": "text", "text": text, "sourceMetadata": {"scenario": item["id"]}, "correlationId": "test-" + item["id"]}
 
 
 def assert_mock(item, service, payload, local):
     if service == "ocr": assert payload["text"] == item["text"]
-    if service == "classification": assert payload["classification"] == item["classification"]
-    if service == "validation": assert bool(payload["missingFields"]) == (item["classification"] == "needs_information")
+    if service == "classification": assert payload["status"] == ("classified" if item["classification"] == "processable" else "needs_review")
+    if service == "validation": assert bool(payload["missingRequiredFields"]) == (item["classification"] == "needs_information")
     if service == "rag": assert bool(payload["results"]) == item["retrieval"]
     if service == "llm": assert payload["output"]["draft"] == item["draft"]
     if service == "workflow":
@@ -60,7 +63,8 @@ def run(item, mode, local):
     classification, classification_header = call("classification", ocr)
     validation, validation_header = call("validation", classification)
     trace = {k: classification[k] for k in ("schemaVersion", "requestId", "documentId", "workflowId")}
-    rag, rag_header = call("rag", trace | {"query": classification["summary"] or item["title"], "documentType": classification["documentType"]})
+    trace["schemaVersion"] = "2.0"
+    rag, rag_header = call("rag", trace | {"query": classification["requestType"]["label"], "documentType": item["documentType"]})
     llm, llm_header = call("llm", trace | {"task": "draft_reply", "prompt": item["text"], "context": [r["excerpt"] for r in rag["results"]]})
     workflow, workflow_header = call("workflow", doc)
     responses = {"ocr": (ocr, ocr_header), "classification": (classification, classification_header), "validation": (validation, validation_header), "rag": (rag, rag_header), "llm": (llm, llm_header), "workflow": (workflow, workflow_header)}

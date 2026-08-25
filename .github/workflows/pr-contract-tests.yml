@@ -51,3 +51,90 @@ jobs:
       - name: Clean up Docker resources
         if: always()
         run: docker compose down --volumes --remove-orphans
+
+  ocr-intake-postgres:
+    name: OCR intake and PostgreSQL durability
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+
+      - name: Validate OCR development configuration
+        run: docker compose -f compose.yaml -f compose.ocr.yaml config --quiet
+
+      - name: Build and start OCR with PostgreSQL
+        run: docker compose -f compose.yaml -f compose.ocr.yaml up --build -d
+
+      - name: Run F-01 acceptance checks
+        run: docker compose -f compose.yaml -f compose.ocr.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_ocr_intake.py --phase all
+
+      - name: Create restart-durability fixture
+        run: docker compose -f compose.yaml -f compose.ocr.yaml --profile tests run --rm --entrypoint python contract-tests /app/run_ocr_intake.py --phase restart-create
+
+      - name: Restart the real OCR container
+        run: docker compose -f compose.yaml -f compose.ocr.yaml restart ocr
+
+      - name: Verify restart durability
+        run: docker compose -f compose.yaml -f compose.ocr.yaml --profile tests run --rm --entrypoint python contract-tests /app/run_ocr_intake.py --phase restart-verify
+
+      - name: Run the 58-scenario real-OCR development flow
+        run: docker compose -f compose.yaml -f compose.ocr.yaml --profile tests run --rm --entrypoint python contract-tests /app/run_scenarios.py --mode development --local ocr
+
+      - name: Collect OCR Compose diagnostics after a failure
+        if: failure()
+        run: |
+          docker compose -f compose.yaml -f compose.ocr.yaml ps --all
+          docker compose -f compose.yaml -f compose.ocr.yaml logs --no-color | tee compose-ocr.log
+
+      - name: Upload OCR Compose diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-ocr-diagnostics
+          path: compose-ocr.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Clean up OCR Docker resources
+        if: always()
+        run: docker compose -f compose.yaml -f compose.ocr.yaml down --volumes --remove-orphans
+
+  classification-durable-worker:
+    name: Classification durable worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate classification development configuration
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml config --quiet
+      - name: Build and start real OCR, classification, worker, and PostgreSQL
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml up --build -d
+      - name: Run F-02 durable classification acceptance checks
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml --profile tests run --rm --entrypoint python contract-tests /app/run_classification_intake.py
+      - name: Clean up classification Docker resources
+        if: always()
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml down --volumes --remove-orphans
+
+  validation-current-state:
+    name: Validation current state and supplemental replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate validation development configuration
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml config --quiet
+      - name: Build and start real OCR, classification, worker, validation, and PostgreSQL
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml up --build -d
+      - name: Run F-03 validation current-state acceptance checks
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_validation_intake.py
+      - name: Create F-03 validation restart fixture
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml --profile tests run --rm --entrypoint python contract-tests /app/run_validation_intake.py --phase restart-create
+      - name: Restart the real validation container
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml restart validation
+      - name: Verify F-03 validation current state after restart
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml --profile tests run --rm --entrypoint python contract-tests /app/run_validation_intake.py --phase restart-verify
+      - name: Clean up validation Docker resources
+        if: always()
+        run: docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml down --volumes --remove-orphans

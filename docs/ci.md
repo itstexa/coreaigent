@@ -6,6 +6,24 @@ runs the contract-test container in mock mode. That command validates the JSON
 Schemas and executes all golden scenarios before the runner tears down the
 Compose resources.
 
+The same workflow also runs the real OCR development overlay with PostgreSQL.
+It executes the F-01 acceptance runner before and after an OCR container
+restart, then runs the normal 58-scenario development flow with only OCR real.
+The baseline mock job remains separate and does not start PostgreSQL.
+
+The `classification-durable-worker` job layers the real classification API and
+worker over that real OCR/PostgreSQL topology. It verifies the v3 classification
+contract and that durable outbox work reaches a single current PostgreSQL
+classification before the job is marked complete. Validation, RAG, LLM, and
+workflow remain mocks in this development-scoped job.
+
+The `validation-current-state` job layers the real validation API over that
+same PostgreSQL topology. It uses the explicitly injected deterministic
+extractor to make CPU CI repeatable; therefore it verifies F-03 contracts,
+current-only state, missing/invalid separation, ETag preconditions, and
+idempotent replay, not GPU Jamba inference. A separate GPU run with
+`EXTRACTOR_MODE=jamba` is required to smoke the real semantic extractor path.
+
 When real services exist, extend this workflow with their service-owned unit
 tests. On the main branch, build and publish every implemented service as
 `ghcr.io/<org>/coreaigent-<service>:<commit-sha>`, set the immutable image
