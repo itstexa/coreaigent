@@ -12,10 +12,11 @@
 - **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_c207e52_f06.md`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Analyses F-06 durable orchestration, state transitions, recovery, and authorized case observability.
+  - Defines F-06 automatic F-04 orchestration, three retry cooldowns, terminal failure, review hold, PostgreSQL notifications, and current state layering.
   - Preserves F-01–F-05 PostgreSQL authority and F-05's separate routing/notification invariants.
 - **Open Questions Resolved This Session**:
-  - None; OQ-144–OQ-148 require explicit operator decisions before final acceptance criteria can be written.
+  - OQ-144, OQ-145, OQ-147, and OQ-148 — automatic F-04/retries, review terminal policy, persisted user notification, and current-state persistence.
+  - OQ-149 remains open: authentication principal and role-grant authority.
 - **Approved By**: —
 - **Approval Date**: —
 
