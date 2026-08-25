@@ -156,8 +156,10 @@ generation pointer'ını okur.
 ## Repository eşlemesi
 
 - Ortak generation kontratı `POST /v1/generate` olarak sabittir.
-- Jamba'nın minimal model endpoint'i `POST /generate` bunun yanında bulunur;
-  workflow servisleri ortak `/v1/generate` kontratını kullanır.
+- Jamba'nın minimal model endpoint'i `POST /generate` bunun yanında bulunur.
+  Public cross-service adapter `/v1/generate`dir; F-03 extraction ile F-04/F-05
+  durable worker'ları kendi structured-output doğrulamasını yaptığı kontrollü
+  internal çağrıda `/generate` kullanır.
 - Gerçek Jamba response'unda routing kararı üretilemez; adapter güvenli
   başlangıç değeri olarak `department=manual_review` ve `confidence=0.0`
   döndürür. Nihai department/unit kararı classification ve workflow state'inden

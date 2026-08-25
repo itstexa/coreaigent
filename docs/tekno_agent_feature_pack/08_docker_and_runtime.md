@@ -12,9 +12,9 @@ servis E2E stack'i birbirine karıştırmadan çalıştırılabilir hale getirme
 | `ocr` | intake/OCR | `compose.ocr.yaml` ile PostgreSQL-backed gerçek intake veya base mock |
 | `classification` | hiyerarşik sınıflandırma | `compose.classification.yaml` ile PostgreSQL-backed gerçek API + durable worker veya base mock |
 | `validation` | eksik bilgi/validasyon | `compose.validation.yaml` ile PostgreSQL-backed gerçek servis veya base mock |
-| `rag` | mevzuat retrieval | contract mock; gerçek implementasyon bekliyor |
+| `rag` | public mevzuat retrieval contract'ı | base contract mock; F-04 demo retrieval'i ayrı `rag` HTTP çağrısı yerine `workflow` worker içinde local BGE-M3 ile gerçektir |
 | `llm` | Jamba structured generation | `compose.llm.yaml` ile gerçek GPU image'ı veya base mock |
-| `workflow` | orchestration, draft, routing | contract mock; gerçek implementasyon bekliyor |
+| `workflow` | correspondence, orchestration, routing | `compose.workflow.yaml` ile PostgreSQL-backed F-04/F-05/F-06 API ve durable worker'lar veya base mock |
 
 Bu nedenle feature pack'teki logical rollerin yedi ayrı container olması
 zorunlu değildir; ancak `contracts/http/manifest.json` sınırları ve sabit

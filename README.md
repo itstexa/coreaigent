@@ -1,6 +1,11 @@
 # CoreAIgent development harness
 
-This repository starts with a contract-first local environment for the public-document workflow. It deliberately contains no business-service implementation: each team owns its implementation under `services/<service>/`.
+This repository provides a contract-first local environment for the
+public-document workflow. The base Compose file is intentionally a deterministic
+mock baseline; local PostgreSQL-backed implementations live under
+`services/ocr`, `services/classification`, `services/validation`,
+`services/workflow`, and `services/llm` and are enabled only by their explicit
+overlays.
 
 Logical service names and addresses are permanent:
 
@@ -13,7 +18,11 @@ Logical service names and addresses are permanent:
 | `llm` | `http://llm:8080` | structured generation |
 | `workflow` | `http://workflow:8080` | draft, routing and final workflow result |
 
-The initial boundaries above are the only assumptions made from the competition workflow. The document flow is `ocr -> classification -> validation -> rag -> llm`. If the team chooses to merge or split one of them, change the corresponding contract before implementations are started.
+The base contract graph is `ocr -> classification -> validation -> rag -> llm`.
+The real F-04/F-05/F-06 implementation keeps the public `rag` contract intact
+but runs local BGE-M3 retrieval and durable workflow work inside the `workflow`
+overlay before calling `llm`. If the team changes a public boundary, it must
+change the corresponding contract first.
 
 ## Quick start
 

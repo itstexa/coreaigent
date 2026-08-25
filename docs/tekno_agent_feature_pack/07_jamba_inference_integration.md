@@ -33,10 +33,12 @@ repo'nun Docker içi canonical adresi ise `http://llm:8080`'dir; host'taki
 | `POST /generate` | Minimal model API; yalnız `{ "prompt": "..." }` | Hazır değilse `503` |
 | `POST /v1/generate` | `contracts/http/manifest.json` içindeki CoreAIgent kontratı | Hatalar `standard-error` envelope ile döner |
 
-`/v1/generate` adaptörü modelin department veya routing id'si uydurmasına izin
-vermez; üretim çıktısını `draft` olarak döndürür ve sınıflandırılmamış hedefi
-`manual_review` bırakır. Routing kararı deterministic workflow/taxonomy
-katmanına aittir.
+`/v1/generate` public contract adaptörü modelin department veya routing id'si
+uydurmasına izin vermez; üretim çıktısını `draft` olarak döndürür ve
+sınıflandırılmamış hedefi `manual_review` bırakır. F-03 extraction ile F-04/F-05
+workflow worker'ları ise kullanıcıdan açık olmayan, kendi prompt/JSON doğrulama
+katmanlarına sahip internal çağrıda minimal `/generate` kullanır. Routing kararı
+deterministic workflow/taxonomy katmanına aittir.
 
 ## Model ve runtime kimliği
 
