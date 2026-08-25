@@ -7,21 +7,36 @@
 ## Active Entry
 
 - **Status**: Pending Approval
+- **Stage**: Requirement Analysis
+- **Session Started**: 2026-08-25
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_8c16689_f05.md`; `docs/tekno_agent_feature_pack/05_routing_and_notifications.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - Starts US-110 F-05 analysis for authoritative final routing and separate applicant/unit notifications.
+  - Records unblocked eligibility, routing integrity, inactive-target rejection, and notification-failure invariants.
+- **Open Questions Resolved This Session**:
+  - None.
+- **Approved By**: Serda
+- **Approval Date**: 2026-08-25
+
+---
+
+## History
+
+### Implementation — US-109 F-04 regulation retrieval and official correspondence
+
+- **Status**: Approved
 - **Stage**: Implementation
 - **Session Started**: 2026-08-25
 - **Related Doc(s)**: approved `docs/design/DESIGN_0df0ad1_f04.md`; approved `docs/architecture/ARCHITECTURE_0df0ad1_f04.md`; `docs/implementation/IMPLEMENTATION_LOG.md`; `services/workflow/`; `tests/test_correspondence_service.py`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
   - Implements US-109 F-04 regulation retrieval and official-correspondence generation as one ATDD pass.
-  - Begins with independently falsifiable threshold, PII, structured-output, size-limit, and no-source legal-claim tests before HTTP/durable worker wiring.
+  - Adds independently falsifiable threshold, PII, structured-output, size-limit, and no-source legal-claim coverage before HTTP/durable worker wiring.
 - **Open Questions Resolved This Session**:
   - None.
-- **Approved By**:
-- **Approval Date**:
-
----
-
-## History
+- **Approved By**: Serda
+- **Approval Date**: 2026-08-25
 
 ### Solution Architecture — US-109 F-04 regulation retrieval and official correspondence
 

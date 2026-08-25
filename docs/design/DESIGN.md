@@ -11,6 +11,7 @@ grows too large; every such file must be listed below.
 | (this file) | Core; US-102–US-107 Jamba runtime, F-01 intake, and F-02 classification analysis | — | Active |
 | [DESIGN_0df0ad1_f03.md](DESIGN_0df0ad1_f03.md) | US-108 F-03 information extraction and missing-information analysis | `0df0ad1` | Active |
 | [DESIGN_0df0ad1_f04.md](DESIGN_0df0ad1_f04.md) | US-109 F-04 legislation recommendation, summary, and official correspondence analysis | `0df0ad1` | Active |
+| [DESIGN_8c16689_f05.md](DESIGN_8c16689_f05.md) | US-110 F-05 final routing and audience-specific notifications | `8c16689` | Active — open decisions |
 
 ## Analysis Context
 
