@@ -1,6 +1,6 @@
 ---
 name: requirement-analysis
-description: 'Use when: a new feature, change, or scope is requested in chat by a human operator and no acceptance criteria exist yet. Converts free-text requests into user stories and testable Gherkin acceptance criteria (with explicit rejection/negative paths), writes them to docs/design/DESIGN.md, splits overflow into linked DESIGN_<commit>.md session files, tracks every ambiguity as an Open Question (never assumes), and maintains a single evolving pending entry in docs/design/APPROVAL_LOG.md awaiting human approval.'
+description: 'Use when: a new feature, change, or scope is requested in chat by a human operator and no acceptance criteria exist yet. Converts free-text requests into user stories and testable Gherkin acceptance criteria (with explicit rejection/negative paths), writes them to docs/design/DESIGN.md, splits overflow into linked design session files, tracks every ambiguity as an Open Question (never assumes), and records stage approval in docs/APPROVAL_LOG.md through the repository approval CLI.'
 ---
 
 # Requirement Analysis Skill
@@ -20,6 +20,10 @@ If any part of the request is ambiguous, underspecified, or could reasonably res
 - Do **not** silently pick the "most likely" interpretation.
 - Write it down as an **Open Question** instead (see step 4) and stub the story/AC as blocked on it.
 - Only write the final AC once the human operator resolves the question — either directly in chat, or by editing the Open Question's row in the DESIGN file.
+
+Approval is a stage transition, not an interactive wait state. Finish all
+unblocked analysis, record the pending entry, and report the approval command.
+Do not poll, pause for a manual edit, or fill in approval fields yourself.
 
 ## Procedure
 
@@ -89,12 +93,14 @@ Rules (this mechanism is shared by other skills too, not just this one):
 - Set **Stage** to `Requirement Analysis` for entries this skill creates.
 - Append new decisions/scope covered/resolved Open Questions to the active entry's lists as the session continues.
 - The active entry must contain: Status, Stage, Session Started date, Related Doc(s), Requested By, Decisions/Scope Covered, Open Questions Resolved, Approved By, Approval Date.
-- **Approved By** / **Approval Date** stay blank until a human operator explicitly approves — the agent must never fill these in itself.
-- Once a human operator marks the entry `Approved` (or `Rejected`) and the associated commit/PR lands, move it into the **History** section at the bottom of the file and leave the active-entry slot ready for the next stage (e.g. `solution-architect`) to open a new one.
+- Leave **Approved By** / **Approval Date** blank. The human operator records approval with:
+  `python3 .agents/tools/approval.py approve --stage "Requirement Analysis" --by "<name>"`.
+- After the command succeeds, a later pipeline invocation may consume the `Approved` entry. Do not wait in the current invocation for the command or ask the operator to edit Markdown by hand.
+- The log is an audit record. Moving an entry to **History** is bookkeeping after the associated work lands, not a reason to block analysis.
 
 ## Completion Checklist
 - [ ] Every story has at least one positive and one negative Gherkin scenario, or is explicitly blocked on an Open Question
 - [ ] No AC was written by assuming an answer to something ambiguous
 - [ ] Every ambiguity has a corresponding Open Question row with correct status
 - [ ] `DESIGN.md`'s atlas table lists every session file that currently exists
-- [ ] `docs/APPROVAL_LOG.md` has exactly one active `Pending Approval` entry (Stage: Requirement Analysis), with Approved By/Date left blank
+- [ ] `docs/APPROVAL_LOG.md` has exactly one active entry (Stage: Requirement Analysis); pending approval is recorded, not waited on

@@ -1,6 +1,6 @@
 ---
 name: senior-developer
-description: 'Use when: docs/design/DESIGN.md and docs/architecture/ARCHITECTURE.md both have content EXPLICITLY human-approved in docs/APPROVAL_LOG.md and are ready to be implemented. Third stage of the pipeline, following requirement-analysis and solution-architect. Implements exactly one user story at a time using ATDD (failing acceptance tests from the story''s Gherkin ACs first, then code until green), verifies architecture predicates/invariants are matched, uses the version-control and meaningful-tests skills throughout, writes a per-pass entry to docs/implementation/IMPLEMENTATION_LOG.md (ACs covered, predicates matched, Open Questions, deviations), and never assumes an answer to any ambiguity.'
+description: 'Use when: docs/design/DESIGN.md and docs/architecture/ARCHITECTURE.md contain requirements approved through the repository approval CLI and are ready to implement. Third stage, following requirement-analysis and solution-architect. Implements exactly one user story at a time using ATDD (failing acceptance tests first, then code until green), verifies architecture predicates/invariants, uses version-control and meaningful-tests, writes an implementation log entry, and never assumes an answer to an ambiguity.'
 ---
 
 # Senior Developer Skill
@@ -23,6 +23,18 @@ Before writing any code for a story:
 2. Confirm there is an entry with **Status: Approved** (Approved By + Approval Date filled in) for **Stage: Requirement Analysis** covering the story in `docs/design/DESIGN.md`.
 3. Confirm there is also an entry with **Status: Approved** for **Stage: Solution Architecture** covering the relevant models/decisions in `docs/architecture/ARCHITECTURE.md`.
 4. If either is still `Pending Approval`, `Rejected`, or missing — **stop**. Tell the human operator what's blocking implementation. Do not implement against unapproved requirements or architecture, even partially.
+
+This is an input gate checked at pass start, not a reason to create a new
+pending entry and wait during implementation. Implementation itself must run
+to completion for every unblocked scenario. If this pass needs approval for a
+later transition, report:
+
+```bash
+python3 .agents/tools/approval.py approve --stage "Implementation" --by "<name>"
+```
+
+Do not wait for a manual log edit. Stop only the specific code path blocked by
+an unresolved Open Question; continue the rest of the story when possible.
 
 ## One Story at a Time
 
@@ -83,7 +95,9 @@ Target file: `docs/implementation/IMPLEMENTATION_LOG.md`, created from [template
 Same convention as the earlier stages, in `docs/APPROVAL_LOG.md`:
 - Set **Stage** to `Implementation` for entries this skill creates, listing the story/pass covered.
 - Exactly one active entry at a time across the whole pipeline — update in place, don't create a second pending one.
-- **Approved By**/**Approval Date** stay blank until a human operator explicitly approves the pass (typically alongside PR review) — never fill these in yourself.
+- Leave **Approved By**/**Approval Date** blank until the human operator runs:
+  `python3 .agents/tools/approval.py approve --stage "Implementation" --by "<name>"`.
+- The log is an audit record, not an interactive wait state. A later invocation may consume the approved pass.
 
 ## Completion Checklist
 - [ ] Story's requirements and architecture were both confirmed `Approved` in `docs/APPROVAL_LOG.md` before coding started
@@ -95,4 +109,4 @@ Same convention as the earlier stages, in `docs/APPROVAL_LOG.md`:
 - [ ] The version-control skill was used for branch/commits/PR, with human approval before each state-changing git action
 - [ ] `IMPLEMENTATION_LOG.md` has a new pass entry with AC coverage, predicates matched, Open Questions, and deviations
 - [ ] No implementation detail was assumed — every ambiguity became a tracked `IQ-` Open Question
-- [ ] `docs/APPROVAL_LOG.md` has an active entry (Stage: Implementation) pending human approval for this pass
+- [ ] `docs/APPROVAL_LOG.md` has an active entry (Stage: Implementation); approval is recorded by CLI when the operator chooses it

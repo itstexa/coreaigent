@@ -1,6 +1,6 @@
 ---
 name: solution-architect
-description: 'Use when: docs/design/DESIGN.md has requirements/ACs that have been EXPLICITLY human-approved in docs/APPROVAL_LOG.md and need to be turned into a technical design. Second stage of the pipeline, following requirement-analysis. Converts approved requirements into data models (entities, predicates, types/units, invariants, boundary behavior, concurrency/race-scenario analysis), writes them to docs/architecture/ARCHITECTURE.md, splits overflow into linked ARCHITECTURE_<commit>.md session files, presents technology choices as benefit/drawback matrices with explicit "why not X" rationale, tracks every ambiguity as an Open Question (never assumes), and maintains a single evolving pending entry in the shared docs/APPROVAL_LOG.md awaiting human approval.'
+description: 'Use when: docs/design/DESIGN.md has requirements/ACs approved through the repository approval CLI and need to be turned into a technical design. Second stage, following requirement-analysis. Converts approved requirements into data models (entities, predicates, types/units, invariants, boundary behavior, concurrency/race-scenario analysis), writes them to docs/architecture/ARCHITECTURE.md, splits overflow into linked architecture session files, presents technology choices as benefit/drawback matrices with explicit "why not X" rationale, tracks every ambiguity as an Open Question, and records stage approval in docs/APPROVAL_LOG.md.'
 ---
 
 # Solution Architect Skill
@@ -20,6 +20,17 @@ Before doing any architecture work:
 2. Find the entry (Stage: `Requirement Analysis`, in the Active Entry slot or History) covering the requirements in question. It must have **Status: Approved**, with **Approved By** and **Approval Date** both filled in by a human operator.
 3. If the relevant entry is still `Pending Approval`, `Rejected`, or doesn't exist yet — **stop**. Tell the human operator which requirements are blocked and why. Do not architect unapproved requirements, even partially.
 4. Only requirements covered by an `Approved` entry may be turned into data models/decisions in this pass.
+
+This gate is checked when the skill starts; it is not a request to manually edit
+the log during the pass. If this stage produces a pending architecture entry,
+finish all unblocked architecture work and report:
+
+```bash
+python3 .agents/tools/approval.py approve --stage "Solution Architecture" --by "<name>"
+```
+
+Do not poll or wait for that command in the current invocation. Unresolved
+Open Questions remain the only reason to stop the affected model or decision.
 
 ## The One Hard Rule: Never Assume
 
@@ -109,8 +120,9 @@ Target file: `docs/APPROVAL_LOG.md` — the **same file used by `requirement-ana
 - Set **Stage** to `Solution Architecture` for entries this skill creates.
 - Append new entities/decisions covered and resolved Open Questions to the active entry's lists as the session continues.
 - The active entry must contain: Status, Stage, Session Started date, Related Doc(s) (architecture doc(s) plus the design approval entry used as input), Requested By, Decisions/Scope Covered, Open Questions Resolved, Approved By, Approval Date.
-- **Approved By** / **Approval Date** stay blank until a human operator explicitly approves — never fill these in yourself.
-- Once approved and the associated commit/PR lands, move the entry to **History** and leave the active slot ready for the next stage.
+- Leave **Approved By** / **Approval Date** blank until the human operator runs:
+  `python3 .agents/tools/approval.py approve --stage "Solution Architecture" --by "<name>"`.
+- The log is an audit record. Do not wait for a manual Markdown edit or for a History move; a later pipeline invocation consumes the approved entry.
 
 ## Completion Checklist
 - [ ] Confirmed the source requirements are `Approved` (Stage: Requirement Analysis) in `docs/APPROVAL_LOG.md` before architecting them
@@ -119,4 +131,4 @@ Target file: `docs/APPROVAL_LOG.md` — the **same file used by `requirement-ana
 - [ ] No model or decision was written by assuming an answer to something ambiguous
 - [ ] Every ambiguity has a corresponding `AQ-` Open Question row with correct status
 - [ ] `ARCHITECTURE.md`'s atlas table lists every session file that currently exists
-- [ ] `docs/APPROVAL_LOG.md` has exactly one active `Pending Approval` entry (Stage: Solution Architecture), with Approved By/Date left blank
+- [ ] `docs/APPROVAL_LOG.md` has exactly one active entry (Stage: Solution Architecture); pending approval is recorded, not waited on
