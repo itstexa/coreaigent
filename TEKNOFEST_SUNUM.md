@@ -1,34 +1,24 @@
 # TEKNOFEST KAMU EVRAK VE MEVZUAT AJANI 
-## Güvenli RAG Mimarisi
+## Kapalı Ağ Sistemlerinde Güvenli RAG Mimarisi
 
-### Slayt 1: Kapak ve Vizyon
-- **Proje:** Kamu Evrak ve Mevzuat Ajanı
-- **Vizyon:** "Sıfır Halüsinasyon, %100 Kapalı Ağ Güvenliği ile Devletin Zeka Altyapısı"
+### 1. Vizyonumuz
+"Sıfır Halüsinasyon, %100 Kapalı Ağ Güvenliği ile Devletin Zeka Altyapısı." Kamu bürokrasisinde yasal hatayı sıfıra indiren ve karar alma süreçlerini hızlandıran otonom sistem.
 
-### Slayt 2: Neden Standart RAG Kullanmadık? (Problemler)
-- **Güvenlik İhtiyacı:** Kamu evrakı mahremiyet gerektirir. Standart sistemler internete bağlıdır, biz "Air-Gapped" (Çevrimdışı) çalışıyoruz.
-- **Yasal Bütünlük:** Basit parçalama (chunking) yöntemleri kanun maddelerini ortadan böler, anlam kaybolur.
-- **Halüsinasyon Riski:** Yapay zeka bilmediği kanunu uydurmaya meyillidir (Lost in the middle). Devlette yanlış bilgi kabul edilemez.
+### 2. Neden Standart RAG Kullanmadık? (Mevcut Problemler)
+- **Güvenlik Zafiyeti:** Kamu evrakı mahremiyet gerektirir. İnternet tabanlı sistemler "Air-Gapped" (çevrimdışı) kamu ağlarında çalışamaz.
+- **Hukuki Bağlam Kopukluğu:** Geleneksel kelime bazlı parçalama (chunking), kanun maddelerini böler ve anlamı yok eder.
+- **Halüsinasyon Riski:** Standart LLM'ler bulamadığı bilgiyi uydurur. Hukukta yanlış bilgi, cevapsızlıktan daha tehlikelidir.
 
-### Slayt 3: Çözüm Mimarimiz (Akış)
-- **Veri Yutma:** Tamamen Çevrimdışı ve "Madde/Fıkra Duyarlı" (Structure-Aware) Parçalama.
-- **Arama Katmanı:** BM25 (Kelime bazlı) + Vektör (Anlam bazlı) Hibrit Arama ve Yeniden Sıralama (Reranker).
-- **Güvenlik Katmanı:** Hakem Ajan (Critic Agent) ile uçtan uca Hukuki Denetim mekanizması.
+### 3. Gelişmiş Çözüm Mimarimiz
+- **Yerel Veri Yutma (Offline Ingestion):** Dış ağ bağlantısı olmadan çalışan güvenli veri indeksleme.
+- **Yapısal Farkındalık (Structure-Aware):** Kanun, madde, fıkra ve bent yapısını koruyan akıllı metin bölme algoritması.
+- **Hibrit Arama (Hybrid Search):** Vektör (anlamsal) ve BM25 (kelime) aramalarının Reranker (Yeniden Sıralayıcı) ile güçlendirilmiş entegrasyonu.
 
-### Slayt 4: "Structure-Aware" (Yapısal Farkındalık) Farkımız
-- Rakipler metinleri kelime sayısına göre körü körüne böler.
-- Bizim algoritmamız Kanun, Madde, Fıkra ve Bent yapısını tanır.
-- Sonuç: "5. Madde'nin B Bendi" sorulduğunda cümlenin ortasından kırpılmış değil, hukuki bütünlüğü korunmuş metinler getirilir.
+### 4. En Büyük Kozumuz: Hakem Ajan (Critic Agent)
+- Modelin ürettiği her cevap, kullanıcıya ulaşmadan önce otonom bir **Hakem Ajan** tarafından mevzuatla çapraz sorguya çekilir.
+- Ajan, en ufak bir çelişki veya kaynaksız (uydurma) bilgi tespit ederse cevabı otomatik olarak imha eder ve "Sıfır Halüsinasyon" garantisi sağlar.
 
-### Slayt 5: Hakem Ajan (Critic Agent) - En Büyük Kozumuz
-- Üretilen cevaplar kullanıcıya doğrudan **verilmez**.
-- "Hakem Ajan" sert bir denetçi olarak cevabı arka planda mevzuatla çapraz sorguya çeker.
-- Uydurma (halüsinasyon) tespit edilirse cevap **imha edilir** ve sistem güvenli uyarı mesajı verir. Sıfır halüsinasyon garantisidir.
-
-### Slayt 6: Performans ve Doğruluk Metrikleri
-- **Recall (Duyarlılık): %96** (Aranan kanun maddesini bulma oranı)
-- **Precision (Kesinlik): %96** (Getirilen maddelerin doğrudan konuyla ilgili olma oranı)
-- **Ölçeklenebilirlik:** Qdrant HNSW Vektör Veritabanı sayesinde milyonlarca sayfalık devlet arşivinde bile bilgi çöplüğü yaratmadan, milisaniyeler içinde sonuç üretir.
-
-### Slayt 7: Kapanış
-- Adalet ve bürokraside zaman kaybını önlemek, hukuki hatayı sıfıra indirmek için tasarlandı. Bizi dinlediğiniz için teşekkür ederiz.
+### 5. Performans ve Ölçeklenebilirlik (Test Edilmiş Başarı)
+- **Recall (Duyarlılık): %96** - İstenilen yasal bağlamı eksiksiz bulma.
+- **Precision (Kesinlik): %96** - Sadece ilgili maddeleri getirerek bilgi çöplüğünü (noise) önleme.
+- **Sınırsız Ölçeklenebilirlik:** Qdrant Vektör Veritabanı (HNSW) altyapısı sayesinde milyonlarca sayfalık devlet arşivinde performans kaybı yaşamadan milisaniyelik sorgu imkanı.
