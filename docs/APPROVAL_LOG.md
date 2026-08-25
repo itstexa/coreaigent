@@ -6,14 +6,14 @@
 
 ## Active Entry
 
-- **Status**: Pending Approval
-- **Stage**: Requirement Analysis
+- **Status**: Approved
+- **Stage**: Solution Architecture
 - **Session Started**: 2026-08-25
-- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_8c16689_f05.md`; `docs/tekno_agent_feature_pack/05_routing_and_notifications.md`
+- **Related Doc(s)**: approved `docs/design/DESIGN_8c16689_f05.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_f84cffd_f05.md`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Starts US-110 F-05 analysis for authoritative final routing and separate applicant/unit notifications.
-  - Records unblocked eligibility, routing integrity, inactive-target rejection, and notification-failure invariants.
+  - Defines F-05 PostgreSQL routing/job/notification entities, predicates, recovery, and read projection.
+  - Selects durable event/reconciliation routing and an active Others/Uncategorized taxonomy fallback.
 - **Open Questions Resolved This Session**:
   - None.
 - **Approved By**: Serda
