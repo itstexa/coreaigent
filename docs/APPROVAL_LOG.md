@@ -6,6 +6,25 @@
 
 ## Active Entry
 
+- **Status**: Pending Approval
+- **Stage**: Requirement Analysis
+- **Session Started**: 2026-08-25
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_f38fa41_f08.md`; `docs/tekno_agent_feature_pack/08_docker_and_runtime.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - Analyses truthful F-08 local Compose modes after F-06 implementation.
+  - Preserves the mandatory deterministic mock baseline and its distinction from real service verification.
+- **Open Questions Resolved This Session**:
+  - None; OQ-150 must determine the developer-mode dependency closure before final acceptance criteria can be approved.
+- **Approved By**: —
+- **Approval Date**: —
+
+---
+
+## History
+
+### Implementation — US-111 F-06 durable orchestration and case state
+
 - **Status**: Approved
 - **Stage**: Implementation
 - **Session Started**: 2026-08-25
@@ -15,13 +34,9 @@
   - Implements F-06 durable orchestration, case-state projection, PostgreSQL applicant notices, and demo USER/ADMIN read/completion endpoints.
   - Verifies both real local Jamba/BGE-M3/PostgreSQL flow and the required mock Docker baseline.
 - **Open Questions Resolved This Session**:
-  - None; all F-06 implementation decisions are covered by the approved design and architecture.
+  - None; all F-06 implementation decisions were covered by the approved design and architecture.
 - **Approved By**: Serda
 - **Approval Date**: 2026-08-25
-
----
-
-## History
 
 ### Implementation — US-110 F-05 final routing and notifications
 
