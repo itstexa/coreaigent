@@ -133,7 +133,12 @@ In production extraction mode, set `EXTRACTOR_MODE=jamba` and run the real
 dependency is unavailable.
 
 F-04 correspondence and the automatic F-05 route/notification flow run in the
-same real PostgreSQL overlay. F-04 completion creates a durable routing job;
+same real PostgreSQL overlay. F-06 adds an `orchestrator-worker`: a complete
+F-03 revision creates its own durable F-04 start job (one initial attempt plus
+at most three 30-second cooldown retries), and PostgreSQL keeps the current
+case projection. `CASE_ACCESS_TOKEN` is the sole demo `USER` token and
+`CASE_ADMIN_TOKEN` the sole demo `ADMIN` token; this is intentionally not a
+production login/RBAC system. F-04 completion creates a durable routing job;
 the routing worker persists the target decision and two notification records
 only—there is no external e-mail dispatch. This command uses the local pinned
 Jamba and BGE-M3 artifacts, rather than a mock response:
@@ -142,14 +147,19 @@ Jamba and BGE-M3 artifacts, rather than a mock response:
 export HF_CACHE_DIR=/media/serda/home_extra/hf-cache
 docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml up --build -d
 docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_correspondence_intake.py
+docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml --profile tests run --build --rm --entrypoint python contract-tests /app/run_orchestration_intake.py
 docker compose -f compose.yaml -f compose.ocr.yaml -f compose.classification.yaml -f compose.validation.yaml -f compose.llm.yaml -f compose.workflow.yaml down --volumes --remove-orphans
 ```
 
 The acceptance runner calls real OCR, classification, validation, BGE-M3,
-Jamba, PostgreSQL workers, and `GET /cases/{case_id}/routing`. It verifies one
+Jamba, PostgreSQL workers, `GET /cases/{case_id}`, and
+`GET /cases/{case_id}/routing`. It verifies automatic F-04 start, one
 current-revision route, the active `diger` / `siniflandirilmamis` fallback for
-`review_required`, and separately persisted applicant/target-unit Jamba
-notifications. It must not be described as the mock baseline.
+`review_required`, USER/ADMIN response projections, idempotent reviewer
+completion, and separately persisted applicant/target-unit Jamba
+notifications. The second runner is the negative F-02 review path: it proves
+no validation, F-04 start, or route is created while the case remains readable
+from PostgreSQL. These are not the mock baseline.
 
 Pull requests run this same Docker mock suite automatically in GitHub Actions;
 see [the PR workflow](.github/workflows/pr-contract-tests.yml).

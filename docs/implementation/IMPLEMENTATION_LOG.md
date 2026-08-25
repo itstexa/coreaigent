@@ -5,6 +5,52 @@ traceable history of completed and paused implementation work.
 
 ---
 
+## Pass: 2026-08-25 — US-111 F-06 durable orchestration and case state
+
+**Branch:** `feature/jamba-inference`.
+**Traces to:** `docs/design/DESIGN_c207e52_f06.md` (US-111) and
+`docs/architecture/ARCHITECTURE_5a9d17f_f06.md`.
+**Approval basis:** Requirement Analysis and Solution Architecture approved by
+Serda on 2026-08-25 (see `docs/APPROVAL_LOG.md`).
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Durable automatic F-04 start | ✅ Pass | `orchestrator-worker` derives a complete/classified current revision into a unique PostgreSQL `correspondence_start_jobs` row, then atomically writes one F-04 generation/job. The real Docker intake proves this without a client POST. |
+| Initial plus three retry limit | ✅ Pass | `tests/test_orchestrator.py` asserts the exact 0/3/4/5 attempt boundaries; worker uses PostgreSQL lease and configurable 30-second cooldown. |
+| Review hold and manual completion | ✅ Pass | Pure state tests reject automatic completion; real local intake reads USER/ADMIN projections, rejects USER completion with 403, and proves ADMIN replay-safe completion. |
+| Review classification with no F-03 row | ✅ Pass | `tests/run_orchestration_intake.py` uses real OCR/classification/PostgreSQL and proves a `needs_review` case is projected while validation, F-04 starts and routes remain zero. |
+| Persisted missing/invalid notice | ✅ Pass | Orchestrator inserts one `case_notifications` applicant record per current revision/kind and projects it from PostgreSQL; no external dispatch exists. |
+| Current state layering and F-05 preservation | ✅ Pass | Mutable `current_case_states` never updates F-02/F-03/F-04/F-05 source records; F-05 routing/notifications remain separate and a manual completed review state is preserved for its revision. |
+| Compose and contract baseline | ✅ Pass | Worker-only services disable inherited HTTP health checks; `docker compose config --quiet` and the documented mock suite passed all 58 scenarios. |
+
+### Predicates / Invariants Matched
+
+| Entity/Predicate | Invariant / Boundary / Concurrency Rule | Verified By |
+|---|---|---|
+| `CorrespondenceStartJob` | At most one automatic start per case revision; exactly four total F-04 attempts maximum; stale claims are lease-recoverable. | Unique `(case_id, source_case_revision)`, `FOR UPDATE SKIP LOCKED`, boundary tests. |
+| `CurrentCaseState` | Derived state is a PostgreSQL layer; `review_required` cannot auto-complete; reviewer completion survives projection refresh for the same revision. | State derivation tests, reviewer endpoint, real local acceptance. |
+| `CaseNotification` | One applicant display record per missing/invalid kind/revision; e-mail is a null placeholder. | Database unique constraint and worker insertion. |
+| Demo access policy | Exactly one fixed USER token and one fixed ADMIN token; USER excludes internal/target payloads, ADMIN can complete review. | Projection tests and real HTTP assertions. |
+
+### Open Questions Raised This Pass
+
+| ID | Question | Status | Resolution |
+|---|---|---|---|
+| — | None. | — | All implementation details required by US-111 were covered by the approved design and architecture. |
+
+### Deviations From Approved DESIGN/ARCHITECTURE
+
+None.
+
+### Version Control Actions
+
+- Commit: `cfa574f feat(workflow): add durable case orchestration`.
+- Pushed to `origin/feature/jamba-inference`.
+
+---
+
 ## Pass: 2026-08-25 — US-110 F-05 final routing and notifications
 
 **Branch:** `feature/jamba-inference`.

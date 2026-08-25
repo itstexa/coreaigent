@@ -15,6 +15,7 @@ from psycopg.types.json import Jsonb
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 AUTH_TOKEN = os.environ.get("CASE_ACCESS_TOKEN", "")
+ADMIN_TOKEN = os.environ.get("CASE_ADMIN_TOKEN", "")
 CORPUS_VERSION = "demo-municipality-regulations-v1"
 PROMPT_SCHEMA_VERSION = "f04-correspondence-v1"
 
@@ -77,6 +78,30 @@ CREATE TABLE IF NOT EXISTS notification_jobs (
  state text NOT NULL CHECK (state IN ('pending','claimed','completed')), attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
  claimed_until timestamptz NULL, rejection_code text NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS current_case_states (
+ case_id uuid PRIMARY KEY, revision bigint NOT NULL CHECK (revision > 0),
+ state text NOT NULL CHECK (state IN ('received','normalized','classified','needs_review','extracting','waiting_for_user','ready_for_processing','draft_prepared','routed','notification_pending','completed','failed')),
+ completed_steps jsonb NOT NULL DEFAULT '[]'::jsonb, last_error_code text NULL,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS correspondence_start_jobs (
+ job_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
+ state text NOT NULL CHECK (state IN ('pending','claimed','waiting','completed','failed')),
+ attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count BETWEEN 0 AND 4),
+ next_attempt_at timestamptz NULL, claimed_until timestamptz NULL, error_code text NULL,
+ created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE (case_id, source_case_revision)
+);
+CREATE TABLE IF NOT EXISTS case_notifications (
+ notification_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
+ audience text NOT NULL CHECK (audience='applicant'), kind text NOT NULL CHECK (kind IN ('missing_information','invalid_information')),
+ payload jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE (case_id, source_case_revision, audience, kind)
+);
+CREATE TABLE IF NOT EXISTS review_completion_replays (
+ case_id uuid NOT NULL, idempotency_key uuid NOT NULL, source_case_revision bigint NOT NULL,
+ response_body jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (case_id,idempotency_key)
+);
 """
 
 
@@ -86,6 +111,15 @@ def nested_error(status, code, message, **extra):
 
 def _authorized(request):
     return bool(AUTH_TOKEN) and request.headers.get("Authorization") == f"Bearer {AUTH_TOKEN}"
+
+
+def _role(request):
+    value = request.headers.get("Authorization")
+    if AUTH_TOKEN and value == f"Bearer {AUTH_TOKEN}":
+        return "USER"
+    if ADMIN_TOKEN and value == f"Bearer {ADMIN_TOKEN}":
+        return "ADMIN"
+    return None
 
 
 def _headers(request):
@@ -229,6 +263,70 @@ def create_app():
             "target_department": {"id": route[3], "label": route[4]}, "target_unit": {"id": route[5], "label": route[6]},
             "notifications": [{"audience": item[0], "generation_status": item[1], "error_code": item[2]} for item in notifications],
         }
+
+    @app.get("/cases/{case_id}")
+    def case_status(case_id: str, request: Request):
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        try:
+            case = uuid.UUID(case_id)
+            with psycopg.connect(DATABASE_URL) as db:
+                state = db.execute("SELECT revision,state,completed_steps,last_error_code,updated_at FROM current_case_states WHERE case_id=%s", (case,)).fetchone()
+                if not state:
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                notices = db.execute("SELECT kind,payload,created_at FROM case_notifications WHERE case_id=%s AND source_case_revision=%s ORDER BY created_at", (case, state[0])).fetchall()
+                validation = db.execute("SELECT completion_status FROM current_validation_states WHERE case_id=%s", (case,)).fetchone()
+                route_status = db.execute("SELECT routing_status FROM routing_operations WHERE case_id=%s AND source_case_revision=%s", (case, state[0])).fetchone()
+                response = {"case_id": case_id, "case_revision": state[0], "state": state[1], "completed_steps": state[2], "last_error_code": state[3], "updated_at": state[4].isoformat(), "validation_status": validation[0] if validation else None, "routing_status": route_status[0] if route_status else "not_routed", "applicant_notifications": [{"kind": row[0], "payload": row[1], "created_at": row[2].isoformat()} for row in notices]}
+                if role == "ADMIN":
+                    details = db.execute("SELECT s.accepted_fields,c.department_id,c.unit_id,c.request_type_id,g.document_summary,g.draft_text FROM current_validation_states s JOIN current_classifications c USING(document_id) LEFT JOIN correspondence_generations g ON g.generation_id=s.current_correspondence_generation_id WHERE s.case_id=%s", (case,)).fetchone()
+                    route = db.execute("SELECT target_department_id,target_unit_id FROM routing_operations WHERE case_id=%s AND source_case_revision=%s", (case, state[0])).fetchone()
+                    unit_notice = db.execute("SELECT payload FROM notification_records n JOIN routing_operations r USING(routing_id) WHERE r.case_id=%s AND r.source_case_revision=%s AND n.audience='target_unit'", (case, state[0])).fetchone()
+                    if details:
+                        response["operational_context"] = {"validated_fields": details[0], "department_id": details[1], "unit_id": details[2], "request_type_id": details[3], "document_summary": details[4], "draft_text": details[5]}
+                    response["routing"] = None if not route else {"target_department_id": route[0], "target_unit_id": route[1]}
+                    response["target_unit_notification"] = None if not unit_notice else unit_notice[0]
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return response
+
+    @app.post("/cases/{case_id}/review-completion")
+    async def complete_review(case_id: str, request: Request):
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        try:
+            case = uuid.UUID(case_id)
+        except ValueError:
+            return nested_error(400, "CASE_ID_INVALID", "case_id must be a UUID")
+        key, revision, bad = _headers(request)
+        if bad:
+            return bad
+        if await request.body():
+            return nested_error(400, "REQUEST_BODY_INVALID", "Body must be empty")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                cur.execute("SELECT source_case_revision,response_body FROM review_completion_replays WHERE case_id=%s AND idempotency_key=%s FOR UPDATE", (case, key))
+                replay = cur.fetchone()
+                if replay:
+                    if replay[0] != revision:
+                        return nested_error(409, "IDEMPOTENCY_KEY_REUSED", "Idempotency-Key was used for another case revision")
+                    return replay[1]
+                cur.execute("SELECT state FROM current_case_states WHERE case_id=%s AND revision=%s FOR UPDATE", (case, revision))
+                row = cur.fetchone()
+                if not row:
+                    return nested_error(412, "CASE_REVISION_CONFLICT", "If-Match does not match current case revision")
+                if row[0] != "needs_review":
+                    return nested_error(409, "CASE_NOT_REVIEWABLE", "Only needs_review cases can be completed")
+                response = {"case_id": case_id, "case_revision": revision, "state": "completed"}
+                cur.execute("UPDATE current_case_states SET state='completed',last_error_code=NULL,updated_at=now() WHERE case_id=%s", (case,))
+                cur.execute("INSERT INTO review_completion_replays (case_id,idempotency_key,source_case_revision,response_body) VALUES (%s,%s,%s,%s)", (case, key, revision, Jsonb(response)))
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return response
 
     return app
 

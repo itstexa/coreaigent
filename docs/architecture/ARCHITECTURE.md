@@ -14,6 +14,7 @@ consumes the human-approved Jamba and feature-pack requirements in
 | [ARCHITECTURE_0df0ad1_f03.md](ARCHITECTURE_0df0ad1_f03.md) | US-108 F-03 extraction, validation, current PostgreSQL state, and supplemental PATCH contract | 0df0ad1 | Active |
 | [ARCHITECTURE_0df0ad1_f04.md](ARCHITECTURE_0df0ad1_f04.md) | US-109 F-04 regulation retrieval, immutable correspondence history, durable jobs, and structured Jamba draft | 0df0ad1 | Active |
 | [ARCHITECTURE_f84cffd_f05.md](ARCHITECTURE_f84cffd_f05.md) | US-110 F-05 automatic routing, notification records, and PostgreSQL recovery | f84cffd | Active |
+| [ARCHITECTURE_5a9d17f_f06.md](ARCHITECTURE_5a9d17f_f06.md) | US-111 F-06 orchestration, current state, demo access, and recovery | 5a9d17f | Active |
 
 ## Scope and Component Boundary
 

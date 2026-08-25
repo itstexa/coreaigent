@@ -15,6 +15,7 @@ OCR_URL = "http://ocr:8080/v1/ocr"
 VALIDATION_URL = "http://validation:8080/v1/validate"
 WORKFLOW_URL = "http://workflow:8080"
 AUTH = {"Authorization": "Bearer f03-demo-token"}
+ADMIN = {"Authorization": "Bearer f06-demo-admin-token"}
 
 
 def call(url, payload=None, *, method="POST", headers=None, expected=200):
@@ -54,6 +55,15 @@ def wait_for_generation(case_id):
             return result, seen_processing
         time.sleep(0.5)
     raise AssertionError("real F-04 generation did not reach a terminal state within six minutes")
+
+
+def wait_for_case_state(case_id, expected):
+    for _ in range(720):
+        result, _ = call(f"{WORKFLOW_URL}/cases/{case_id}", method="GET", headers=AUTH)
+        if result["state"] == expected:
+            return result
+        time.sleep(0.5)
+    raise AssertionError(f"case did not become {expected} within six minutes")
 
 
 def wait_for_routing(case_id):
@@ -99,21 +109,12 @@ def main():
     assert headers["ETag"] == '"1"'
     case_id = validation["caseId"]
 
-    not_requested, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/correspondence", method="GET", headers=AUTH)
-    assert not_requested == {"case_id": case_id, "case_revision": 1, "generation_status": "not_requested", "result": None}, not_requested
+    # F-06 starts F-04 through the PostgreSQL durable orchestrator, without a
+    # frontend POST.  The former F-04 request checks remain negative coverage.
     unauthorized, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/correspondence", {}, headers={"Idempotency-Key": str(uuid.uuid4()), "If-Match": '"1"'}, expected=401)
     assert unauthorized["error"]["code"] == "UNAUTHORIZED", unauthorized
     stale, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/correspondence", {}, headers=AUTH | {"Idempotency-Key": str(uuid.uuid4()), "If-Match": '"2"'}, expected=412)
     assert stale["error"]["code"] == "CASE_REVISION_CONFLICT", stale
-
-    key = str(uuid.uuid4())
-    request_headers = AUTH | {"Idempotency-Key": key, "If-Match": '"1"'}
-    started, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/correspondence", {}, headers=request_headers, expected=202)
-    assert started["case_id"] == case_id and started["case_revision"] == 1 and started["generation_status"] == "queued", started
-    replay, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/correspondence", {}, headers=request_headers, expected=202)
-    assert replay == started, (replay, started)
-    with psycopg.connect(DATABASE_URL) as db:
-        assert db.execute("SELECT count(*) FROM correspondence_generation_jobs WHERE generation_id=(SELECT generation_id FROM correspondence_replays WHERE case_id=%s AND idempotency_key=%s)", (case_id, key)).fetchone() == (1,)
 
     result, seen_processing = wait_for_generation(case_id)
     assert result["case_revision"] == 1 and result["generation_status"] == "completed", result
@@ -145,17 +146,38 @@ def main():
     assert "case_context" not in payloads["applicant"] and payloads["applicant"]["email_placeholder"] is None, payloads
     assert "case_context" in payloads["target_unit"] and payloads["target_unit"]["email_placeholder"] is None, payloads
 
+    # The demo has exactly two testable tokens: USER can read the case but not
+    # operational details or review-complete it; ADMIN can complete review.
+    if result["result_status"] == "review_required":
+        user_view = wait_for_case_state(case_id, "needs_review")
+        assert "operational_context" not in user_view and "target_unit_notification" not in user_view, user_view
+        admin_view, _ = call(f"{WORKFLOW_URL}/cases/{case_id}", method="GET", headers=ADMIN)
+        assert admin_view["operational_context"]["validated_fields"] and admin_view["target_unit_notification"], admin_view
+        denied, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/review-completion", headers=AUTH | {"Idempotency-Key": str(uuid.uuid4()), "If-Match": '"1"'}, expected=403)
+        assert denied["error"]["code"] == "FORBIDDEN", denied
+        review_headers = ADMIN | {"Idempotency-Key": str(uuid.uuid4()), "If-Match": '"1"'}
+        completed, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/review-completion", headers=review_headers)
+        replay, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/review-completion", headers=review_headers)
+        assert completed == replay == {"case_id": case_id, "case_revision": 1, "state": "completed"}, (completed, replay)
+        wait_for_case_state(case_id, "completed")
+
     changed, changed_headers = call(
         f"http://validation:8080/cases/{case_id}/supplemental-information",
         {"fields": {"phone": "05321234567"}}, method="PATCH",
         headers=AUTH | {"Idempotency-Key": str(uuid.uuid4()), "If-Match": '"1"'},
     )
     assert changed["completionStatus"] == "complete" and changed_headers["ETag"] == '"2"', changed
-    current, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/correspondence", method="GET", headers=AUTH)
-    assert current == {"case_id": case_id, "case_revision": 2, "generation_status": "not_requested", "result": None}, current
+    # A supplemental revision gets its own automatic F-04 request; the old
+    # immutable generation must never be exposed as revision 2's current draft.
+    for _ in range(80):
+        current, _ = call(f"{WORKFLOW_URL}/cases/{case_id}/correspondence", method="GET", headers=AUTH)
+        if current["generation_status"] in {"queued", "processing", "completed", "failed"}:
+            break
+        time.sleep(0.1)
+    assert current["case_revision"] == 2 and current["generation_status"] != "not_requested", current
 
     with psycopg.connect(DATABASE_URL) as db:
-        persisted = db.execute("SELECT generation_status, model_id, model_revision, source_case_revision FROM correspondence_generations WHERE case_id=%s", (case_id,)).fetchone()
+        persisted = db.execute("SELECT generation_status, model_id, model_revision, source_case_revision FROM correspondence_generations WHERE case_id=%s AND source_case_revision=1", (case_id,)).fetchone()
     assert persisted[0] == "completed" and persisted[1] and persisted[2] and persisted[3] == 1, persisted
     print(f"F-04 real correspondence intake: passed (processing_seen={seen_processing}, source_status={result['source_status']})")
 

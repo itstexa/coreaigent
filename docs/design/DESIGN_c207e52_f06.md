@@ -75,6 +75,20 @@ Feature: F-06 durable orchestration and case state
     Then it upserts one PostgreSQL current-case-state row with current state, completed steps, last error and update time
     And it does not overwrite F-02 classification, F-03 validation, F-04 generation history, F-05 route, or notification records
 
+  Scenario: The demo user reads only its case projection
+    Given the single configured demo `USER` token
+    When it reads `GET /cases/{case_id}` for a demo case
+    Then it receives current state, public validation status, applicant notifications and process-facing routing status
+    And it does not receive target-unit notification payloads or internal draft context
+
+  Scenario: The demo administrator reads assigned-unit detail and completes review
+    Given the single configured demo `ADMIN` token
+    When it reads `GET /cases/{case_id}` for a routed case
+    Then it receives the routing target and target-unit operational notification payload
+    When it posts `POST /cases/{case_id}/review-completion` with `Idempotency-Key` and `If-Match`
+    Then it changes only a current `needs_review` case to `completed`
+    And an ordinary `USER` token receives 403 for the reviewer operation
+
 ## Open Questions
 
 | ID | Question | Raised By | Status | Resolution |
@@ -84,4 +98,15 @@ Feature: F-06 durable orchestration and case state
 | OQ-146 | Yetkili UI case-level state'i hangi endpoint/kontratla okur ve applicant ile hedef birim/service account için hangi role-based projection uygulanır? Özellikle `GET /cases/{case_id}/routing` target-unit payload'ını applicant'a göstermemektedir; F-06 bunun üstünde hangi case-state alanlarını döndürür? | requirement-analysis | Superseded | Ayrı kimlik sahibinin F-01 intake anında nasıl belirleneceği aşağıdaki OQ-149'a taşındı. Endpoint shape, owner/grant kaynağı netleşince tamamlanacaktır. |
 | OQ-147 | `missing_information`/`invalid_information` durumunda F-06'nın "kullanıcıya eksik alan bildirimi" F-05 `NotificationRecord` modelinde ayrı audience/kind ile mi persist edilir, yoksa yalnız authorized case read modelinde mi görünür? E-mail hâlâ placeholder olarak mı kalır? | requirement-analysis | Resolved | PostgreSQL'ye applicant notification insert edilir ve authorized case projection'da gösterilir. E-mail external dispatch değildir; placeholder kalır. |
 | OQ-148 | Case state authoritative olarak ayrı mutable PostgreSQL `current_case_states` satırında mı persist edilir, yoksa F-01..F-05 authoritative current tablolarından deterministik read projection olarak mı türetilir? State transition history/outbox audit gereksinimi var mıdır? | requirement-analysis | Resolved | Önceki authoritative current tablolara ek olarak bir mutable PostgreSQL `current_case_states` satırı tutulur. F-02/F-03/F-04/F-05 kaynak kayıtları overwrite edilmez; ayrı immutable state-history zorunlu değildir. |
-| OQ-149 | F-01'in mevcut public intake kontratı authentication/principal taşımıyor. Applicant ownership ve unit-ataması yetkisini güvenli uygulamak için case owner hangi doğrulanmış principal kaynağından persist edilir; unit/service-account principal'ları ve reviewer rolü hangi repository RBAC registry'sinden çözülür? | requirement-analysis | Open | — |
+| OQ-149 | F-01'in mevcut public intake kontratı authentication/principal taşımıyor. Applicant ownership ve unit-ataması yetkisini güvenli uygulamak için case owner hangi doğrulanmış principal kaynağından persist edilir; unit/service-account principal'ları ve reviewer rolü hangi repository RBAC registry'sinden çözülür? | requirement-analysis | Resolved | Demo yalnız iki sabit Bearer permission kullanır: tek `USER` token tüm demo case'leri kendi case'i gibi okur; tek `ADMIN` token atanmış birim ayrıntıları ve reviewer completion işlemini görür/yapar. Birim-per-user assignment, login/auth provider ve production security scope dışıdır. |
+
+## Demo Case Contract
+
+`GET /cases/{case_id}` Bearer authorization gerektirir. `USER` yalnız
+process-facing projection alır; `ADMIN` target-unit payload dahil demo
+operational projection alır. `POST /cases/{case_id}/review-completion` yalnız
+`ADMIN` içindir; boş body kabul eder, `Idempotency-Key: <uuid>` ve
+`If-Match: "<current_revision>"` zorunludur. Geçerli yalnız `needs_review`
+case'i `completed` yapar; diğer current state'ler `409 CASE_NOT_REVIEWABLE`
+döndürür. Bu sabit-token model demo kolaylığıdır, production authorization
+değildir.

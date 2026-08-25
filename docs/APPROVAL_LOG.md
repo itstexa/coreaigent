@@ -6,19 +6,18 @@
 
 ## Active Entry
 
-- **Status**: Pending Approval
-- **Stage**: Requirement Analysis
+- **Status**: Approved
+- **Stage**: Implementation
 - **Session Started**: 2026-08-25
-- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_c207e52_f06.md`
+- **Related Doc(s)**: approved `docs/design/DESIGN_c207e52_f06.md`; approved `docs/architecture/ARCHITECTURE_5a9d17f_f06.md`; `docs/implementation/IMPLEMENTATION_LOG.md`; `services/workflow/`; `tests/test_orchestrator.py`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Defines F-06 automatic F-04 orchestration, three retry cooldowns, terminal failure, review hold, PostgreSQL notifications, and current state layering.
-  - Preserves F-01–F-05 PostgreSQL authority and F-05's separate routing/notification invariants.
+  - Implements F-06 durable orchestration, case-state projection, PostgreSQL applicant notices, and demo USER/ADMIN read/completion endpoints.
+  - Verifies both real local Jamba/BGE-M3/PostgreSQL flow and the required mock Docker baseline.
 - **Open Questions Resolved This Session**:
-  - OQ-144, OQ-145, OQ-147, and OQ-148 — automatic F-04/retries, review terminal policy, persisted user notification, and current-state persistence.
-  - OQ-149 remains open: authentication principal and role-grant authority.
-- **Approved By**: —
-- **Approval Date**: —
+  - None; all F-06 implementation decisions are covered by the approved design and architecture.
+- **Approved By**: Serda
+- **Approval Date**: 2026-08-25
 
 ---
 
