@@ -1,10 +1,13 @@
 import json
 import logging
+import os
 import time
 import uuid
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from model_loader import get_model_and_tokenizer
@@ -14,6 +17,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("workflow")
 
 app = FastAPI(title="Workflow Orchestrator")
+
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+
+@app.get("/")
+async def index():
+    return FileResponse(os.path.join(_STATIC_DIR, "index.html"))
 
 model = None
 tokenizer = None
@@ -48,6 +59,10 @@ class WorkflowResult(BaseModel):
     documentType: str
     department: str
     draft: str
+    missingFields: List[str] = []
+    conflicts: List[str] = []
+    summary: Optional[str] = None
+    confidence: Optional[float] = None
     steps: List[WorkflowStep]
     error: Optional[dict] = None
 

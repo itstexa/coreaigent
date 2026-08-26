@@ -113,10 +113,12 @@ def run_pipeline(document_input: dict, workflow_id: str, model, tokenizer) -> di
     # --- Classification ---
     document_type = "unsupported"
     classification_decision = "manual_review"
+    doc_summary = None
     try:
         cls_result = classify_document(text, model, tokenizer)
         document_type = cls_result["documentType"]
         classification_decision = cls_result["classification"]
+        doc_summary = cls_result.get("summary")
         record("classification", "completed")
         _log(workflow_id, "classification", f"documentType={document_type}, classification={classification_decision}")
     except Exception as exc:
@@ -194,6 +196,10 @@ def run_pipeline(document_input: dict, workflow_id: str, model, tokenizer) -> di
         "documentType": document_type,
         "department": department,
         "draft": draft_text,
+        "missingFields": missing_fields,
+        "conflicts": conflicts,
+        "summary": doc_summary,
+        "confidence": confidence,
         "steps": steps,
         "error": error,
     }

@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreAIgent — Kamu Evrak ve Yazışma Ajanı</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f4f6f9;
+            color: #1e293b;
+            line-height: 1.5;
+            padding: 2rem 1rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .app-container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            padding: 2rem 2rem 2.5rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .header {
+            border-bottom: 2px solid #1e3a5f;
+            padding-bottom: 1.25rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-icon {
+            background: #1e3a5f;
+            color: white;
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #0f2a43;
+            letter-spacing: -0.02em;
+        }
+
+        .header .subtitle {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-top: 2px;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e3a5f;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-left: 4px solid #1e3a5f;
+            padding-left: 0.75rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.4rem;
+            color: #334155;
+            font-size: 0.95rem;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+            background: #f8fafc;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 500;
+            color: #1e293b;
+            cursor: pointer;
+        }
+
+        textarea, input[type="file"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: white;
+            transition: border 0.15s;
+        }
+
+        textarea {
+            min-height: 140px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        textarea:focus, input:focus {
+            outline: 2px solid #1e3a5f;
+            border-color: transparent;
+        }
+
+        .file-input {
+            background: #f8fafc;
+            padding: 0.5rem;
+        }
+
+        .btn {
+            background: #1e3a5f;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.75rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid #1e3a5f;
+        }
+
+        .btn:hover {
+            background: #16324a;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #1e3a5f;
+            border: 1px solid #1e3a5f;
+        }
+
+        .btn-secondary:hover {
+            background: #f1f5f9;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .spinner {
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #1e3a5f;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .steps-list {
+            list-style: none;
+            margin: 1.5rem 0 0.5rem;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .step-item:last-child {
+            border-bottom: none;
+        }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: #e2e8f0;
+            color: #475569;
+            flex-shrink: 0;
+        }
+
+        .step-icon.completed {
+            background: #16a34a;
+            color: white;
+        }
+
+        .step-icon.skipped {
+            background: #94a3b8;
+            color: white;
+        }
+
+        .step-icon.failed {
+            background: #dc2626;
+            color: white;
+        }
+
+        .step-icon.pending {
+            background: #cbd5e1;
+            color: #334155;
+        }
+
+        .step-label {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .step-status {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 400;
+        }
+
+        .result-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.9rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .badge.completed { background: #dcfce7; color: #166534; }
+        .badge.needs_information { background: #fef9c3; color: #854d0e; }
+        .badge.rejected { background: #fee2e2; color: #991b1b; }
+        .badge.manual_review { background: #ffedd5; color: #9a3412; }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .info-item {
+            background: #f8fafc;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+        }
+
+        .info-item .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .info-item .value {
+            font-weight: 600;
+            color: #0f2a43;
+            margin-top: 0.2rem;
+        }
+
+        .warning-box {
+            background: #fff7ed;
+            border-left: 4px solid #f97316;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        .warning-box.ok-box {
+            background: #f0fdf4;
+            border-left-color: #22c55e;
+        }
+
+        .error-box {
+            background: #fef2f2;
+            border-left: 4px solid #dc2626;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+            color: #991b1b;
+        }
+
+        .conflict-box {
+            background: #fef2f2;
+            border-left: 4px solid #b91c1c;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        .draft-area {
+            margin-top: 1.5rem;
+        }
+
+        .draft-area textarea {
+            min-height: 180px;
+            background: #f8fafc;
+            font-family: inherit;
+            border: 1px solid #cbd5e1;
+        }
+
+        .draft-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .copy-btn {
+            background: none;
+            border: 1px solid #1e3a5f;
+            color: #1e3a5f;
+            padding: 0.3rem 0.9rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .copy-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .mt-2 { margin-top: 0.75rem; }
+        .mt-3 { margin-top: 1rem; }
+        .text-sm { font-size: 0.9rem; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+        .error-message-global {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+            border: 1px solid #fecaca;
+        }
+
+        @media (max-width: 600px) {
+            .app-container { padding: 1.5rem; }
+            .info-grid { grid-template-columns: 1fr; }
+            .radio-group { gap: 0.75rem; flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Başlık -->
+        <div class="header">
+            <div class="header-icon">CA</div>
+            <div>
+                <h1>CoreAIgent</h1>
+                <div class="subtitle">Kamu Evrak ve Yazışma Ajanı</div>
+            </div>
+        </div>
+
+        <!-- Bölüm 1: Evrak Yükleme -->
+        <div id="uploadSection" class="section">
+            <div class="section-title">📄 Evrak Yükleme</div>
+            <div class="form-group">
+                <span class="form-label">İçerik türü:</span>
+                <div class="radio-group" id="contentTypeGroup">
+                    <label><input type="radio" name="contentType" value="text" checked> Metin</label>
+                    <label><input type="radio" name="contentType" value="pdf"> PDF</label>
+                    <label><input type="radio" name="contentType" value="image"> Görsel (taranmış)</label>
+                </div>
+            </div>
+
+            <div id="textInputGroup" class="form-group">
+                <label class="form-label" for="evrakMetni">Evrak metni:</label>
+                <textarea id="evrakMetni" placeholder="Evrak içeriğini buraya yapıştırın..."></textarea>
+            </div>
+
+            <div id="fileInputGroup" class="form-group hidden">
+                <label class="form-label" for="dosyaSec">Dosya seç (.pdf, .png, .jpg, .jpeg):</label>
+                <input type="file" id="dosyaSec" class="file-input" accept=".pdf,.png,.jpg,.jpeg">
+            </div>
+
+            <button id="analyzeBtn" class="btn">🔍 Analiz Et</button>
+            <div id="globalError" class="error-message-global hidden"></div>
+        </div>
+
+        <!-- Bölüm 2: İşlem Durumu -->
+        <div id="statusSection" class="status-section hidden">
+            <div class="flex-between">
+                <div class="section-title" style="border-left: none; padding-left: 0; margin-bottom: 0;">⏳ İşlem Durumu</div>
+                <span class="text-sm" id="workflowIdLabel"></span>
+            </div>
+            <div class="spinner" id="spinner"></div>
+            <ul class="steps-list" id="stepsList">
+                <li class="step-item" data-step="ocr"><span class="step-icon pending">•</span><span class="step-label">Belge Okuma (OCR)</span><span class="step-status">bekliyor</span></li>
+                <li class="step-item" data-step="classification"><span class="step-icon pending">•</span><span class="step-label">Sınıflandırma</span><span class="step-status">bekliyor</span></li>
+                <li class="step-item" data-step="validation"><span class="step-icon pending">•</span><span class="step-label">Doğrulama</span><span class="step-status">bekliyor</span></li>
+                <li class="step-item" data-step="rag"><span class="step-icon pending">•</span><span class="step-label">Mevzuat Taraması</span><span class="step-status">bekliyor</span></li>
+                <li class="step-item" data-step="llm"><span class="step-icon pending">•</span><span class="step-label">Yönlendirme ve Taslak</span><span class="step-status">bekliyor</span></li>
+            </ul>
+        </div>
+
+        <!-- Bölüm 3: Sonuç -->
+        <div id="resultSection" class="result-card hidden">
+            <div class="flex-between">
+                <div class="section-title" style="border-left: none; padding-left: 0; margin-bottom: 0.5rem;">📋 Analiz Sonucu</div>
+                <span id="statusBadge" class="badge"></span>
+            </div>
+            
+            <div class="info-grid">
+                <div class="info-item"><span class="label">Evrak Türü</span><div class="value" id="docTypeValue">-</div></div>
+                <div class="info-item"><span class="label">Yönlendirilen Birim</span><div class="value" id="departmentValue">-</div></div>
+            </div>
+
+            <div id="confidenceRow" class="info-item" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                <span class="label">Güven Skoru</span>
+                <span id="confidenceValue" class="value" style="font-weight: 700;">-</span>
+            </div>
+
+            <div id="summaryBox" class="info-item" style="background: #f1f5f9; margin-bottom: 1rem;">
+                <span class="label">Özet</span>
+                <div id="summaryText" class="value" style="font-weight: 400; margin-top: 0.3rem;">-</div>
+            </div>
+
+            <div id="missingInfoBox" class="warning-box hidden">
+                <strong>⚠️ Eksik Bilgiler:</strong>
+                <ul id="missingList" style="margin-top: 0.5rem; padding-left: 1.2rem;"></ul>
+            </div>
+
+            <div id="conflictBox" class="conflict-box hidden">
+                <strong>⚠️ Çelişkiler:</strong>
+                <ul id="conflictList" style="margin-top: 0.5rem; padding-left: 1.2rem;"></ul>
+            </div>
+
+            <div id="errorResultBox" class="error-box hidden"></div>
+
+            <div class="draft-area">
+                <div class="draft-header">
+                    <span class="form-label" style="margin-bottom: 0;">📝 Taslak Metin (düzenlenebilir)</span>
+                    <button id="copyBtn" class="copy-btn">📋 Panoya Kopyala</button>
+                </div>
+                <textarea id="draftTextarea" placeholder="Taslak metin burada görünecek..."></textarea>
+            </div>
+
+            <div style="margin-top: 1.5rem; text-align: right;">
+                <button id="resetBtn" class="btn btn-secondary">↺ Yeni Evrak Analiz Et</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // DOM refs
+            const uploadSection = document.getElementById('uploadSection');
+            const statusSection = document.getElementById('statusSection');
+            const resultSection = document.getElementById('resultSection');
+            const textInputGroup = document.getElementById('textInputGroup');
+            const fileInputGroup = document.getElementById('fileInputGroup');
+            const evrakMetni = document.getElementById('evrakMetni');
+            const dosyaSec = document.getElementById('dosyaSec');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const globalError = document.getElementById('globalError');
+            const spinner = document.getElementById('spinner');
+            const stepsList = document.getElementById('stepsList');
+            const workflowIdLabel = document.getElementById('workflowIdLabel');
+            const statusBadge = document.getElementById('statusBadge');
+            const docTypeValue = document.getElementById('docTypeValue');
+            const departmentValue = document.getElementById('departmentValue');
+            const confidenceValue = document.getElementById('confidenceValue');
+            const confidenceRow = document.getElementById('confidenceRow');
+            const summaryBox = document.getElementById('summaryBox');
+            const summaryText = document.getElementById('summaryText');
+            const missingInfoBox = document.getElementById('missingInfoBox');
+            const missingList = document.getElementById('missingList');
+            const conflictBox = document.getElementById('conflictBox');
+            const conflictList = document.getElementById('conflictList');
+            const errorResultBox = document.getElementById('errorResultBox');
+            const draftTextarea = document.getElementById('draftTextarea');
+            const copyBtn = document.getElementById('copyBtn');
+            const resetBtn = document.getElementById('resetBtn');
+
+            // Türkçe etiket haritaları
+            const docTypeMap = {
+                petition: 'Dilekçe',
+                application: 'Başvuru Formu',
+                complaint: 'Şikayet Dilekçesi',
+                information_request: 'Bilgi Edinme Başvurusu',
+                official_letter: 'Resmi Yazı',
+                invoice: 'Fatura',
+                unsupported: 'Desteklenmeyen'
+            };
+
+            const deptMap = {
+                insan_kaynaklari: 'İnsan Kaynakları',
+                hukuk: 'Hukuk',
+                mali_hizmetler: 'Mali Hizmetler',
+                yazi_isleri: 'Yazı İşleri',
+                bilgi_islem: 'Bilgi İşlem',
+                destek_hizmetleri: 'Destek Hizmetleri',
+                vatandas_hizmetleri: 'Vatandaş Hizmetleri',
+                manual_review: 'Manuel İnceleme'
+            };
+
+            const statusMap = {
+                completed: 'Tamamlandı',
+                needs_information: 'Eksik Bilgi',
+                rejected: 'Reddedildi',
+                manual_review: 'Manuel İnceleme Gerekli'
+            };
+
+            // step eşleme: service -> DOM data-step
+            const stepServiceMap = {
+                ocr: 'ocr',
+                classification: 'classification',
+                validation: 'validation',
+                rag: 'rag',
+                llm: 'llm'
+            };
+
+            // Radyo değişimi
+            document.querySelectorAll('input[name="contentType"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    const val = e.target.value;
+                    if (val === 'text') {
+                        textInputGroup.classList.remove('hidden');
+                        fileInputGroup.classList.add('hidden');
+                    } else {
+                        textInputGroup.classList.add('hidden');
+                        fileInputGroup.classList.remove('hidden');
+                    }
+                });
+            });
+
+            // Utility: randomUUID fallback
+            function uuid() {
+                if (crypto.randomUUID) return crypto.randomUUID();
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+
+            // ArrayBuffer -> base64 (chunked)
+            function arrayBufferToBase64(buffer) {
+                const bytes = new Uint8Array(buffer);
+                let binary = '';
+                const chunkSize = 8192;
+                for (let i = 0; i < bytes.length; i += chunkSize) {
+                    const chunk = bytes.subarray(i, i + chunkSize);
+                    binary += String.fromCharCode.apply(null, chunk);
+                }
+                return btoa(binary);
+            }
+
+            // reset UI
+            function resetUI() {
+                globalError.classList.add('hidden');
+                globalError.textContent = '';
+                statusSection.classList.add('hidden');
+                resultSection.classList.add('hidden');
+                uploadSection.classList.remove('hidden');
+                // step'leri sıfırla
+                document.querySelectorAll('.step-item').forEach(item => {
+                    const icon = item.querySelector('.step-icon');
+                    const statusSpan = item.querySelector('.step-status');
+                    icon.className = 'step-icon pending';
+                    icon.textContent = '•';
+                    statusSpan.textContent = 'bekliyor';
+                });
+                // form temizliği (opsiyonel)
+                evrakMetni.value = '';
+                dosyaSec.value = '';
+                document.querySelector('input[name="contentType"][value="text"]').checked = true;
+                textInputGroup.classList.remove('hidden');
+                fileInputGroup.classList.add('hidden');
+                analyzeBtn.disabled = false;
+            }
+
+            // Analiz Et
+            analyzeBtn.addEventListener('click', async () => {
+                globalError.classList.add('hidden');
+                globalError.textContent = '';
+                const selectedType = document.querySelector('input[name="contentType"]:checked').value;
+                let content = '';
+                let contentType = '';
+                let fileName = null;
+
+                if (selectedType === 'text') {
+                    const text = evrakMetni.value.trim();
+                    if (!text) {
+                        showGlobalError('Lütfen evrak metnini girin.');
+                        return;
+                    }
+                    content = text;
+                    contentType = 'text/plain';
+                } else {
+                    const file = dosyaSec.files[0];
+                    if (!file) {
+                        showGlobalError('Lütfen bir dosya seçin.');
+                        return;
+                    }
+                    fileName = file.name;
+                    // MIME tipi
+                    if (file.type === 'application/pdf') contentType = 'application/pdf';
+                    else if (file.type === 'image/png') contentType = 'image/png';
+                    else if (file.type === 'image/jpeg') contentType = 'image/jpeg';
+                    else {
+                        // uzantıya göre
+                        if (file.name.toLowerCase().endsWith('.pdf')) contentType = 'application/pdf';
+                        else if (file.name.toLowerCase().endsWith('.png')) contentType = 'image/png';
+                        else if (file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg')) contentType = 'image/jpeg';
+                        else {
+                            showGlobalError('Desteklenmeyen dosya türü. Lütfen PDF, PNG veya JPG seçin.');
+                            return;
+                        }
+                    }
+
+                    // Dosyayı oku
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        content = arrayBufferToBase64(arrayBuffer);
+                    } catch (err) {
+                        showGlobalError('Dosya okunamadı: ' + err.message);
+                        return;
+                    }
+                }
+
+                // UI: durum bölümünü göster, upload gizle
+                uploadSection.classList.add('hidden');
+                statusSection.classList.remove('hidden');
+                resultSection.classList.add('hidden');
+                spinner.style.display = 'block';
+                analyzeBtn.disabled = true;
+
+                // requestId, documentId
+                const requestId = uuid();
+                const documentId = uuid();
+
+                const payload = {
+                    schemaVersion: '1.0',
+                    requestId,
+                    documentId,
+                    scenarioId: 'demo',
+                    contentType,
+                    content,
+                    fileName,
+                    source: 'citizen_portal'
+                };
+
+                try {
+                    // POST /upload
+                    const uploadRes = await fetch('/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!uploadRes.ok) {
+                        let errMsg = `Sunucu hatası (${uploadRes.status})`;
+                        try {
+                            const errData = await uploadRes.json();
+                            if (errData && errData.message) errMsg = errData.message;
+                        } catch (e) {}
+                        throw new Error(errMsg);
+                    }
+
+                    const uploadData = await uploadRes.json();
+                    const workflowId = uploadData.workflowId;
+                    workflowIdLabel.textContent = `Workflow ID: ${workflowId || '-'}`;
+
+                    // GET /result/{workflowId}
+                    const resultRes = await fetch(`/result/${workflowId}`);
+                    if (!resultRes.ok) {
+                        let errMsg = `Sonuç alınamadı (${resultRes.status})`;
+                        try {
+                            const errData = await resultRes.json();
+                            if (errData && errData.message) errMsg = errData.message;
+                        } catch (e) {}
+                        throw new Error(errMsg);
+                    }
+
+                    const resultData = await resultRes.json();
+
+                    // Adımları işaretle (steps dizisi)
+                    const steps = resultData.steps || [];
+                    // 5 adımı sırayla güncelle
+                    const stepOrder = ['ocr', 'classification', 'validation', 'rag', 'llm'];
+                    // Her adım için durum bul
+                    const stepStatusMap = {};
+                    steps.forEach(step => {
+                        const service = step.service;
+                        if (stepServiceMap[service]) {
+                            stepStatusMap[stepServiceMap[service]] = step.status; // 'completed', 'skipped', 'failed'
+                        }
+                    });
+
+                    // Adımları sırayla güncelle (300ms arayla)
+                    for (let i = 0; i < stepOrder.length; i++) {
+                        const stepKey = stepOrder[i];
+                        const listItem = document.querySelector(`.step-item[data-step="${stepKey}"]`);
+                        if (listItem) {
+                            const icon = listItem.querySelector('.step-icon');
+                            const statusSpan = listItem.querySelector('.step-status');
+                            const status = stepStatusMap[stepKey] || 'pending';
+                            if (status === 'completed') {
+                                icon.className = 'step-icon completed';
+                                icon.textContent = '✓';
+                                statusSpan.textContent = 'tamamlandı';
+                            } else if (status === 'skipped') {
+                                icon.className = 'step-icon skipped';
+                                icon.textContent = '-';
+                                statusSpan.textContent = 'atlandı';
+                            } else if (status === 'failed') {
+                                icon.className = 'step-icon failed';
+                                icon.textContent = '✗';
+                                statusSpan.textContent = 'başarısız';
+                            } else {
+                                icon.className = 'step-icon pending';
+                                icon.textContent = '•';
+                                statusSpan.textContent = 'bekliyor';
+                            }
+                        }
+                        // 300ms bekle (son adımda bekleme)
+                        if (i < stepOrder.length - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
+                    }
+
+                    // Spinner kapat
+                    spinner.style.display = 'none';
+
+                    // Sonuç bölümünü doldur
+                    displayResult(resultData);
+
+                } catch (err) {
+                    console.error(err);
+                    spinner.style.display = 'none';
+                    // Hata göster, upload'a geri dön
+                    statusSection.classList.add('hidden');
+                    uploadSection.classList.remove('hidden');
+                    analyzeBtn.disabled = false;
+                    showGlobalError('İşlem başarısız: ' + err.message);
+                }
+            });
+
+            function displayResult(data) {
+                // status
+                const status = data.status || 'manual_review';
+                const badge = document.getElementById('statusBadge');
+                badge.textContent = statusMap[status] || status;
+                badge.className = 'badge ' + status;
+
+                // documentType
+                const docType = data.documentType;
+                docTypeValue.textContent = docTypeMap[docType] || docType || '-';
+
+                // department
+                const dept = data.department;
+                departmentValue.textContent = deptMap[dept] || dept || '-';
+
+                // confidence
+                const conf = data.confidence;
+                if (conf !== undefined && conf !== null) {
+                    confidenceRow.style.display = 'flex';
+                    const percent = Math.round(conf * 100);
+                    confidenceValue.textContent = `%${percent}`;
+                    if (conf < 0.6) {
+                        confidenceValue.style.color = '#ea580c';
+                    } else {
+                        confidenceValue.style.color = '#0f2a43';
+                    }
+                } else {
+                    confidenceRow.style.display = 'none';
+                }
+
+                // summary
+                if (data.summary) {
+                    summaryBox.classList.remove('hidden');
+                    summaryText.textContent = data.summary;
+                } else {
+                    summaryBox.classList.add('hidden');
+                }
+
+                // missingFields
+                const missing = data.missingFields || [];
+                if (missing.length > 0) {
+                    missingInfoBox.classList.remove('hidden');
+                    missingInfoBox.classList.remove('ok-box');
+                    missingInfoBox.querySelector('strong').textContent = '⚠️ Eksik Bilgiler:';
+                    missingList.innerHTML = '';
+                    missing.forEach(item => {
+                        const li = document.createElement('li');
+                        li.textContent = item;
+                        missingList.appendChild(li);
+                    });
+                } else {
+                    missingInfoBox.classList.remove('hidden');
+                    missingInfoBox.classList.add('ok-box');
+                    missingInfoBox.querySelector('strong').textContent = '✅ Eksik bilgi tespit edilmedi';
+                    missingList.innerHTML = '';
+                }
+
+                // conflicts
+                const conflicts = data.conflicts || [];
+                if (conflicts.length > 0) {
+                    conflictBox.classList.remove('hidden');
+                    conflictList.innerHTML = '';
+                    conflicts.forEach(item => {
+                        const li = document.createElement('li');
+                        li.textContent = item;
+                        conflictList.appendChild(li);
+                    });
+                } else {
+                    conflictBox.classList.add('hidden');
+                }
+
+                // error
+                if (data.error && data.error.message) {
+                    errorResultBox.classList.remove('hidden');
+                    errorResultBox.textContent = 'Hata: ' + data.error.message;
+                } else {
+                    errorResultBox.classList.add('hidden');
+                }
+
+                // draft
+                draftTextarea.value = data.draft || '';
+
+                // göster
+                statusSection.classList.add('hidden');
+                resultSection.classList.remove('hidden');
+                uploadSection.classList.add('hidden');
+                analyzeBtn.disabled = false;
+            }
+
+            function showGlobalError(msg) {
+                globalError.textContent = msg;
+                globalError.classList.remove('hidden');
+            }
+
+            // Kopyala
+            copyBtn.addEventListener('click', async () => {
+                const text = draftTextarea.value;
+                if (!text) return;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copyBtn.textContent = '✓ Kopyalandı';
+                    setTimeout(() => { copyBtn.textContent = '📋 Panoya Kopyala'; }, 2000);
+                } catch (e) {
+                    alert('Kopyalama başarısız: ' + e.message);
+                }
+            });
+
+            // Yeni evrak
+            resetBtn.addEventListener('click', () => {
+                resetUI();
+            });
+
+            // Başlangıçta temiz
+            resetUI();
+        })();
+    </script>
+</body>
+</html>
