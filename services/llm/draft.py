@@ -1,7 +1,31 @@
+import re
 import torch
 from typing import List
 
 
+def _dedupe_repetition(text: str) -> str:
+    """Greedy decode bazen aynı cümleyi döngüsel tekrar eder; ilk tekrardan
+    sonrasını kes."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    seen = set()
+    out = []
+    for s in sentences:
+        key = s.strip().lower()
+        if key and key in seen:
+            break
+        if key:
+            seen.add(key)
+        out.append(s)
+    return " ".join(out).strip()
+
+
+# Bilinen sınırlama: repetition_penalty/no_repeat_ngram_size döngüsel
+# tekrarı (aynı cümlenin N kez basılması) önlüyor, ama serbest-metin uzun
+# taslak üretiminde Jamba2-3B-Turkish bazen konudan sapan/tutarsız içerik
+# üretebiliyor (bkz. Faz6 uçtan uca test notu). Kısa/kapalı-uçlu görevler
+# (sınıflandırma, yönlendirme, evet/hayır alan kontrolü) güvenilir; uzun
+# serbest taslak insan gözden geçirmesi gerektiren bir ilk taslak olarak
+# değerlendirilmeli, doğrudan gönderim için değil.
 def generate_draft(text: str, context: List[str], model, tokenizer) -> str:
     if not text.strip():
         return ""
@@ -24,7 +48,7 @@ Gereğine arz ederim.
     if context:
         context_part = "İlgili mevzuat: " + " ".join(context) + "\n\n"
 
-    prompt = few_shot + context_part + f"Resmi yazı taslağı:\n{text}\n\nResmi yazı taslağı:"
+    prompt = few_shot + context_part + f"Gelen evrak:\n{text}\n\nResmi yazı taslağı:"
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
@@ -34,10 +58,13 @@ Gereğine arz ederim.
             max_new_tokens=150,
             do_sample=False,
             eos_token_id=tokenizer.eos_token_id,
+            repetition_penalty=1.3,
+            no_repeat_ngram_size=3,
         )
 
     generated_ids = outputs[0][inputs["input_ids"].shape[1]:]
     generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+    generated_text = _dedupe_repetition(generated_text)
 
     if not generated_text or generated_text[:30] == text[:30]:
         return "Sayın ilgili, evrağınız incelenmek üzere alınmıştır. Bilgilerinize arz ederim."
@@ -59,10 +86,13 @@ def summarize(text: str, model, tokenizer) -> str:
             max_new_tokens=60,
             do_sample=False,
             eos_token_id=tokenizer.eos_token_id,
+            repetition_penalty=1.3,
+            no_repeat_ngram_size=3,
         )
 
     generated_ids = outputs[0][inputs["input_ids"].shape[1]:]
     generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+    generated_text = _dedupe_repetition(generated_text)
 
     summary_lines = generated_text.split("\n")[:2]
     summary = "\n".join(summary_lines).strip()
