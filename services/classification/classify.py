@@ -56,7 +56,7 @@ def classify_document(text: str, model, tokenizer) -> dict:
         return {
             "documentType": "unsupported",
             "classification": "unsupported",
-            "extractedFields": {"raw_model_label": None, "matched_turkce_tur": None},
+            "extractedFields": {"raw_model_label": None, "matched_turkce_tur": None, "source_text": text or ""},
             "summary": None,
         }
 
@@ -101,6 +101,7 @@ def classify_document(text: str, model, tokenizer) -> dict:
         "extractedFields": {
             "raw_model_label": first_line,
             "matched_turkce_tur": matched_tur,
+            "source_text": text.strip(),
         },
         "summary": summary,
     }
