@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pypdf
+pytesseract
+pillow
+pydantic
