@@ -100,7 +100,10 @@ class GenerationTests(unittest.TestCase):
                 doc = parse_legislation_text(raw_doc.raw_text, raw_doc.kanun_no, raw_doc.kanun_adi, raw_doc.url)
                 engine.index_chunks(chunker.chunk(doc))
 
-            result = engine.ask("Elektronik ortamda güvenli elektronik imza için hangi sertifika gerekir?")
+            # Not: "elektronik imza/sertifika" artık corpus İÇİNDE (2646 sayılı
+            # Yönetmelik Madde 3/4/17, offline_docs ile eklendi) — o yüzden
+            # gerçekten corpus dışı, farklı bir kanuna ait bir soru kullanılıyor.
+            result = engine.ask("2577 sayılı İdari Yargılama Usulü Kanunu'na göre dava açma süresi kaç gündür?")
             self.assertIn("cevabı yok", result["answer"].lower())
 
 

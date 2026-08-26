@@ -58,5 +58,9 @@ def test_citation_expansion_does_not_duplicate_already_present_madde():
     with tempfile.TemporaryDirectory() as tmp:
         engine = _make_engine(tmp, "citation_expansion_dedup_test", citation_expansion_enabled=True)
         hits = engine.retrieve("Hangi dilekçeler incelenemez?", top_k=10)
-        madde6_hits = [h for h in hits if h.chunk.metadata.madde_no == 6]
+        # kanun_no'yu da filtrelemek gerekiyor: corpus artık 4 belge içeriyor
+        # (offline_docs ile KVKK/Bilgi Edinme/Yönetmelik eklendi), bu yüzden
+        # başka bir kanunun Madde 6'sı da top_k=10 içine girebilir — asıl test
+        # ettiğimiz şey 3071'in kendi Madde 6'sının tekilleştirilmesi.
+        madde6_hits = [h for h in hits if h.chunk.metadata.kanun_no == "3071" and h.chunk.metadata.madde_no == 6]
         assert len(madde6_hits) == 1

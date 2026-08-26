@@ -11,7 +11,7 @@ from mevzuat_rag.generation import SYSTEM_PROMPT as GEN_SYSTEM_PROMPT
 from mevzuat_rag.generation import _build_context
 from mevzuat_rag.models import ChunkMetadata, LegislationChunk, RetrievalResult
 from mevzuat_rag.pipeline.stages.crag import SYSTEM_PROMPT as CRAG_SYSTEM_PROMPT
-from mevzuat_rag.pipeline.stages.post_hoc_verify import SYSTEM_PROMPT as VERIFY_SYSTEM_PROMPT
+from mevzuat_rag.pipeline.stages.post_hoc_verify import CRITIC_SYSTEM_PROMPT as VERIFY_SYSTEM_PROMPT
 from mevzuat_rag.prompt_safety import INJECTION_DEFENSE_NOTE, wrap_source
 
 

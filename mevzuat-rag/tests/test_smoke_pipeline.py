@@ -23,7 +23,7 @@ from mevzuat_rag.ingestion.local_corpus import load_fixtures
 
 EXPECTED_STAGES = {
     "router", "multi_query", "hyde", "hybrid_retrieve", "embed_query",
-    "rerank", "parent_doc", "crag", "compression", "generate",
+    "rerank", "parent_doc", "crag", "compression", "generate", "post_hoc_verify",
 }
 
 
@@ -49,6 +49,8 @@ def _make_fake_client() -> MagicMock:
             return _fake_response(json.dumps(["mock sorgu bir", "mock sorgu iki"]))
         if "hipotetik" in text.lower():
             return _fake_response("Mock hipotetik cevap metni.")
+        if '"is_valid"' in text:
+            return _fake_response('{"is_valid": true, "reason": "mock: bağlamla tutarlı"}')
         return _fake_response("Mock grounded cevap [1].")
 
     client.chat.completions.create.side_effect = _create
@@ -59,14 +61,15 @@ class SmokePipelineTest(unittest.TestCase):
     # Each stage module did `from mevzuat_rag.llm_client import get_client`,
     # binding its own local name — patching mevzuat_rag.llm_client.get_client
     # alone would not reach any of them, so every call site is patched here.
+    @patch("mevzuat_rag.pipeline.stages.post_hoc_verify.get_client")
     @patch("mevzuat_rag.pipeline.stages.crag.get_client")
     @patch("mevzuat_rag.pipeline.stages.hyde.get_client")
     @patch("mevzuat_rag.pipeline.stages.multi_query.get_client")
     @patch("mevzuat_rag.pipeline.stages.router.get_client")
     @patch("mevzuat_rag.generation.get_client")
-    def test_full_pipeline_all_stages_traced(self, mock_generation, mock_router, mock_multi_query, mock_hyde, mock_crag):
+    def test_full_pipeline_all_stages_traced(self, mock_generation, mock_router, mock_multi_query, mock_hyde, mock_crag, mock_post_hoc_verify):
         fake_client = _make_fake_client()
-        for mock_get_client in (mock_generation, mock_router, mock_multi_query, mock_hyde, mock_crag):
+        for mock_get_client in (mock_generation, mock_router, mock_multi_query, mock_hyde, mock_crag, mock_post_hoc_verify):
             mock_get_client.return_value = fake_client
 
         with tempfile.TemporaryDirectory() as tmp:
