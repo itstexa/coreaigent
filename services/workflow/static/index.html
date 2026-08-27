@@ -5,53 +5,165 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CoreAIgent — Kamu Evrak Asistanı</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ince scrollbar */
+    :root {
+      --bg-deep: #05070d;
+      --bg-panel: #0b0f1a;
+      --accent-cyan: #22d3ee;
+      --accent-blue: #3b82f6;
+      --accent-violet: #8b5cf6;
+    }
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; }
+
+    body { background: var(--bg-deep); }
+
+    /* Aurora arka plan */
+    .aurora { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+    .aurora::before, .aurora::after, .aurora .blob-3 {
+      content: ''; position: absolute; border-radius: 9999px; filter: blur(90px); opacity: 0.35;
+    }
+    .aurora::before {
+      width: 42vw; height: 42vw; top: -12vw; left: -10vw;
+      background: radial-gradient(circle at 30% 30%, var(--accent-blue), transparent 70%);
+      animation: drift1 22s ease-in-out infinite alternate;
+    }
+    .aurora::after {
+      width: 38vw; height: 38vw; bottom: -14vw; right: -8vw;
+      background: radial-gradient(circle at 60% 60%, var(--accent-violet), transparent 70%);
+      animation: drift2 26s ease-in-out infinite alternate;
+    }
+    .aurora .blob-3 {
+      width: 28vw; height: 28vw; top: 30%; left: 55%;
+      background: radial-gradient(circle, var(--accent-cyan), transparent 70%);
+      opacity: 0.18;
+      animation: drift3 30s ease-in-out infinite alternate;
+    }
+    @keyframes drift1 { from { transform: translate(0,0) scale(1); } to { transform: translate(6vw, 8vw) scale(1.15); } }
+    @keyframes drift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-5vw, -6vw) scale(1.1); } }
+    @keyframes drift3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-8vw, 5vw) scale(0.9); } }
+
+    .grid-overlay {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: linear-gradient(rgba(148,163,184,0.05) 1px, transparent 1px),
+                         linear-gradient(90deg, rgba(148,163,184,0.05) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+    }
+
+    /* scrollbar */
     .chat-scroll::-webkit-scrollbar { width: 6px; }
-    .chat-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
-    .chat-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
-    .chat-scroll { scrollbar-width: thin; scrollbar-color: #cbd5e1 #f1f5f9; }
-    .bubble { transition: all 0.2s ease; }
-    .typing-indicator { display: inline-block; width: 8px; height: 8px; background: #94a3b8; border-radius: 50%; margin-right: 4px; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+    .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.25); border-radius: 8px; }
+    .chat-scroll::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.4); }
+    .chat-scroll { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.25) transparent; }
+
+    .bubble { animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .glow-dot { box-shadow: 0 0 8px 1px currentColor; }
+
+    .typing-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 9999px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      animation: bounceDot 1.1s infinite ease-in-out;
+      box-shadow: 0 0 6px rgba(34,211,238,0.7);
+    }
+    @keyframes bounceDot { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+
+    .glass {
+      background: rgba(15, 20, 34, 0.55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(148,163,184,0.12);
+    }
+
+    .brand-glow {
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.25), 0 0 24px -4px rgba(59,130,246,0.55);
+      animation: pulseGlow 3.5s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(34,211,238,0.25), 0 0 24px -4px rgba(59,130,246,0.5); }
+      50% { box-shadow: 0 0 0 1px rgba(34,211,238,0.4), 0 0 34px -2px rgba(139,92,246,0.6); }
+    }
+
+    .live-dot { box-shadow: 0 0 0 0 rgba(52,211,153,0.6); animation: livePulse 2s infinite; }
+    @keyframes livePulse {
+      0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); }
+      70% { box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+      100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+    }
+
+    .send-btn { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+    .send-btn:not(:disabled):hover { transform: translateY(-1px) scale(1.04); box-shadow: 0 0 20px -2px rgba(59,130,246,0.7); }
+    .send-btn:not(:disabled):active { transform: scale(0.96); }
+
+    .input-shell { transition: box-shadow 0.25s ease, border-color 0.25s ease; }
+    .input-shell:focus-within { border-color: rgba(34,211,238,0.5); box-shadow: 0 0 0 3px rgba(34,211,238,0.12), 0 0 24px -6px rgba(59,130,246,0.5); }
+
+    .conf-bar { position: relative; height: 6px; border-radius: 9999px; background: rgba(148,163,184,0.15); overflow: hidden; }
+    .conf-fill { height: 100%; border-radius: 9999px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); }
+
+    .pill { transition: transform 0.15s ease; }
+    .pill:hover { transform: translateY(-1px); }
   </style>
 </head>
-<body class="bg-slate-100 h-screen flex flex-col overflow-hidden">
+<body class="h-screen flex flex-col overflow-hidden relative text-slate-100">
+
+  <div class="aurora"><div class="blob-3"></div></div>
+  <div class="grid-overlay"></div>
 
   <!-- Header -->
-  <header class="bg-white/80 backdrop-blur border-b border-slate-200 px-4 py-2.5 shadow-sm z-10">
-    <div class="max-w-3xl mx-auto flex items-center gap-2">
-      <span class="text-xl">🏛️</span>
-      <h1 class="font-semibold text-slate-800 text-sm sm:text-base">CoreAIgent — Kamu Evrak Asistanı</h1>
+  <header class="glass relative z-10 px-4 py-3 shadow-lg shadow-black/20">
+    <div class="max-w-4xl mx-auto flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl brand-glow bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 flex items-center justify-center text-base shrink-0">
+        🏛️
+      </div>
+      <div class="flex-1 min-w-0">
+        <h1 class="font-display font-semibold text-sm sm:text-base bg-gradient-to-r from-slate-50 via-cyan-100 to-slate-200 bg-clip-text text-transparent truncate">
+          CoreAIgent <span class="text-slate-500 font-normal">— Kamu Evrak Asistanı</span>
+        </h1>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Yapay zekâ destekli evrak okuma, sınıflandırma ve yönlendirme</p>
+      </div>
+      <div class="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-2.5 py-1 shrink-0">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></span>
+        <span class="hidden sm:inline">Sistem Aktif</span>
+      </div>
     </div>
   </header>
 
   <!-- Chat alanı -->
-  <main id="chatContainer" class="flex-1 overflow-y-auto chat-scroll px-4 py-6 bg-slate-100">
-    <div id="messagesWrapper" class="max-w-3xl mx-auto space-y-4">
+  <main id="chatContainer" class="flex-1 overflow-y-auto chat-scroll px-4 py-6 relative z-10">
+    <div id="messagesWrapper" class="max-w-4xl mx-auto space-y-5">
       <!-- Mesajlar JS ile buraya eklenecek -->
     </div>
   </main>
 
   <!-- Alt input çubuğu -->
-  <footer class="bg-white border-t border-slate-200 px-4 py-3 z-10">
-    <div class="max-w-3xl mx-auto flex items-center gap-2">
-      <!-- Ataş butonu -->
-      <label class="cursor-pointer p-2 rounded-full hover:bg-slate-100 transition flex items-center justify-center text-slate-500" title="Dosya ekle (PDF, PNG, JPG)">
-        <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" class="hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-        </svg>
-      </label>
-      <!-- Metin input -->
-      <input type="text" id="messageInput" placeholder="Evrak metnini yapıştırın veya 📎 ile dosya ekleyin..." 
-             class="flex-1 border border-slate-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50">
-      <!-- Gönder butonu -->
-      <button id="sendButton" class="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full p-2.5 transition shadow-sm flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-        </svg>
-      </button>
+  <footer class="relative z-10 px-4 pb-4 pt-2">
+    <div class="max-w-4xl mx-auto">
+      <div class="input-shell glass rounded-2xl flex items-center gap-2 px-2 py-2 border border-slate-700/50">
+        <!-- Ataş butonu -->
+        <label class="cursor-pointer p-2.5 rounded-xl hover:bg-white/5 transition flex items-center justify-center text-slate-400 hover:text-cyan-300 shrink-0" title="Dosya ekle (PDF, PNG, JPG)">
+          <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" class="hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+          </svg>
+        </label>
+        <!-- Metin input -->
+        <input type="text" id="messageInput" placeholder="Evrak metnini yapıştırın veya 📎 ile dosya ekleyin..."
+               class="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none py-2">
+        <!-- Gönder butonu -->
+        <button id="sendButton" class="send-btn bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl p-2.5 shrink-0 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        </button>
+      </div>
+      <p class="text-center text-[10px] text-slate-600 mt-2">CoreAIgent yapay zekâ tarafından üretilen sonuçlar kontrol amaçlıdır.</p>
     </div>
   </footer>
 
@@ -69,10 +181,16 @@
 
       // Türkçe haritalar
       const statusMap = {
-        completed: 'Tamamlandı ✅',
-        needs_information: 'Eksik Bilgi ⚠️',
-        rejected: 'Reddedildi ❌',
-        manual_review: 'Manuel İnceleme Gerekli 🔎'
+        completed: 'Tamamlandı',
+        needs_information: 'Eksik Bilgi',
+        rejected: 'Reddedildi',
+        manual_review: 'Manuel İnceleme Gerekli'
+      };
+      const statusStyleMap = {
+        completed: { icon: '✅', classes: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/30', dot: 'text-emerald-400' },
+        needs_information: { icon: '⚠️', classes: 'bg-amber-400/10 text-amber-300 border-amber-400/30', dot: 'text-amber-400' },
+        rejected: { icon: '❌', classes: 'bg-rose-400/10 text-rose-300 border-rose-400/30', dot: 'text-rose-400' },
+        manual_review: { icon: '🔎', classes: 'bg-violet-400/10 text-violet-300 border-violet-400/30', dot: 'text-violet-400' }
       };
       const docTypeMap = {
         petition: 'Dilekçe',
@@ -94,164 +212,151 @@
         manual_review: 'Manuel İnceleme'
       };
 
-      // Basit markdown dönüştürücü (kalın, liste, paragraf)
-      function simpleMarkdownToHtml(md) {
-        if (!md) return '';
-        // escape HTML önce
-        let escaped = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        
-        // **kalın** -> <strong>
-        escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        
-        // satır bazlı işleme
-        const lines = escaped.split('\n');
-        let html = '';
-        let inList = false;
-        
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          const trimmed = line.trim();
-          
-          // liste maddesi
-          if (trimmed.startsWith('- ')) {
-            if (!inList) {
-              html += '<ul class="list-disc ml-5 space-y-1 my-1">';
-              inList = true;
-            }
-            html += `<li>${trimmed.substring(2)}</li>`;
-            continue;
-          } else {
-            if (inList) {
-              html += '</ul>';
-              inList = false;
-            }
-          }
-          
-          // boş satır -> paragraf arası boşluk
-          if (trimmed === '') {
-            html += '<div class="h-2"></div>';
-            continue;
-          }
-          
-          // normal satır
-          html += `<p>${line}</p>`;
-        }
-        if (inList) html += '</ul>';
-        
-        return html;
+      function escapeHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       }
 
       // Mesaj ekleme (kullanıcı veya bot)
       function addMessage(role, contentHTML, isBot = false) {
         const wrapper = document.createElement('div');
-        wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`;
-        
+        wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2.5`;
+
         // avatar
         const avatar = document.createElement('div');
-        avatar.className = `w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-sm ${role === 'user' ? 'bg-blue-100 order-2' : 'bg-slate-200 order-1'}`;
+        avatar.className = `w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 ${
+          role === 'user'
+            ? 'order-2 bg-gradient-to-br from-cyan-400/20 to-blue-500/20 border border-cyan-400/30'
+            : 'order-1 bg-gradient-to-br from-violet-500/20 to-blue-500/20 border border-slate-600/40'
+        }`;
         avatar.textContent = role === 'user' ? '👤' : '🤖';
-        
+
         // baloncuk
         const bubble = document.createElement('div');
-        bubble.className = `bubble max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm text-sm leading-relaxed ${
-          role === 'user' 
-            ? 'bg-blue-600 text-white rounded-br-md order-1' 
-            : 'bg-white text-slate-800 border border-slate-200 rounded-bl-md order-2'
+        bubble.className = `bubble max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+          role === 'user'
+            ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-br-md order-1 shadow-lg shadow-blue-900/30'
+            : 'glass text-slate-100 rounded-bl-md order-2 shadow-lg shadow-black/20'
         }`;
-        
+
         if (typeof contentHTML === 'string') {
           bubble.innerHTML = contentHTML;
         } else {
           bubble.appendChild(contentHTML);
         }
-        
+
         wrapper.appendChild(avatar);
         wrapper.appendChild(bubble);
         messagesWrapper.appendChild(wrapper);
-        
+
         // scroll en alta
         chatContainer.scrollTop = chatContainer.scrollHeight;
-        
+
         return bubble; // güncelleme için döndür
       }
 
       // Bot işleniyor baloncuğu (pulse animasyonlu)
       function addProcessingBubble() {
-        const bubble = addMessage('bot', '<span class="inline-flex items-center gap-1"><span class="typing-indicator"></span><span class="typing-indicator" style="animation-delay:0.2s"></span><span class="typing-indicator" style="animation-delay:0.4s"></span> Evrakınızı aldım, okuyorum... ⏳</span>', true);
+        const bubble = addMessage('bot', `<span class="inline-flex items-center gap-2 text-slate-300">
+          <span class="inline-flex items-center gap-1">
+            <span class="typing-dot"></span><span class="typing-dot" style="animation-delay:0.15s"></span><span class="typing-dot" style="animation-delay:0.3s"></span>
+          </span>
+          Evrakınızı aldım, okuyorum...
+        </span>`, true);
         return bubble;
       }
 
       // Hata mesajı güncelleme
       function setBubbleError(bubble, errorMsg) {
-        bubble.innerHTML = `<span class="text-red-600 font-medium">⚠️ Bir hata oluştu: ${errorMsg}. Lütfen tekrar deneyin.</span>`;
-        bubble.classList.add('border-red-200', 'bg-red-50');
+        bubble.innerHTML = `<span class="text-rose-300 font-medium">⚠️ Bir hata oluştu: ${escapeHtml(errorMsg)}. Lütfen tekrar deneyin.</span>`;
+        bubble.classList.add('border-rose-400/30', 'bg-rose-500/5');
       }
 
-      // Sonuç baloncuğunu güncelle
+      // Sonuç baloncuğunu yapılandırılmış kart olarak oluştur
       function updateBubbleWithResult(bubble, data) {
-        // Durum ve tür
         const statusKey = data.status || 'manual_review';
         const docTypeKey = data.documentType || 'unsupported';
         const deptKey = data.department || 'manual_review';
-        
+
         const statusText = statusMap[statusKey] || statusKey;
+        const statusStyle = statusStyleMap[statusKey] || statusStyleMap.manual_review;
         const docTypeText = docTypeMap[docTypeKey] || docTypeKey;
         const deptText = deptMap[deptKey] || deptKey;
         const confidence = data.confidence ? Math.round(data.confidence * 100) : 0;
-        
-        // Eksik bilgiler
-        let missingItems = '';
-        if (data.missingFields && data.missingFields.length > 0) {
-          missingItems = data.missingFields.map(f => `- ${f}`).join('\n');
-        } else {
-          missingItems = '- Eksik bilgi tespit edilmedi ✅';
+        const confColor = confidence >= 80 ? 'from-emerald-400 to-cyan-400' : confidence >= 50 ? 'from-amber-400 to-orange-400' : 'from-rose-500 to-red-500';
+
+        let html = `
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusStyle.classes}">
+              ${statusStyle.icon} ${escapeHtml(statusText)}
+            </span>
+            <span class="pill inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-slate-600/40 text-slate-300">📄 ${escapeHtml(docTypeText)}</span>
+            <span class="pill inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-slate-600/40 text-slate-300">🏢 ${escapeHtml(deptText)}</span>
+          </div>
+
+          <div class="mb-3">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+              <span>Güven Skoru</span>
+              <span class="font-semibold text-slate-200">%${confidence}</span>
+            </div>
+            <div class="conf-bar">
+              <div class="conf-fill bg-gradient-to-r ${confColor}" style="width:${confidence}%"></div>
+            </div>
+          </div>
+        `;
+
+        if (data.summary) {
+          html += `<p class="text-slate-200 mb-3">${escapeHtml(data.summary)}</p>`;
         }
-        
-        // Çelişkiler
-        let contradictionsSection = '';
+
+        const missing = (data.missingFields && data.missingFields.length > 0) ? data.missingFields : null;
+        html += `
+          <div class="rounded-xl bg-white/[0.03] border border-slate-700/40 p-3 mb-2">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Eksik Bilgiler</p>
+            ${missing
+              ? `<ul class="space-y-1">${missing.map(f => `<li class="flex items-start gap-1.5 text-xs text-amber-200"><span class="mt-0.5">•</span><span>${escapeHtml(f)}</span></li>`).join('')}</ul>`
+              : `<p class="text-xs text-emerald-300">✅ Eksik bilgi tespit edilmedi</p>`
+            }
+          </div>
+        `;
+
         if (data.conflicts && data.conflicts.length > 0) {
-          const items = data.conflicts.map(c => `- ${c}`).join('\n');
-          contradictionsSection = `\n\n**Çelişkiler:**\n${items}`;
+          html += `
+            <div class="rounded-xl bg-rose-500/[0.06] border border-rose-500/25 p-3 mb-2">
+              <p class="text-[11px] font-semibold text-rose-300 uppercase tracking-wide mb-1.5">Çelişkiler</p>
+              <ul class="space-y-1">${data.conflicts.map(c => `<li class="flex items-start gap-1.5 text-xs text-rose-200"><span class="mt-0.5">•</span><span>${escapeHtml(c)}</span></li>`).join('')}</ul>
+            </div>
+          `;
         }
-        
-        // Markdown şablonu
-        const md = `**Durum:** ${statusText}\n\n**Evrak Türü:** ${docTypeText}\n**Yönlendirilen Birim:** ${deptText}\n**Güven Skoru:** %${confidence}\n\n**Özet:** ${data.summary || '—'}\n\n**Eksik Bilgiler:**\n${missingItems}${contradictionsSection}`;
-        
-        const htmlContent = simpleMarkdownToHtml(md);
-        
-        // Taslak metin varsa ekle
+
+        if (data.error && data.error.message) {
+          html += `<div class="mt-2 text-rose-300 text-sm font-medium">⚠️ Hata: ${escapeHtml(data.error.message)}</div>`;
+        }
+
         let draftHtml = '';
         if (data.draft && data.draft.trim().length > 0) {
           const draftId = 'draft_' + Math.random().toString(36).substring(2, 9);
           draftHtml = `
-            <div class="mt-4 border-t border-slate-200 pt-3">
+            <div class="mt-3 pt-3 border-t border-slate-700/50">
               <div class="flex items-center justify-between mb-2">
-                <span class="font-semibold text-slate-700 text-sm">📝 Taslak Metin</span>
-                <div class="flex gap-2">
-                  <button class="copy-draft-btn text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md transition" data-draft-id="${draftId}">📋 Kopyala</button>
-                  <button class="toggle-draft-btn text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md transition" data-draft-id="${draftId}">✏️ Düzenle</button>
+                <span class="font-semibold text-slate-300 text-xs flex items-center gap-1.5">📝 Taslak Metin</span>
+                <div class="flex gap-1.5">
+                  <button class="copy-draft-btn text-[11px] bg-white/5 hover:bg-white/10 border border-slate-600/40 px-2 py-1 rounded-lg transition text-slate-300">📋 Kopyala</button>
+                  <button class="toggle-draft-btn text-[11px] bg-white/5 hover:bg-white/10 border border-slate-600/40 px-2 py-1 rounded-lg transition text-slate-300">✏️ Düzenle</button>
                 </div>
               </div>
-              <textarea id="${draftId}" rows="4" readonly class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-slate-50 focus:outline-none focus:ring-1 focus:ring-blue-400">${data.draft}</textarea>
+              <textarea id="${draftId}" rows="4" readonly class="w-full rounded-lg p-2.5 text-xs bg-black/30 text-cyan-100/90 border border-slate-700/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 font-mono">${escapeHtml(data.draft)}</textarea>
             </div>
           `;
         }
-        
-        // Hata varsa ekle
-        let errorHtml = '';
-        if (data.error && data.error.message) {
-          errorHtml = `<div class="mt-3 text-red-600 text-sm font-medium">⚠️ Hata: ${data.error.message}</div>`;
-        }
-        
-        bubble.innerHTML = htmlContent + draftHtml + errorHtml;
-        
+
+        bubble.innerHTML = html + draftHtml;
+
         // Kopyala ve düzenle butonları için event listener
         if (data.draft) {
-          const draftId = 'draft_' + bubble.querySelector('textarea')?.id.split('_')[1];
           const copyBtn = bubble.querySelector('.copy-draft-btn');
           const toggleBtn = bubble.querySelector('.toggle-draft-btn');
           const textarea = bubble.querySelector('textarea');
-          
+
           if (copyBtn && textarea) {
             copyBtn.addEventListener('click', () => {
               navigator.clipboard.writeText(textarea.value).then(() => {
@@ -260,24 +365,24 @@
               });
             });
           }
-          
+
           if (toggleBtn && textarea) {
             toggleBtn.addEventListener('click', () => {
               if (textarea.readOnly) {
                 textarea.readOnly = false;
-                textarea.classList.remove('bg-slate-50');
-                textarea.classList.add('bg-white');
+                textarea.classList.remove('bg-black/30');
+                textarea.classList.add('bg-slate-900/60', 'ring-1', 'ring-cyan-400/40');
                 toggleBtn.textContent = '🔒 Kilitle';
               } else {
                 textarea.readOnly = true;
-                textarea.classList.add('bg-slate-50');
-                textarea.classList.remove('bg-white');
+                textarea.classList.add('bg-black/30');
+                textarea.classList.remove('bg-slate-900/60', 'ring-1', 'ring-cyan-400/40');
                 toggleBtn.textContent = '✏️ Düzenle';
               }
             });
           }
         }
-        
+
         // scroll güncelle
         chatContainer.scrollTop = chatContainer.scrollHeight;
       }
@@ -320,30 +425,30 @@
       async function handleSend(content, contentType, fileName = null) {
         if (isProcessing) return;
         if (!content && !fileName) return;
-        
+
         // Kullanıcı baloncuğu
         if (fileName) {
-          addMessage('user', `📎 ${fileName} gönderildi`);
+          addMessage('user', `📎 ${escapeHtml(fileName)} gönderildi`);
         } else {
-          addMessage('user', content.replace(/\n/g, '<br>'));
+          addMessage('user', escapeHtml(content).replace(/\n/g, '<br>'));
         }
-        
+
         // Input temizle
         messageInput.value = '';
-        
+
         // İşleniyor baloncuğu
         const processingBubble = addProcessingBubble();
-        
+
         // UI kilitle
         isProcessing = true;
         sendButton.disabled = true;
         messageInput.disabled = true;
         fileInput.disabled = true;
-        
+
         // requestId ve documentId
         const requestId = crypto.randomUUID ? crypto.randomUUID() : 'req_' + Date.now() + Math.random().toString(36).substring(2, 10);
         const documentId = crypto.randomUUID ? crypto.randomUUID() : 'doc_' + Date.now() + Math.random().toString(36).substring(2, 10);
-        
+
         // content hazırla
         let finalContent = content;
         if (fileName) {
@@ -358,7 +463,7 @@
             return;
           }
         }
-        
+
         const payload = {
           schemaVersion: '1.0',
           requestId,
@@ -369,7 +474,7 @@
           fileName: fileName || undefined,
           source: 'citizen_portal'
         };
-        
+
         try {
           // POST /upload
           const uploadRes = await fetch('/upload', {
@@ -377,25 +482,25 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          
+
           if (!uploadRes.ok) {
             throw new Error(`Upload başarısız (${uploadRes.status})`);
           }
-          
+
           const uploadData = await uploadRes.json();
           const workflowId = uploadData.workflowId;
-          
+
           // GET /result/{workflowId}
           const resultRes = await fetch(`/result/${workflowId}`);
           if (!resultRes.ok) {
             throw new Error(`Sonuç alınamadı (${resultRes.status})`);
           }
-          
+
           const resultData = await resultRes.json();
-          
+
           // Baloncuğu güncelle
           updateBubbleWithResult(processingBubble, resultData);
-          
+
         } catch (err) {
           setBubbleError(processingBubble, err.message || 'Bilinmeyen hata');
         } finally {
@@ -436,7 +541,7 @@
       // Karşılama mesajı
       window.addEventListener('load', () => {
         const welcome = "Merhaba! Ben CoreAIgent. Bana bir kamu evrağı (dilekçe, başvuru vb.) metnini yapıştırın ya da 📎 ile PDF/görsel yükleyin, sizin için okuyup sınıflandırayım, eksikleri kontrol edeyim, ilgili birime yönlendireyim ve taslak yazı hazırlayayım.";
-        addMessage('bot', welcome);
+        addMessage('bot', escapeHtml(welcome));
       });
 
     })();

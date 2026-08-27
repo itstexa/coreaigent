@@ -224,7 +224,7 @@ class RAGConfig:
 
     @classmethod
     def load(cls, profile: str | None = None) -> "RAGConfig":
-        profile = profile or os.environ.get("RAG_PROFILE", "default")
+        profile = profile or os.environ.get("RAG_PROFILE") or "default"
         y = _layered_yaml(profile)
 
         device = os.environ.get("DEVICE") or y.get("device", "auto")
@@ -244,7 +244,7 @@ class RAGConfig:
         retrieval = y.get("retrieval", {}) or {}
         ingestion = y.get("ingestion", {}) or {}
 
-        local_path = os.environ.get("QDRANT_LOCAL_PATH", qdrant.get("local_path", "qdrant_local"))
+        local_path = os.environ.get("QDRANT_LOCAL_PATH") or qdrant.get("local_path", "qdrant_local")
 
         gen = y.get("generation", {}) or {}
         gen_retry = gen.get("retry", {}) or {}
@@ -253,15 +253,15 @@ class RAGConfig:
         return cls(
             qdrant_url=os.environ.get("QDRANT_URL") or qdrant.get("url") or None,
             qdrant_local_path=_resolve_data_path(local_path, data_dir),
-            qdrant_collection=os.environ.get("QDRANT_COLLECTION_MEVZUAT", qdrant.get("collection", "mevzuat_chunks")),
-            embedding_model=os.environ.get("RAG_EMBEDDING_MODEL", embedding.get("model", "BAAI/bge-m3")),
-            embedding_dim=int(os.environ.get("RAG_EMBEDDING_DIM", embedding.get("dim", 1024))),
+            qdrant_collection=os.environ.get("QDRANT_COLLECTION_MEVZUAT") or qdrant.get("collection", "mevzuat_chunks"),
+            embedding_model=os.environ.get("RAG_EMBEDDING_MODEL") or embedding.get("model", "BAAI/bge-m3"),
+            embedding_dim=int(os.environ.get("RAG_EMBEDDING_DIM") or embedding.get("dim", 1024)),
             embedding_device=os.environ.get("RAG_EMBEDDING_DEVICE") or device,
-            chunk_max_tokens=int(os.environ.get("RAG_CHUNK_MAX_TOKENS", chunking.get("max_tokens", 768))),
-            chunk_overlap_tokens=int(os.environ.get("RAG_CHUNK_OVERLAP_TOKENS", chunking.get("overlap_tokens", 80))),
-            retrieval_top_k=int(os.environ.get("RAG_RETRIEVAL_TOP_K", retrieval.get("top_k", 5))),
-            resmi_gazete_rss_url=os.environ.get("RESMI_GAZETE_RSS_URL", ingestion.get("resmi_gazete_rss_url", "https://www.resmigazete.gov.tr/rss")),
-            jina_reader_base_url=os.environ.get("AGENT_REACH_JINA_READER_BASE_URL", ingestion.get("jina_reader_base_url", "https://r.jina.ai")),
+            chunk_max_tokens=int(os.environ.get("RAG_CHUNK_MAX_TOKENS") or chunking.get("max_tokens", 768)),
+            chunk_overlap_tokens=int(os.environ.get("RAG_CHUNK_OVERLAP_TOKENS") or chunking.get("overlap_tokens", 80)),
+            retrieval_top_k=int(os.environ.get("RAG_RETRIEVAL_TOP_K") or retrieval.get("top_k", 5)),
+            resmi_gazete_rss_url=os.environ.get("RESMI_GAZETE_RSS_URL") or ingestion.get("resmi_gazete_rss_url", "https://www.resmigazete.gov.tr/rss"),
+            jina_reader_base_url=os.environ.get("AGENT_REACH_JINA_READER_BASE_URL") or ingestion.get("jina_reader_base_url", "https://r.jina.ai"),
             device=device,
             profile=profile,
             router=RouterConfig(**(y.get("router", {}) or {})),
@@ -276,8 +276,8 @@ class RAGConfig:
             post_hoc_verify=PostHocVerifyConfig(**(y.get("post_hoc_verify", {}) or {})),
             generation=GenerationConfig(
                 provider=gen.get("provider", "deepseek"),
-                model=os.environ.get("DEEPSEEK_MODEL", gen.get("model", "deepseek-chat")),
-                base_url=os.environ.get("DEEPSEEK_BASE_URL", gen.get("base_url", "https://api.deepseek.com/v1")),
+                model=os.environ.get("DEEPSEEK_MODEL") or gen.get("model", "deepseek-chat"),
+                base_url=os.environ.get("DEEPSEEK_BASE_URL") or gen.get("base_url", "https://api.deepseek.com/v1"),
                 temperature=float(gen.get("temperature", 0.0)),
                 max_tokens=int(gen.get("max_tokens", 800)),
                 timeout_s=float(gen.get("timeout_s", 30)),
@@ -286,8 +286,8 @@ class RAGConfig:
             ),
             debug=_bool_env("RAG_DEBUG", bool((y.get("observability", {}) or {}).get("debug", False))),
             embedding=EmbeddingConfig(
-                model=os.environ.get("RAG_EMBEDDING_MODEL", embedding.get("model", "BAAI/bge-m3")),
-                dim=int(os.environ.get("RAG_EMBEDDING_DIM", embedding.get("dim", 1024))),
+                model=os.environ.get("RAG_EMBEDDING_MODEL") or embedding.get("model", "BAAI/bge-m3"),
+                dim=int(os.environ.get("RAG_EMBEDDING_DIM") or embedding.get("dim", 1024)),
                 device=os.environ.get("RAG_EMBEDDING_DEVICE") or device,
                 batch_size=int(embedding.get("batch_size", 32)),
                 oom_retry=bool(embedding.get("oom_retry", True)),
