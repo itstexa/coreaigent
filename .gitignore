@@ -4,4 +4,6 @@ __pycache__/
 *.pyc
 TEKNOFEST_SUNUM.pdf
 .venv/
+graphify-out/graph.json
+graphify-out/cache/
 
