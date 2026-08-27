@@ -29,6 +29,16 @@ def call(service, payload):
         raise AssertionError(f"{service} returned HTTP {exc.code}: {exc.read().decode()}") from exc
 
 
+def call_get(path, headers=None):
+    request = urllib.request.Request(
+        f"http://workflow:8080{path}", headers=headers or {}, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return json.loads(response.read()), response.headers.get("X-CoreAIgent-Implementation")
+    except urllib.error.HTTPError as exc:
+        raise AssertionError(f"workflow GET {path} returned HTTP {exc.code}: {exc.read().decode()}") from exc
+
+
 def error_contract(service):
     request = urllib.request.Request(f"http://{service}:8080{MANIFEST[service]['path']}", data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
     try:
@@ -79,6 +89,19 @@ def run(item, mode, local):
     assert workflow["draft"], f"{item['id']}: workflow draft must not be blank"
 
 
+def run_mock_case_ui_contract():
+    case_id = "case-doc-s05-gurultu-sikayeti"
+    case, header = call_get(f"/cases/{case_id}", {"Authorization": "Bearer f06-demo-admin-token"})
+    correspondence, _ = call_get(f"/cases/{case_id}/correspondence")
+    routing, _ = call_get(f"/cases/{case_id}/routing")
+    assert header == "mock"
+    valid("case-status-result", case)
+    valid("case-correspondence-result", correspondence)
+    valid("case-routing-result", routing)
+    assert case["state"] == "completed" and routing["routing_status"] == "routed"
+    assert correspondence["generation_status"] == "completed"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=("mock", "development", "real"), required=True)
@@ -92,6 +115,8 @@ def main():
         error_contract(service)
     for item in SCENARIOS[:args.limit]:
         run(item, args.mode, args.local)
+    if args.mode == "mock":
+        run_mock_case_ui_contract()
     print(f"{min(args.limit, len(SCENARIOS))} {args.mode} scenario(s) passed")
 
 

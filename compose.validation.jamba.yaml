@@ -2,6 +2,8 @@ services:
   validation:
     environment:
       EXTRACTOR_MODE: jamba
+      # CPU inference needs minutes per extraction; keep the CUDA default at 65s.
+      JAMBA_TIMEOUT_SECONDS: "${JAMBA_TIMEOUT_SECONDS:-65}"
     depends_on:
       llm:
         condition: service_healthy

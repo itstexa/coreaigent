@@ -1,6 +1,7 @@
 """ATDD unit tests for US-108 F-03 extraction and validation rules."""
 
 import io
+import json
 import unittest
 from unittest.mock import patch
 
@@ -61,6 +62,39 @@ class ValidationRuleAcceptanceTests(unittest.TestCase):
         self.assertEqual(present["extractedFields"], [{"id": "invoice-attachment", "label": "invoice-attachment", "value": "present", "confidence": 1.0}])
         self.assertEqual(malformed["completionStatus"], "invalid_information")
         self.assertEqual(malformed["invalidFields"][0]["code"], "attachment_missing")
+
+    def test_jamba_extraction_reads_json_out_of_a_fenced_model_answer(self):
+        class Response(io.StringIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        definitions = [field("tckn", "tckn"), field("applicant-name", "free-text")]
+        fenced = json.dumps({"response": 'İsteğiniz:\n```json\n{"applicant-name": "Ayşe Yılmaz"}\n```'})
+        with patch.object(validation_app, "EXTRACTOR_MODE", "jamba"), \
+                patch("services.validation.app.urllib.request.urlopen", return_value=Response(fenced)):
+            candidates = extract_candidates("TCKN 10000000146.", definitions)
+
+        # The rule-owned field still comes from the deterministic pass.
+        self.assertEqual(candidates["tckn"], {"value": "10000000146", "confidence": 1.0})
+        self.assertEqual(candidates["applicant-name"], {"value": "Ayşe Yılmaz", "confidence": 0.5})
+
+    def test_jamba_extraction_rejects_an_answer_without_any_json_object(self):
+        class Response(io.StringIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        definitions = [field("applicant-name", "free-text")]
+        prose = json.dumps({"response": "Bu metinde başvuran adı bulunmuyor."})
+        with patch.object(validation_app, "EXTRACTOR_MODE", "jamba"), \
+                patch("services.validation.app.urllib.request.urlopen", return_value=Response(prose)):
+            with self.assertRaisesRegex(RuntimeError, "unavailable"):
+                extract_candidates("boş", definitions)
 
     def test_jamba_cannot_override_rule_owned_field_ids(self):
         class Response(io.StringIO):

@@ -1,0 +1,209 @@
+{
+  "schemaVersion": "2.0",
+  "authority": "Demo Belediye Başkanlığı",
+  "note": "Vatandaş dilekçesini kendi cümleleriyle yazar. Örnek metinler yalnız başlangıç kolaylığıdır: talep türünü, ilgili birimi ve dilekçedeki alanları her zaman servisler belirler. Alan kataloğu, doğrulama servisinin eksik bulduğu alanı vatandaşa sormak için kullanılır.",
+  "minTextLength": 120,
+  "fieldCatalog": [
+    {
+      "id": "applicant-name",
+      "label": "Ad ve soyad",
+      "kind": "text",
+      "placeholder": "Ayşe Yılmaz",
+      "hint": "Nüfus kaydınızdaki ad ve soyadınız."
+    },
+    {
+      "id": "tckn",
+      "label": "T.C. Kimlik Numarası",
+      "kind": "tckn",
+      "placeholder": "10000000146",
+      "hint": "11 haneli kimlik numaranız; doğrulama algoritmasından geçmelidir."
+    },
+    {
+      "id": "phone",
+      "label": "Cep telefonu",
+      "kind": "phone",
+      "placeholder": "0555 111 22 33",
+      "hint": "Başvurunuzla ilgili size ulaşabilmemiz için."
+    },
+    {
+      "id": "incident-address",
+      "label": "Olayın adresi",
+      "kind": "text",
+      "placeholder": "Cumhuriyet Mah. 12. Sokak No: 4, Kadıköy/İstanbul"
+    },
+    {
+      "id": "incident-date",
+      "label": "Olay tarihi",
+      "kind": "date",
+      "hint": "Şikayete konu olayın başladığı tarih."
+    },
+    {
+      "id": "incident-description",
+      "label": "Olayın açıklaması",
+      "kind": "textarea",
+      "placeholder": "Sesin kaynağı, hangi saatlerde sürdüğü ve ne kadar süredir devam ettiği."
+    },
+    {
+      "id": "business-address",
+      "label": "İşyeri adresi",
+      "kind": "text",
+      "placeholder": "Bağdat Cad. No: 120, Kadıköy/İstanbul"
+    },
+    {
+      "id": "business-activity",
+      "label": "Faaliyet konusu",
+      "kind": "text",
+      "placeholder": "Lokanta ve içecek servisi"
+    },
+    {
+      "id": "business-name",
+      "label": "İşletmenin adı",
+      "kind": "text",
+      "placeholder": "Deniz Kahvaltı Salonu"
+    },
+    {
+      "id": "inspection-subject",
+      "label": "Denetim konusu",
+      "kind": "textarea",
+      "placeholder": "Denetlenmesini istediğiniz durumu yazın."
+    },
+    {
+      "id": "application-number",
+      "label": "Başvuru numarası",
+      "kind": "text",
+      "placeholder": "RB-2026-004512",
+      "hint": "Başvuru sırasında tarafınıza verilen numara."
+    },
+    {
+      "id": "document-number",
+      "label": "Belge numarası",
+      "kind": "text",
+      "placeholder": "BL-2026-001188"
+    },
+    {
+      "id": "new-address",
+      "label": "Yeni adresiniz",
+      "kind": "text",
+      "placeholder": "Fenerbahçe Mah. Deniz Sok. No: 7/3, Kadıköy/İstanbul"
+    },
+    {
+      "id": "request-subject",
+      "label": "Talep konusu",
+      "kind": "textarea",
+      "placeholder": "Hangi bilgiyi veya belgeyi istediğinizi açıkça yazın."
+    },
+    {
+      "id": "payment-reference",
+      "label": "Ödeme referansı",
+      "kind": "text",
+      "placeholder": "TH-2026-889120",
+      "hint": "Tahakkuk, makbuz veya sicil numarası."
+    },
+    {
+      "id": "objection-reason",
+      "label": "İtiraz gerekçesi",
+      "kind": "textarea",
+      "placeholder": "Neden itiraz ettiğinizi ve varsa dayanağınızı yazın."
+    },
+    {
+      "id": "problem-description",
+      "label": "Sorunun açıklaması",
+      "kind": "textarea",
+      "placeholder": "Hangi ekranda ne olduğunu ve ekranda çıkan uyarıyı yazın."
+    },
+    {
+      "id": "invoice-number",
+      "label": "Fatura numarası",
+      "kind": "text",
+      "placeholder": "FT-2026-004512"
+    },
+    {
+      "id": "invoice-date",
+      "label": "Fatura tarihi",
+      "kind": "date"
+    },
+    {
+      "id": "invoice-amount",
+      "label": "Fatura tutarı",
+      "kind": "text",
+      "placeholder": "1.250,00 TL",
+      "hint": "Tutarı Türk lirası olarak yazın."
+    },
+    {
+      "id": "supplier-name",
+      "label": "Firma / tedarikçi adı",
+      "kind": "text",
+      "placeholder": "Marmara Teknik Ltd. Şti."
+    },
+    {
+      "id": "application-attachment",
+      "label": "Başvuru eki",
+      "kind": "attachment",
+      "hint": "Ek belgeler portaldan yüklenmez; kuruma elden veya e-posta ile iletilir."
+    },
+    {
+      "id": "invoice-attachment",
+      "label": "Fatura eki",
+      "kind": "attachment",
+      "hint": "Ek belgeler portaldan yüklenmez; kuruma elden veya e-posta ile iletilir."
+    }
+  ],
+  "samples": [
+    {
+      "requestTypeId": "gurultu-sikayeti",
+      "label": "Gürültü Şikayeti",
+      "summary": "Gece saatlerinde çevrenizde oluşan yüksek sesli gürültü için şikayet.",
+      "unitHint": "Denetim Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\nKadıköy Cumhuriyet Mahallesi 12. Sokak No: 4 Daire 3 adresinde ikamet ediyorum. Binamızın altındaki kafe 12.08.2026 tarihinden bu yana her gece saat 01.00 ile 03.00 arasında yüksek sesle müzik çalıyor. Gürültüden dolayı iki küçük çocuğumuz uyuyamıyor, komşularımız da aynı durumdan rahatsız.\n\nİşletmeyle iki kez konuşmamıza rağmen ses seviyesi düşmedi. Konunun yerinde incelenmesini, gereğinin yapılmasını ve şikayetimin sonucundan tarafıma bilgi verilmesini arz ederim.\n\nAyşe Yılmaz\nT.C. Kimlik No: 14392847570\nTelefon: 0532 114 22 87"
+    },
+    {
+      "requestTypeId": "ruhsat-basvurusu",
+      "label": "Ruhsat Başvurusu",
+      "summary": "İşyeri açma ve çalışma ruhsatı almak için yeni başvuru.",
+      "unitHint": "Ruhsat Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\nŞirinevler Mahallesi Bağcılar Caddesi No: 18 adresinde 85 metrekarelik bir dükkân kiraladım. Burada kahvaltı ve ev yemekleri sunan bir lokanta işleteceğim; mutfak ve salon düzenlemesi tamamlandı, faaliyete geçmek için hazırım.\n\nİşyeri açma ve çalışma ruhsatı almak üzere başvuruda bulunuyorum. Kira sözleşmesi, vergi levhası ve iskân belgesi elimde olup gerekli belgeleri kuruma teslim edebilirim. Başvurumun değerlendirilmesini arz ederim.\n\nMehmet Kaya\nT.C. Kimlik No: 27153486994\nTelefon: 0505 998 41 06"
+    },
+    {
+      "requestTypeId": "ruhsat-sorgusu",
+      "label": "Ruhsat Durum Sorgusu",
+      "summary": "Daha önce verdiğiniz ruhsat başvurusunun hangi aşamada olduğunu sorun.",
+      "unitHint": "Ruhsat Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\n14.07.2026 tarihinde ruhsat başvurum kuruma ulaştı ve tarafıma RS-2026-0481 numarası verildi. Aradan bir aydan fazla süre geçmesine rağmen herhangi bir dönüş yapılmadı.\n\nDosyamın hangi aşamada olduğunu, eksik bir husus bulunup bulunmadığını ve sonucun ne zaman açıklanacağını öğrenmek istiyorum. Başvurumun durumunun sorgulanarak neticenin tarafıma bildirilmesini arz ederim.\n\nZeynep Demir\nT.C. Kimlik No: 38461720540\nTelefon: 0533 402 76 18"
+    },
+    {
+      "requestTypeId": "adres-bildirimi",
+      "label": "Adres Değişikliği Bildirimi",
+      "summary": "Yeni ikamet adresinizi kurum kayıtlarına işletin.",
+      "unitHint": "Beyaz Masa Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\nAilemle birlikte 05.08.2026 tarihinde Ataşehir Barbaros Mahallesi Sümbül Sokak No: 7 Daire 5 adresine taşındım. Eski adresim Üsküdar Salacak Mahallesi 3. Sokak No: 11 idi.\n\nYeni ikamet adresimin nüfus kayıtlarıma işlenmesi ve kurum yazışmalarının bu adrese gönderilmesi için adres değişikliğimi beyan ediyorum. Gereğini arz ederim.\n\nEmre Şahin\nT.C. Kimlik No: 41928374682\nTelefon: 0542 663 19 45"
+    },
+    {
+      "requestTypeId": "bilgi-edinme",
+      "label": "Bilgi Edinme Talebi",
+      "summary": "4982 sayılı kanun kapsamında kurumdan bilgi ve belge isteyin.",
+      "unitHint": "Beyaz Masa Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\n4982 sayılı Bilgi Edinme Hakkı Kanunu kapsamında başvuruda bulunuyorum. İlçemizdeki Barış Parkı'nın 2025 yılında yapılan yenileme çalışmasına ilişkin faaliyet raporunun ve ihale sonuç ilanının bir kopyasının tarafıma verilmesini talep ediyorum.\n\nTalebimin konusu, park yenileme çalışmasının toplam maliyeti ile işi yürüten yüklenici firmanın bilgisidir. Bilginin yazılı olarak tarafıma iletilmesini arz ederim.\n\nHatice Aydın\nT.C. Kimlik No: 52637481950\nTelefon: 0555 271 08 33"
+    },
+    {
+      "requestTypeId": "odeme-itirazi",
+      "label": "Ödeme İtirazı",
+      "summary": "Adınıza çıkarılan borç, vergi veya tahsilat işlemine itiraz edin.",
+      "unitHint": "Gelir ve Tahakkuk Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\nAdıma düzenlenen 2026/EMLK-7742 numaralı emlak vergisi tahakkukunu 03.08.2026 tarihinde ödedim. Buna rağmen aynı borç ikinci kez tahakkuk ettirilerek tarafıma mükerrer ödeme bildirimi gönderildi.\n\nHaksız çıkarılan bu tutara itiraz ediyorum. Kayıtların incelenerek fazla tahsil edilen bedelin iadesini ve ikinci tahakkukun iptalini talep ediyorum.\n\nOkan Polat\nT.C. Kimlik No: 63748592060\nTelefon: 0544 815 60 27"
+    },
+    {
+      "requestTypeId": "sistem-erisim-arizasi",
+      "label": "Sistem Erişim Arızası",
+      "summary": "E-belediye hesabınıza giriş yapamıyorsanız arıza kaydı açın.",
+      "unitHint": "Dijital Hizmetler Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\nKurumun e-belediye portalına iki gündür giriş yapamıyorum. Kullanıcı adımı ve şifremi doğru girdiğim hâlde sistem \"oturum açılamadı\" hatası veriyor.\n\nŞifremi sıfırlamayı denedim; bu kez hesabımın kilitlendiği bildirildi. Vergi borcumu görüntüleyemediğim için ödeme yapamıyorum. Erişim arızasının giderilerek hesabımın açılmasını arz ederim.\n\nSelin Arslan\nT.C. Kimlik No: 74859603170\nTelefon: 0537 129 74 52"
+    },
+    {
+      "requestTypeId": "e-imza-arizasi",
+      "label": "E-İmza Arızası",
+      "summary": "Elektronik imza ile evrak imzalayamıyorsanız bildirin.",
+      "unitHint": "Dijital Hizmetler Birimi",
+      "sampleText": "Demo Belediye Başkanlığına,\n\nKurum işlemlerimde kullandığım elektronik imza sertifikam ile 20.08.2026 tarihinden beri belge imzalayamıyorum. Kart okuyucusunu iki farklı bilgisayarda denedim, sonuç değişmedi.\n\nİmzalama ekranı \"sertifika bulunamadı\" uyarısı veriyor ve işlem başarısız oluyor. E-imza arızasının giderilmesi ve bekleyen evraklarımın imzalanabilmesi için gereğini arz ederim.\n\nBurak Yıldız\nT.C. Kimlik No: 85960714280\nTelefon: 0538 640 27 91"
+    }
+  ]
+}

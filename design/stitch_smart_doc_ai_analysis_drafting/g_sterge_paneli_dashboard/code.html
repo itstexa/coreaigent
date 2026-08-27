@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+
+<html class="light" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard - GovDocs AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary": "#ffffff",
+                      "tertiary-container": "#333638",
+                      "primary": "#002046",
+                      "surface-container-highest": "#d3e4fe",
+                      "secondary-fixed": "#c6e7ff",
+                      "secondary-fixed-dim": "#81cfff",
+                      "on-surface": "#0b1c30",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "inverse-on-surface": "#eaf1ff",
+                      "on-secondary-container": "#004b69",
+                      "on-primary-fixed": "#001b3d",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary-container": "#9c9fa1",
+                      "inverse-surface": "#213145",
+                      "inverse-primary": "#aec7f7",
+                      "surface-tint": "#465f88",
+                      "on-primary": "#ffffff",
+                      "primary-fixed": "#d6e3ff",
+                      "on-surface-variant": "#44474e",
+                      "on-background": "#0b1c30",
+                      "surface-container": "#e5eeff",
+                      "outline-variant": "#c4c6cf",
+                      "on-tertiary-fixed-variant": "#444749",
+                      "surface-container-low": "#eff4ff",
+                      "tertiary-fixed-dim": "#c4c7c9",
+                      "on-secondary-fixed-variant": "#004c6b",
+                      "background": "#f8f9ff",
+                      "secondary-container": "#41befd",
+                      "surface-container-high": "#dce9ff",
+                      "primary-fixed-dim": "#aec7f7",
+                      "tertiary-fixed": "#e0e3e5",
+                      "on-error": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "surface": "#f8f9ff",
+                      "secondary": "#00658d",
+                      "on-secondary-fixed": "#001e2d",
+                      "surface-bright": "#f8f9ff",
+                      "error-container": "#ffdad6",
+                      "surface-dim": "#cbdbf5",
+                      "on-tertiary-fixed": "#191c1e",
+                      "on-primary-container": "#87a0cd",
+                      "outline": "#74777f",
+                      "primary-container": "#1b365d",
+                      "on-primary-fixed-variant": "#2e476f",
+                      "surface-variant": "#d3e4fe",
+                      "tertiary": "#1d2123"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-desktop": "32px",
+                      "unit": "4px",
+                      "sidebar-width": "260px",
+                      "container-max-width": "1440px",
+                      "sidebar-collapsed": "72px",
+                      "margin-mobile": "16px",
+                      "gutter": "24px"
+              },
+              "fontFamily": {
+                      "title-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "title-md": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "title-lg": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "title-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "26px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "22px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+          body {
+              font-family: 'Inter', sans-serif;
+              background-color: #F8FAFC;
+          }
+      </style>
+</head>
+<body class="bg-background text-on-background flex min-h-screen">
+<!-- SideNavBar -->
+<nav class="bg-primary dark:bg-tertiary text-on-primary dark:text-on-tertiary font-label-md text-label-md docked left-0 h-screen w-sidebar-width bg-primary dark:bg-tertiary shadow-sm transition-all duration-200 ease-in-out fixed left-0 top-0 h-full flex flex-col z-40 hidden md:flex">
+<div class="flex flex-col h-full">
+<div class="px-4 py-6 border-b border-white/10 flex items-center gap-3">
+<img alt="Organization Logo" class="w-10 h-10 rounded" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAL9c6sZPlJqxDvRa-FmaveLQzbCyPMkn53CQbk-1Fo45BgWz-VOHlQMAWUJ5JTSxK-V27FCCRr0cGWapAk65ohe8gs0cZWw8VtZTbTr1W1dBQsvs_iXnprUrZ3LfgyMllU17YYFUjJbwsk5iyhyQXodpq1gnEhzpyv0o0n7OiiX14s6varAjlCVoD72s6UxzS9zkKT047JSo2Wbw1QujmSNravc2bNU7U105tVTSLXD0qUJQUzbjPM"/>
+<div>
+<h1 class="font-title-lg text-title-lg text-on-primary dark:text-on-tertiary">GovDocs AI</h1>
+<p class="text-on-primary/70 text-xs">Official Portal</p>
+</div>
+</div>
+<div class="px-4 py-4">
+<button class="w-full bg-secondary-fixed text-on-secondary-fixed font-title-md text-title-md py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary-fixed-dim transition-colors">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    New Document
+                </button>
+</div>
+<ul class="flex-1 overflow-y-auto py-2">
+<li>
+<a class="bg-secondary-container text-on-secondary-container border-l-4 border-secondary-fixed flex items-center gap-3 px-4 py-3" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                        Dashboard
+                    </a>
+</li>
+<li>
+<a class="text-on-primary/70 dark:text-on-tertiary/70 flex items-center gap-3 px-4 py-3 hover:bg-primary-container dark:hover:bg-tertiary-container text-on-primary dark:text-on-tertiary" href="#">
+<span class="material-symbols-outlined" data-icon="workspaces">workspaces</span>
+                        Workspace
+                    </a>
+</li>
+<li>
+<a class="text-on-primary/70 dark:text-on-tertiary/70 flex items-center gap-3 px-4 py-3 hover:bg-primary-container dark:hover:bg-tertiary-container text-on-primary dark:text-on-tertiary" href="#">
+<span class="material-symbols-outlined" data-icon="drafts">drafts</span>
+                        Drafts
+                    </a>
+</li>
+<li>
+<a class="text-on-primary/70 dark:text-on-tertiary/70 flex items-center gap-3 px-4 py-3 hover:bg-primary-container dark:hover:bg-tertiary-container text-on-primary dark:text-on-tertiary" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+                        History
+                    </a>
+</li>
+<li>
+<a class="text-on-primary/70 dark:text-on-tertiary/70 flex items-center gap-3 px-4 py-3 hover:bg-primary-container dark:hover:bg-tertiary-container text-on-primary dark:text-on-tertiary" href="#">
+<span class="material-symbols-outlined" data-icon="library_books">library_books</span>
+                        Legislation Library
+                    </a>
+</li>
+<li>
+<a class="text-on-primary/70 dark:text-on-tertiary/70 flex items-center gap-3 px-4 py-3 hover:bg-primary-container dark:hover:bg-tertiary-container text-on-primary dark:text-on-tertiary" href="#">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+                        Admin
+                    </a>
+</li>
+<li>
+<a class="text-on-primary/70 dark:text-on-tertiary/70 flex items-center gap-3 px-4 py-3 hover:bg-primary-container dark:hover:bg-tertiary-container text-on-primary dark:text-on-tertiary" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                        Settings
+                    </a>
+</li>
+</ul>
+<div class="border-t border-white/10 p-4">
+<ul class="flex flex-col gap-2">
+<li>
+<a class="text-on-primary/70 flex items-center gap-3 hover:text-on-primary transition-colors text-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="help">help</span>
+                            Help Center
+                        </a>
+</li>
+<li>
+<a class="text-on-primary/70 flex items-center gap-3 hover:text-on-primary transition-colors text-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="logout">logout</span>
+                            Logout
+                        </a>
+</li>
+</ul>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-sidebar-width flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim font-title-md text-title-md docked full-width top-0 border-b border-outline-variant dark:border-outline flat no shadows flex justify-between items-center w-full px-margin-desktop h-16 z-50 sticky top-0 md:hidden">
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant md:hidden">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="font-headline-md text-headline-md text-primary dark:text-primary-fixed font-bold">GovDocs AI</div>
+</div>
+<nav class="hidden md:flex gap-6 h-full items-center">
+<a class="text-primary dark:text-secondary-fixed border-b-2 border-primary dark:border-secondary-fixed pb-1 h-full flex items-center" href="#">Dashboard</a>
+<a class="text-on-surface-variant dark:text-on-tertiary-container h-full flex items-center hover:bg-surface-container-high dark:hover:bg-tertiary-container transition-colors px-2" href="#">Workspace</a>
+<a class="text-on-surface-variant dark:text-on-tertiary-container h-full flex items-center hover:bg-surface-container-high dark:hover:bg-tertiary-container transition-colors px-2" href="#">Library</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-high rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-high rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-high rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</header>
+<div class="p-margin-desktop flex-1">
+<div class="mb-8 flex justify-between items-end">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-2">Genel Bakış</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Sistem durumu ve bekleyen işlemler</p>
+</div>
+</div>
+<!-- Stats Bar -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-4 flex flex-col justify-between h-28">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Bugün Yüklenen</span>
+<span class="material-symbols-outlined text-primary" data-icon="upload_file">upload_file</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-on-surface">142</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-4 flex flex-col justify-between h-28">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Analiz Edilen</span>
+<span class="material-symbols-outlined text-secondary" data-icon="memory">memory</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-on-surface">118</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-4 flex flex-col justify-between h-28">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Bekleyen Taslak</span>
+<span class="material-symbols-outlined text-outline" data-icon="drafts">drafts</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-on-surface">24</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-4 flex flex-col justify-between h-28 border-l-4 border-l-error">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Acil Teslim</span>
+<span class="material-symbols-outlined text-error" data-icon="warning">warning</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-on-surface">7</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-4 flex flex-col justify-between h-28 border-l-4 border-l-secondary-container">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Eksik Bilgi</span>
+<span class="material-symbols-outlined text-secondary-container" data-icon="error">error</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-on-surface">12</div>
+</div>
+</div>
+<!-- Layout Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Main Table Area -->
+<div class="lg:col-span-2 bg-surface-container-lowest border border-outline-variant/50 rounded-xl overflow-hidden flex flex-col">
+<div class="p-4 border-b border-outline-variant/50 flex justify-between items-center bg-surface-bright">
+<h3 class="font-title-lg text-title-lg text-on-surface">Son İşlemler</h3>
+<button class="text-primary font-label-md text-label-md flex items-center gap-1 hover:underline">
+                            Tümünü Gör
+                            <span class="material-symbols-outlined text-[16px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant/50">
+<th class="py-3 px-4 font-label-md text-label-md text-on-surface-variant uppercase sticky top-0 bg-surface-container-low z-10">Evrak No</th>
+<th class="py-3 px-4 font-label-md text-label-md text-on-surface-variant uppercase sticky top-0 bg-surface-container-low z-10">Tür</th>
+<th class="py-3 px-4 font-label-md text-label-md text-on-surface-variant uppercase sticky top-0 bg-surface-container-low z-10">Başvuran</th>
+<th class="py-3 px-4 font-label-md text-label-md text-on-surface-variant uppercase sticky top-0 bg-surface-container-low z-10">Tarih</th>
+<th class="py-3 px-4 font-label-md text-label-md text-on-surface-variant uppercase sticky top-0 bg-surface-container-low z-10">Durum</th>
+<th class="py-3 px-4 font-label-md text-label-md text-on-surface-variant uppercase sticky top-0 bg-surface-container-low z-10">Birim</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<tr class="border-b border-outline-variant/20 hover:bg-primary/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4 font-medium text-on-surface">E-2024/4512</td>
+<td class="py-3 px-4 text-on-surface-variant">İmar İzni</td>
+<td class="py-3 px-4 text-on-surface-variant">Ahmet Yılmaz</td>
+<td class="py-3 px-4 text-on-surface-variant">24 Eki 2024</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-surface-container-high text-on-surface border border-outline-variant/50">YENİ</span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant">Şehircilik</td>
+</tr>
+<tr class="border-b border-outline-variant/20 hover:bg-primary/5 transition-colors group cursor-pointer bg-secondary-fixed/20">
+<td class="py-3 px-4 font-medium text-on-surface">E-2024/4511</td>
+<td class="py-3 px-4 text-on-surface-variant">Ruhsat Yenileme</td>
+<td class="py-3 px-4 text-on-surface-variant">XYZ Ticaret A.Ş.</td>
+<td class="py-3 px-4 text-on-surface-variant">24 Eki 2024</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-secondary-container text-on-secondary-container border border-secondary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary mr-1 animate-pulse"></span>
+                                            ANALİZ EDİLİYOR
+                                        </span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant">Ticaret</td>
+</tr>
+<tr class="border-b border-outline-variant/20 hover:bg-primary/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4 font-medium text-on-surface">E-2024/4508</td>
+<td class="py-3 px-4 text-on-surface-variant">Dilekçe</td>
+<td class="py-3 px-4 text-on-surface-variant">Ayşe Demir</td>
+<td class="py-3 px-4 text-on-surface-variant">23 Eki 2024</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-primary-container text-on-primary-container border border-primary/20">ONAY BEKLİYOR</span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant">Halkla İlişkiler</td>
+</tr>
+<tr class="border-b border-outline-variant/20 hover:bg-primary/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4 font-medium text-on-surface">E-2024/4505</td>
+<td class="py-3 px-4 text-on-surface-variant">İhale Dosyası</td>
+<td class="py-3 px-4 text-on-surface-variant">Mega İnşaat</td>
+<td class="py-3 px-4 text-on-surface-variant">23 Eki 2024</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-[#E6F4EA] text-[#137333] border border-[#137333]/20">TAMAMLANDI</span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant">Satınalma</td>
+</tr>
+<tr class="border-b border-outline-variant/20 hover:bg-primary/5 transition-colors group cursor-pointer">
+<td class="py-3 px-4 font-medium text-on-surface">E-2024/4502</td>
+<td class="py-3 px-4 text-on-surface-variant">ÇED Raporu</td>
+<td class="py-3 px-4 text-on-surface-variant">Çevre Mühendislik</td>
+<td class="py-3 px-4 text-on-surface-variant">22 Eki 2024</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-[#E6F4EA] text-[#137333] border border-[#137333]/20">TAMAMLANDI</span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant">Çevre</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Legal Deadline Sidebar -->
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl overflow-hidden flex flex-col h-full">
+<div class="p-4 border-b border-outline-variant/50 bg-surface-bright">
+<h3 class="font-title-lg text-title-lg text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-error" data-icon="timer">timer</span>
+                            Yasal Süreler
+                        </h3>
+<p class="font-label-md text-label-md text-on-surface-variant mt-1">Yaklaşan yasal teslim tarihleri</p>
+</div>
+<div class="flex-1 overflow-y-auto p-2">
+<!-- Critical Deadline -->
+<div class="p-3 border border-error/30 bg-error-container/20 rounded-lg mb-2 flex justify-between items-center cursor-pointer hover:bg-error-container/40 transition-colors">
+<div>
+<div class="font-title-md text-title-md text-on-surface">E-2024/4102</div>
+<div class="font-body-md text-body-md text-on-surface-variant text-xs">Kamulaştırma İtirazı</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-error font-bold">1</span>
+<span class="font-label-md text-label-md text-error text-[10px] uppercase">Gün Kaldı</span>
+</div>
+</div>
+<!-- Critical Deadline -->
+<div class="p-3 border border-error/30 bg-error-container/20 rounded-lg mb-2 flex justify-between items-center cursor-pointer hover:bg-error-container/40 transition-colors">
+<div>
+<div class="font-title-md text-title-md text-on-surface">E-2024/4155</div>
+<div class="font-body-md text-body-md text-on-surface-variant text-xs">CİMER Başvurusu</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-error font-bold">2</span>
+<span class="font-label-md text-label-md text-error text-[10px] uppercase">Gün Kaldı</span>
+</div>
+</div>
+<!-- Warning Deadline -->
+<div class="p-3 border border-[#F9AB00]/30 bg-[#FEF7E0]/50 rounded-lg mb-2 flex justify-between items-center cursor-pointer hover:bg-[#FEF7E0] transition-colors">
+<div>
+<div class="font-title-md text-title-md text-on-surface">E-2024/4230</div>
+<div class="font-body-md text-body-md text-on-surface-variant text-xs">Bilgi Edinme Talebi</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-[#B06000] font-bold">5</span>
+<span class="font-label-md text-label-md text-[#B06000] text-[10px] uppercase">Gün Kaldı</span>
+</div>
+</div>
+<!-- Warning Deadline -->
+<div class="p-3 border border-[#F9AB00]/30 bg-[#FEF7E0]/50 rounded-lg mb-2 flex justify-between items-center cursor-pointer hover:bg-[#FEF7E0] transition-colors">
+<div>
+<div class="font-title-md text-title-md text-on-surface">E-2024/4288</div>
+<div class="font-body-md text-body-md text-on-surface-variant text-xs">Ruhsat İtirazı</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-[#B06000] font-bold">7</span>
+<span class="font-label-md text-label-md text-[#B06000] text-[10px] uppercase">Gün Kaldı</span>
+</div>
+</div>
+<!-- Safe Deadline -->
+<div class="p-3 border border-[#137333]/30 bg-[#E6F4EA]/50 rounded-lg mb-2 flex justify-between items-center cursor-pointer hover:bg-[#E6F4EA] transition-colors">
+<div>
+<div class="font-title-md text-title-md text-on-surface">E-2024/4410</div>
+<div class="font-body-md text-body-md text-on-surface-variant text-xs">Genel Dilekçe</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-[#137333] font-bold">12</span>
+<span class="font-label-md text-label-md text-[#137333] text-[10px] uppercase">Gün Kaldı</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

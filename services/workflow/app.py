@@ -150,6 +150,138 @@ def ensure_schema():
             db.execute("SELECT pg_advisory_unlock(hashtext('coreaigent-workflow-schema-v1'))")
 
 
+def _case_uuid(case_id):
+    """Reject a non-UUID path segment before it reaches PostgreSQL.
+
+    `uuid.UUID` raises ValueError, and the read handlers only guard against
+    psycopg errors, so a stale client id used to surface as an opaque 500 for
+    what is plainly a bad request.
+    """
+    try:
+        return uuid.UUID(case_id), None
+    except ValueError:
+        return None, nested_error(400, "CASE_ID_INVALID", "case_id must be a UUID")
+
+
+# The applicant is named by whichever field the request type's schema defines
+# for it; the admin list shows one column, so the first present key wins.
+APPLICANT_NAME_KEYS = ("applicant-name", "business-name", "supplier-name")
+CASE_LIST_MAX_LIMIT = 100
+
+
+def _accepted_value(accepted_fields, key):
+    entry = (accepted_fields or {}).get(key)
+    if isinstance(entry, dict):
+        value = entry.get("value")
+        return value if isinstance(value, str) and value else None
+    return entry if isinstance(entry, str) and entry else None
+
+
+def _applicant_name(accepted_fields):
+    for key in APPLICANT_NAME_KEYS:
+        value = _accepted_value(accepted_fields, key)
+        if value:
+            return value
+    return None
+
+
+def _metadata_text(metadata, key):
+    value = (metadata or {}).get(key)
+    return value if isinstance(value, str) and value else None
+
+
+def case_list_item(row):
+    """Project one admin list row.
+
+    Kept pure and separate from the query so the shape stays testable without a
+    database, and so a case that never reached F-03 -- classification wrote a
+    projection but validation never ran -- still lists with null field values
+    instead of being dropped from the operator's queue.
+    """
+    (case_id, revision, state, completed_steps, last_error_code, updated_at, completion_status,
+     document_id, request_type_id, accepted_fields, department_id, department_label, unit_id,
+     unit_label, request_type_label, classification_status, confidence, routing_status,
+     created_at, language, source_metadata, classification_reason) = row
+    return {
+        "case_id": str(case_id),
+        "case_revision": revision,
+        "state": state,
+        "completed_steps": completed_steps or [],
+        "last_error_code": last_error_code,
+        "updated_at": updated_at.isoformat(),
+        "validation_status": completion_status,
+        "routing_status": routing_status or "not_routed",
+        "document_id": document_id,
+        "request_type_id": request_type_id,
+        "request_type_label": request_type_label,
+        "department_id": department_id,
+        "department_label": department_label,
+        "unit_id": unit_id,
+        "unit_label": unit_label,
+        "classification_status": classification_status,
+        "classification_confidence": None if confidence is None else float(confidence),
+        # The reason the classifier gives is the only human-readable account of
+        # why this case sits in this unit.  Without it in the list the panel can
+        # show a label and a percentage but cannot answer "why", which is the
+        # first question an operator asks about an automatic decision.
+        "classification_reason": classification_reason,
+        "applicant_name": _applicant_name(accepted_fields),
+        "title": _metadata_text(source_metadata, "title"),
+        "channel": _metadata_text(source_metadata, "channel"),
+        "language": language,
+        "created_at": None if created_at is None else created_at.isoformat(),
+    }
+
+
+def case_document_item(case_id, record):
+    """Project the intake row the panel reads a petition from.
+
+    Pure so the projection can be falsified without a database, the same way the
+    list row can.
+    """
+    document_id, source_type, original_text, language, source_metadata, created_at = record
+    return {
+        "case_id": str(case_id),
+        "document_id": document_id,
+        "source_type": source_type,
+        "language": language,
+        "title": _metadata_text(source_metadata, "title"),
+        "channel": _metadata_text(source_metadata, "channel"),
+        "created_at": created_at.isoformat(),
+        "text": original_text or "",
+    }
+
+
+def case_list_bounds(limit, offset):
+    """Clamp paging input instead of trusting or rejecting it.
+
+    A list view is read-only and non-destructive; an out-of-range page is a
+    client bug, not an incident, so it collapses to the nearest legal window.
+    """
+    try:
+        size = int(limit)
+    except (TypeError, ValueError):
+        size = 25
+    try:
+        start = int(offset)
+    except (TypeError, ValueError):
+        start = 0
+    return max(1, min(size, CASE_LIST_MAX_LIMIT)), max(0, start)
+
+
+CASE_LIST_SQL = (
+    "SELECT cs.case_id,cs.revision,cs.state,cs.completed_steps,cs.last_error_code,cs.updated_at,"
+    "s.completion_status,COALESCE(s.document_id,c.document_id),COALESCE(s.request_type_id,c.request_type_id),"
+    "s.accepted_fields,c.department_id,c.department_label,c.unit_id,c.unit_label,c.request_type_label,"
+    "c.status,c.confidence,r.routing_status,i.created_at,i.language,i.source_metadata,c.classification_reason "
+    "FROM current_case_states cs "
+    "LEFT JOIN current_validation_states s ON s.case_id=cs.case_id "
+    "LEFT JOIN current_classifications c ON c.case_id=cs.case_id "
+    "LEFT JOIN routing_operations r ON r.case_id=cs.case_id AND r.source_case_revision=cs.revision "
+    "LEFT JOIN intake_records i ON i.case_id=cs.case_id "
+)
+
+
 def create_app():
     app = FastAPI(title="CoreAIgent workflow", docs_url=None, redoc_url=None)
 
@@ -171,6 +303,44 @@ def create_app():
         except psycopg.Error:
             return JSONResponse(status_code=503, content={"status": "not_ready", "service": "workflow"})
         return {"status": "ready", "service": "workflow"}
+
+    @app.get("/cases")
+    def case_list(request: Request, limit: int = 25, offset: int = 0, state: str = "", q: str = ""):
+        """Operator queue of every projected case, newest change first.
+
+        The browser used to keep its own list in local storage, which meant a
+        case submitted from one device was invisible to the operator on another.
+        This is the authoritative list, and it stays ADMIN-only because it
+        aggregates applicant names and unit routing across cases -- data the
+        USER token is deliberately never shown even for a single case.
+        """
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        size, start = case_list_bounds(limit, offset)
+        clauses, params = [], []
+        if state:
+            clauses.append("cs.state=%s")
+            params.append(state)
+        if q:
+            needle = f"%{q}%"
+            clauses.append(
+                "(COALESCE(s.document_id,c.document_id) ILIKE %s OR cs.case_id::text ILIKE %s"
+                " OR COALESCE(c.request_type_label,'') ILIKE %s"
+                " OR COALESCE(i.source_metadata->>'title','') ILIKE %s"
+                " OR COALESCE(s.accepted_fields->'applicant-name'->>'value','') ILIKE %s)"
+            )
+            params.extend([needle] * 5)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                total = db.execute("SELECT count(*) FROM (" + CASE_LIST_SQL + where + ") AS matched", params).fetchone()[0]
+                rows = db.execute(CASE_LIST_SQL + where + " ORDER BY cs.updated_at DESC,cs.case_id LIMIT %s OFFSET %s", params + [size, start]).fetchall()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"total": total, "limit": size, "offset": start, "cases": [case_list_item(row) for row in rows]}
 
     @app.post("/cases/{case_id}/correspondence")
     async def start(case_id: str, request: Request):
@@ -223,8 +393,10 @@ def create_app():
     def read(case_id: str, request: Request):
         if not _authorized(request):
             return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
         try:
-            case = uuid.UUID(case_id)
             with psycopg.connect(DATABASE_URL) as db:
                 state = db.execute("SELECT revision,current_correspondence_generation_id FROM current_validation_states WHERE case_id=%s", (case,)).fetchone()
                 if not state:
@@ -246,8 +418,10 @@ def create_app():
         """Read-only, current-revision F-05 status without notification content."""
         if not _authorized(request):
             return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
         try:
-            case = uuid.UUID(case_id)
             with psycopg.connect(DATABASE_URL) as db:
                 state = db.execute("SELECT revision FROM current_validation_states WHERE case_id=%s", (case,)).fetchone()
                 if not state:
@@ -264,13 +438,49 @@ def create_app():
             "notifications": [{"audience": item[0], "generation_status": item[1], "error_code": item[2]} for item in notifications],
         }
 
+    @app.get("/cases/{case_id}/document")
+    def case_document(case_id: str, request: Request):
+        """The citizen's own petition text, as F-01 ingested it.
+
+        Every automatic decision on a case -- the unit it went to, the fields
+        that were extracted, the ones reported missing -- was read out of this
+        text.  An operator who cannot see it can only take the classifier's word
+        for it, so the panel reads it here rather than from whatever the
+        submitting browser happened to keep in local storage.
+
+        ADMIN-only for the same reason the queue is: the text is written by the
+        applicant and names them.
+        """
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                record = db.execute(
+                    "SELECT document_id,source_type,original_text,language,source_metadata,created_at"
+                    " FROM intake_records WHERE case_id=%s",
+                    (case,),
+                ).fetchone()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        if not record:
+            return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+        return case_document_item(case_id, record)
+
     @app.get("/cases/{case_id}")
     def case_status(case_id: str, request: Request):
         role = _role(request)
         if not role:
             return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
         try:
-            case = uuid.UUID(case_id)
             with psycopg.connect(DATABASE_URL) as db:
                 state = db.execute("SELECT revision,state,completed_steps,last_error_code,updated_at FROM current_case_states WHERE case_id=%s", (case,)).fetchone()
                 if not state:

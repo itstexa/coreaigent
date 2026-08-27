@@ -1,39 +1,133 @@
 {
   "topologies": {
     "ocr": {
-      "compose_files": ["compose.yaml", "compose.ocr.yaml"],
-      "local_services": ["ocr"],
+      "compose_files": [
+        "compose.yaml",
+        "compose.ocr.yaml"
+      ],
+      "local_services": [
+        "ocr"
+      ],
       "verification_kind": "real_local",
       "missing_dependencies": [],
-      "acceptance_runner": ["/app/run_ocr_intake.py", "--phase", "all"]
+      "acceptance_runner": [
+        "/app/run_ocr_intake.py",
+        "--phase",
+        "all"
+      ]
     },
     "classification": {
-      "compose_files": ["compose.yaml", "compose.ocr.yaml", "compose.classification.yaml"],
-      "local_services": ["ocr", "classification"],
+      "compose_files": [
+        "compose.yaml",
+        "compose.ocr.yaml",
+        "compose.classification.yaml"
+      ],
+      "local_services": [
+        "ocr",
+        "classification"
+      ],
       "verification_kind": "real_local",
       "missing_dependencies": [],
-      "acceptance_runner": ["/app/run_classification_intake.py"]
+      "acceptance_runner": [
+        "/app/run_classification_intake.py"
+      ]
     },
     "validation": {
-      "compose_files": ["compose.yaml", "compose.ocr.yaml", "compose.classification.yaml", "compose.llm.yaml", "compose.validation.yaml", "compose.validation.jamba.yaml"],
-      "local_services": ["ocr", "classification", "llm", "validation"],
+      "compose_files": [
+        "compose.yaml",
+        "compose.ocr.yaml",
+        "compose.classification.yaml",
+        "compose.llm.yaml",
+        "compose.validation.yaml",
+        "compose.validation.jamba.yaml"
+      ],
+      "local_services": [
+        "ocr",
+        "classification",
+        "llm",
+        "validation"
+      ],
       "verification_kind": "real_local",
       "missing_dependencies": [],
-      "acceptance_runner": ["/app/run_validation_intake.py", "--phase", "jamba"]
+      "acceptance_runner": [
+        "/app/run_validation_intake.py",
+        "--phase",
+        "jamba"
+      ]
     },
     "workflow": {
-      "compose_files": ["compose.yaml", "compose.ocr.yaml", "compose.classification.yaml", "compose.llm.yaml", "compose.validation.yaml", "compose.validation.jamba.yaml", "compose.workflow.yaml"],
-      "local_services": ["ocr", "classification", "llm", "validation", "workflow"],
+      "compose_files": [
+        "compose.yaml",
+        "compose.ocr.yaml",
+        "compose.classification.yaml",
+        "compose.llm.yaml",
+        "compose.validation.yaml",
+        "compose.validation.jamba.yaml",
+        "compose.workflow.yaml"
+      ],
+      "local_services": [
+        "ocr",
+        "classification",
+        "llm",
+        "validation",
+        "workflow"
+      ],
       "verification_kind": "real_local",
       "missing_dependencies": [],
-      "acceptance_runner": ["/app/run_correspondence_intake.py"]
+      "acceptance_runner": [
+        "/app/run_correspondence_intake.py"
+      ]
     },
     "llm": {
-      "compose_files": ["compose.yaml", "compose.llm.yaml"],
-      "local_services": ["llm"],
+      "compose_files": [
+        "compose.yaml",
+        "compose.llm.yaml"
+      ],
+      "local_services": [
+        "llm"
+      ],
       "verification_kind": "real_local",
       "missing_dependencies": [],
-      "acceptance_runner": ["/app/run_llm_intake.py"]
+      "acceptance_runner": [
+        "/app/run_llm_intake.py"
+      ]
+    },
+    "llm-gguf": {
+      "compose_files": [
+        "compose.yaml",
+        "compose.llm.gguf.yaml"
+      ],
+      "local_services": [
+        "llm"
+      ],
+      "verification_kind": "real_local",
+      "missing_dependencies": [],
+      "acceptance_runner": [
+        "/app/run_llm_intake.py"
+      ]
+    },
+    "workflow-gguf": {
+      "compose_files": [
+        "compose.yaml",
+        "compose.ocr.yaml",
+        "compose.classification.yaml",
+        "compose.llm.gguf.yaml",
+        "compose.validation.yaml",
+        "compose.validation.jamba.yaml",
+        "compose.workflow.yaml"
+      ],
+      "local_services": [
+        "ocr",
+        "classification",
+        "llm",
+        "validation",
+        "workflow"
+      ],
+      "verification_kind": "real_local",
+      "missing_dependencies": [],
+      "acceptance_runner": [
+        "/app/run_correspondence_intake.py"
+      ]
     }
   }
 }

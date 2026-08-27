@@ -54,6 +54,24 @@ def extract_json_object(model_response):
     raise ValueError("model response contains no JSON object")
 
 
+def parse_generated_draft(model_response, *, retrieved_refs, source_status, similarity):
+    """Validate one model answer, tolerating noise around its JSON object.
+
+    A base instruct model can close a perfectly valid object and then keep
+    typing, so the strict lane reads the first decodable object instead of the
+    whole string.  Only a genuinely off-schema object falls through to
+    semantic repair, which may relabel keys but never invents content.
+    """
+
+    payload = extract_json_object(model_response)
+    try:
+        return validate_generated_draft(payload, retrieved_refs, source_status)
+    except NoSourceLegalClaimError:
+        raise
+    except ValueError:
+        return semantic_repair_payload(payload, retrieved_refs=retrieved_refs, source_status=source_status, similarity=similarity)
+
+
 def semantic_repair_payload(payload, *, retrieved_refs, source_status, similarity):
     """Map an otherwise valid object with semantically equivalent field names.
 

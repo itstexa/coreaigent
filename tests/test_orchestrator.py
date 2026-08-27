@@ -1,5 +1,6 @@
 """Falsification tests for F-06 state and automatic-start decisions."""
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -60,6 +61,35 @@ class ProjectionTests(unittest.TestCase):
     def test_unknown_role_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "role"):
             project_case("UNIT", {"case_id": "c", "state": "received", "applicant_notifications": []})
+
+
+class ProjectionWriteTests(unittest.TestCase):
+    """The projection runs on every poll, so a no-op pass must not write.
+
+    `updated_at` is what the case list shows as the case's last change.  An
+    unconditional upsert rewrites every current case many times a second, which
+    both hides the real change time and turns an idle lane into constant write
+    traffic.  The statement is assembled from adjacent literals, so the quoting
+    between them is removed here to read it as the one string it becomes.
+    """
+
+    SOURCE = Path(__file__).parents[1] / "services" / "workflow" / "orchestrator_worker.py"
+
+    def worker_sql(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        return " ".join(re.sub(r'"\s*f?"', "", source).split())
+
+    def test_the_case_state_upsert_only_writes_when_the_projection_changed(self):
+        sql = self.worker_sql()
+        self.assertIn("INSERT INTO current_case_states", sql)
+        self.assertIn("ON CONFLICT (case_id) DO UPDATE", sql)
+        guard = sql.split("ON CONFLICT (case_id) DO UPDATE", 1)[1]
+        self.assertIn("WHERE", guard)
+        for column in ("revision", "completed_steps", "state", "last_error_code"):
+            self.assertIn(f"current_case_states.{column} IS DISTINCT FROM", guard, column)
+
+    def test_a_reviewed_completion_is_never_reopened_by_the_projection(self):
+        self.assertIn("current_case_states.state='completed'", self.worker_sql())
 
 
 if __name__ == "__main__":

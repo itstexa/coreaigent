@@ -74,7 +74,7 @@ Traces to: US-102 (docs/design/DESIGN.md)
 
 | Field | Type | Unit | Constraints |
 |---|---|---|---|
-| `model` | string | Hugging Face repository ID | Required; exact value `linguai/Jamba2-3B-Turkish-SFT-v1`. |
+| `model` | string | Hugging Face repository ID | Required; exact value `ai21labs/AI21-Jamba2-3B`, whichever lane served the run. |
 | `modelRevision` | 40 lowercase hexadecimal string | Hugging Face commit identity | Required successful-response provenance for F-04 generation persistence. |
 | `response` | UTF-8 JSON string | Unicode scalar values | Required; generated completion text. |
 
@@ -140,13 +140,17 @@ Traces to: US-102, US-103, US-105 (docs/design/DESIGN.md)
 
 | Field | Type | Unit | Constraints |
 |---|---|---|---|
-| `MODEL_ID` | string | Hugging Face repository ID | Required; exactly `linguai/Jamba2-3B-Turkish-SFT-v1`. |
+| `MODEL_ID` | string | Hugging Face repository ID | Required; exactly `ai21labs/AI21-Jamba2-3B`. |
 | `MODEL_REVISION` | string | Git commit SHA hexadecimal characters | Required; exactly 40 lowercase hexadecimal characters; `main` is prohibited. |
 | `HF_HOME` | absolute POSIX path string | filesystem path | Required; inside the persistent, writable Hugging Face cache volume. |
 | `max_new_tokens` | positive integer | tokens | Server configuration only; default/range pending AQ-103. |
 | `temperature` | number | — | Server configuration only; default/range pending AQ-103. |
 | `top_p` | number | probability | Server configuration only; default/range pending AQ-103. |
 | `server_deadline` | positive duration or disabled | milliseconds | Server configuration only; default pending AQ-103. |
+| `BACKEND` | enumerated string | — | Required; `transformers` (in-process CUDA) or `llama_cpp` (host llama.cpp server). Any other value leaves the service not ready. |
+| `LLAMA_SERVER_URL` | absolute http(s) URL string | — | Required and only meaningful when `BACKEND=llama_cpp`; a bare host:port is invalid. |
+| `GGUF_FILE` | string | file name | Required when `BACKEND=llama_cpp`; must end in `.gguf` and must equal the artifact the upstream server reports. |
+| `LLAMA_API_KEY` | string | — | Optional bearer credential for the upstream server; never logged and never returned in a response. |
 
 **Invariants** (must always hold true):
 
@@ -154,7 +158,12 @@ Traces to: US-102, US-103, US-105 (docs/design/DESIGN.md)
   mutable `main` revision.
 - The image contains runtime code and dependencies but not multi-GB model
   weights; the pinned artifact is read through the mounted cache.
-- Production configuration selects CUDA; it cannot silently fall back to CPU.
+- Exactly one lane is configured per process: `transformers` reserves a CUDA
+  device, `llama_cpp` reserves none and holds no weights. Neither lane can
+  silently fall back to CPU inference inside the container.
+- The `llama_cpp` lane refuses to start when the upstream server reports any
+  file other than the pinned `GGUF_FILE`, so a swapped artifact cannot be
+  served as the pinned model.
 
 **Boundary Behavior:**
 
@@ -177,10 +186,11 @@ Traces to: US-102, US-103 (docs/design/DESIGN.md)
 | Field | Type | Unit | Constraints |
 |---|---|---|---|
 | `process_alive` | boolean | — | True while the HTTP process accepts liveness probes. |
-| `gpu_available` | boolean | — | True only when the configured CUDA runtime accesses its assigned GPU. |
+| `gpu_available` | boolean | — | True only when the configured accelerator is usable: the assigned CUDA device for `transformers`, or a reachable upstream llama.cpp server for `llama_cpp`. |
 | `model_loaded` | boolean | — | True only after pinned model and tokenizer load successfully. |
 | `accepting_inference` | boolean | — | True only after the model is ready to enter the generation lane. |
-| `readiness_code` | nullable string | — | Null when ready; otherwise at least `gpu_unavailable` or `model_not_ready`. |
+| `readiness_code` | nullable string | — | Null when ready; otherwise at least `gpu_unavailable` or `model_not_ready`. The `llama_cpp` lane reports `model_not_ready` for an absent upstream server, because no local GPU is expected. |
+| `backend` | enumerated string | — | Reported by `/health` and `/ready`; names the lane that actually served the process, never a lane that was merely configured. |
 
 **Invariants** (must always hold true):
 
@@ -195,7 +205,8 @@ Traces to: US-102, US-103 (docs/design/DESIGN.md)
 
 - Min/Max: state fields are unitless booleans; readiness has no partial success.
 - Empty/Null/Zero: before startup completes, `model_loaded` and
-  `accepting_inference` are false; an absent GPU uses `gpu_unavailable`.
+  `accepting_inference` are false; an absent CUDA device uses
+  `gpu_unavailable` and an absent upstream server uses `model_not_ready`.
 - Overflow/Truncation: invalid state combinations are prevented by lifecycle
   transition rules.
 
@@ -219,8 +230,13 @@ Traces to: US-102, US-104 (docs/design/DESIGN.md)
 
 **Invariants** (must always hold true):
 
-- Production binds this port to the pinned Jamba loader; CPU CI explicitly
-  injects a fake or tiny backend.
+- Production binds this port to one of two real pinned-Jamba loaders: the
+  in-process CUDA loader or the HTTP adapter in front of the host llama.cpp
+  server. CPU CI explicitly injects a fake or tiny backend.
+- Only the HTTP adapter may be loaded again after a failed start, because a
+  reachability change is cheap to re-probe while reloading a CUDA checkpoint
+  costs minutes; `load_call_count` still counts exactly one load per attached
+  upstream server.
 - A request never calls `load`; startup owns the one valid load transition.
 
 **Boundary Behavior:**
@@ -344,4 +360,4 @@ a claimed real Jamba result.
 | ---------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **AQ-102** | **CLOSED — string zorunlu, whitespace-only yasak, max 8192 rendered input token.**             | `prompt` JSON string olmak zorunda. `null`, number, boolean, array, object → `422 invalid_prompt_type`. `prompt.strip()` boşsa → `422 empty_prompt`. String otomatik olarak trim/normalize edilmez; yalnızca validation için whitespace kontrolü yapılır. Rendered chat template tokenization sonrasında **8192 token'dan büyük prompt reddedilir** → `422 prompt_too_long`. HTTP tarafında ayrıca kaba DoS koruması için örn. **64 KiB request-body limiti** konabilir ama public semantic limit token sayısıdır. |
 | **AQ-103** | **CLOSED — `256 / 0.7 / 0.9 / 60s`; F-04 output capacity max 1800.**                            | Server-only defaults: `max_new_tokens=256`, `temperature=0.7`, `top_p=0.9`, `generation_deadline_seconds=60`. Allowed config ranges: `max_new_tokens 1..1800`, `temperature 0.0..2.0`, `top_p >0.0..1.0`, deadline `5..120 s`. F-04 deployment profile uses at most **1800** output tokens; request body cannot change controls. **Zero-token completion success değildir**; model EOS'u hemen üretir veya decode sonrası boş çıktı kalırsa `500 empty_generation`. |
-| **AQ-104** | Production modeli `linguai/Jamba2-3B-Turkish-SFT-v1`, sabit revision ise `5202214fe552041fc6dfe1e6486b61f75eb5fce0` olarak çözülmüştür. Cache warming ve offline artifact doğrulama politikası geçerlidir. | **Resolved** |
+| **AQ-104** | Production modeli `ai21labs/AI21-Jamba2-3B`, sabit revision ise `525c6c8e1d9f5bddedfbdc1dbb0ade2df84230c9` olarak çözülmüştür. İki lane aynı modeli sunar: CUDA hostlarında safetensors snapshot'ı (`BACKEND=transformers`), NVIDIA GPU'su olmayan hostlarda ise host üzerinde çalışan llama.cpp Vulkan sunucusundaki pinned Q8_0 GGUF (`BACKEND=llama_cpp`). Cache warming ve offline artifact doğrulama politikası her iki lane için de geçerlidir; GGUF artifact'ı SHA-256 ile doğrulanır. | **Resolved** |

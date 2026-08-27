@@ -1,5 +1,6 @@
 """Falsification tests for F-05's deterministic routing boundary."""
 
+import ast
 import sys
 import unittest
 from pathlib import Path
@@ -93,6 +94,33 @@ class NotificationProjectionTests(unittest.TestCase):
     def test_blank_model_text_is_rejected_and_cannot_be_published(self):
         with self.assertRaisesRegex(ValueError, "body"):
             notification_payload("applicant", "case-123", "")
+
+
+class WorkerLockingClauseTests(unittest.TestCase):
+    """A worker that swallows psycopg errors cannot report broken SQL itself.
+
+    PostgreSQL refuses `FOR UPDATE` on the nullable side of an outer join, so a
+    reconciliation scan that omits `OF <relations>` fails on every poll while the
+    lane looks merely idle.  The parser concatenates the adjacent literals a
+    query is built from, so each statement is one constant here.
+    """
+
+    def statements(self):
+        for name in ("routing_worker.py", "orchestrator_worker.py", "worker.py"):
+            tree = ast.parse((WORKFLOW / name).read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    yield name, " ".join(node.value.split())
+
+    def test_every_outer_joined_claim_locks_named_relations_only(self):
+        checked = 0
+        for name, sql in self.statements():
+            if "FOR UPDATE" not in sql.upper():
+                continue
+            checked += 1
+            if "LEFT JOIN" in sql.upper() or "RIGHT JOIN" in sql.upper():
+                self.assertRegex(sql.upper(), r"FOR UPDATE OF [A-Z_]+", f"{name}: {sql[:120]}")
+        self.assertGreaterEqual(checked, 4)
 
 
 if __name__ == "__main__":

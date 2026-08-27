@@ -20,12 +20,22 @@ POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", "0.2"))
 
 
 def _upsert_state(cur, case_id, revision, state, steps, error=None):
+    # The projection re-derives every current case on every poll, so a pass that
+    # changes nothing must leave the row alone: updated_at is what the case list
+    # shows as the last change, and a no-op write would report "just now" forever.
+    sticky = "current_case_states.state='completed' AND current_case_states.revision=EXCLUDED.revision"
+    projected_state = f"CASE WHEN {sticky} THEN 'completed' ELSE EXCLUDED.state END"
+    projected_error = f"CASE WHEN {sticky} THEN NULL ELSE EXCLUDED.last_error_code END"
     cur.execute(
         "INSERT INTO current_case_states (case_id,revision,state,completed_steps,last_error_code) VALUES (%s,%s,%s,%s,%s) "
         "ON CONFLICT (case_id) DO UPDATE SET revision=EXCLUDED.revision,"
-        "state=CASE WHEN current_case_states.state='completed' AND current_case_states.revision=EXCLUDED.revision THEN 'completed' ELSE EXCLUDED.state END,"
+        f"state={projected_state},"
         "completed_steps=EXCLUDED.completed_steps,"
-        "last_error_code=CASE WHEN current_case_states.state='completed' AND current_case_states.revision=EXCLUDED.revision THEN NULL ELSE EXCLUDED.last_error_code END,updated_at=now()",
+        f"last_error_code={projected_error},updated_at=now() "
+        "WHERE current_case_states.revision IS DISTINCT FROM EXCLUDED.revision "
+        "OR current_case_states.completed_steps IS DISTINCT FROM EXCLUDED.completed_steps "
+        f"OR current_case_states.state IS DISTINCT FROM ({projected_state}) "
+        f"OR current_case_states.last_error_code IS DISTINCT FROM ({projected_error})",
         (case_id, revision, state, Jsonb(steps), error),
     )
 

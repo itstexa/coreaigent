@@ -38,6 +38,50 @@ docker compose up --build -d
 
 `docker compose up --build -d` builds and starts all mock services. The test
 command validates the contracts and runs the golden scenarios against them.
+The Web UI is available at `http://localhost:3000` and clearly labels this
+baseline as deterministic mock mode.
+
+## Web UI
+
+`frontend/` contains the TypeScript product interface for the implemented case
+contracts. It uses one API client for both mock and real-service Compose modes:
+
+- text or pre-extracted OCR text intake through `POST /v1/ocr`;
+- classification and validation through the existing v3 contracts;
+- authorized case, correspondence, and routing polling;
+- optimistic/idempotent supplemental information and review completion;
+- reviewable correspondence drafts, regulation references, routing, and
+  persisted-only notification status.
+
+The browser never receives the fixed local demo bearer tokens. The local
+frontend reverse proxy adds the USER or ADMIN demo credential for the exact
+case route being called. This is still a demo access model, not production
+authentication.
+
+The repository has no public case-list endpoint, assignee model, employee
+assignment endpoint, or priority contract. The UI therefore keeps only a
+browser-local index of case IDs it created/opened and re-fetches each selected
+case from the backend. It explicitly marks priority and personnel assignment
+as unavailable instead of deriving them. See
+[`docs/ui-feature-matrix.md`](docs/ui-feature-matrix.md) for the audited
+backend/UI capability matrix.
+
+For frontend-only development while the Compose services are already running:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+The development server opens on `http://localhost:5173` and proxies to the
+documented host ports. Production verification is:
+
+```powershell
+cd frontend
+npm test
+npm run build
+```
 
 ## Docker test commands
 
@@ -73,8 +117,12 @@ The PowerShell wrapper provides the equivalent mock test command on Windows:
 .\scripts\coreaigent.ps1 test mock
 ```
 
-To run the real local Jamba `llm` service, use the GPU/cache overlay. This is
-separate from the mock baseline:
+To run the real local Jamba `llm` service, pick the lane that matches the host
+GPU. Both lanes serve the same pinned `ai21labs/AI21-Jamba2-3B` snapshot behind
+the same HTTP contract, and both are separate from the mock baseline. Use one
+overlay or the other, never both.
+
+**NVIDIA lane (`compose.llm.yaml`)** — weights load in-process on CUDA:
 
 ```bash
 export HF_CACHE_DIR=/media/serda/home_extra/hf-cache
@@ -83,10 +131,35 @@ curl http://localhost:8085/health
 curl http://localhost:8085/ready
 ```
 
-The overlay builds `services/llm/Dockerfile`, uses the pinned
-`linguai/Jamba2-3B-Turkish-SFT-v1` revision in `.env`, and keeps model weights
-in the mounted HF cache. `/ready` remains
-`503` until the GPU model is loaded.
+The overlay builds `services/llm/Dockerfile`, uses the pinned `MODEL_ID` and
+`MODEL_REVISION` from `.env`, and keeps model weights in the mounted HF cache.
+`/ready` stays `503` until the GPU model is loaded.
+
+**GGUF lane (`compose.llm.gguf.yaml`)** — for hosts whose GPU Docker cannot pass
+into a Linux container, such as an AMD Radeon on Windows. A host-native
+llama.cpp Vulkan server holds the weights and the container only adapts it, so
+the image ships no torch and reserves no GPU. Start the host server first:
+
+```powershell
+.\scripts\jamba-gguf-server.ps1 -Root D:\coreaigent
+```
+
+The script downloads the pinned llama.cpp build and the pinned Q8_0 GGUF,
+verifies both SHA-256 digests, refuses to serve an unpinned artifact, and then
+serves `ai21labs/AI21-Jamba2-3B` on `http://0.0.0.0:8090`. It binds all
+interfaces because containers reach it through `host.docker.internal`, and
+llama-server has no authentication by default: keep the Windows firewall profile
+on Private, or pass `-ApiKey <secret>` and set the same value as `LLAMA_API_KEY`
+for the container. Then bring the lane up:
+
+```bash
+docker compose -f compose.yaml -f compose.llm.gguf.yaml up --build -d llm
+curl http://localhost:8085/ready
+```
+
+The adapter refuses to start against a server that is loaded with any file other
+than the pinned `GGUF_FILE`, and re-attaches on its own if the host server is
+restarted, so start order between the two does not matter.
 
 To run the real PostgreSQL-backed OCR intake service, use its dedicated
 development overlay. This replaces only `ocr`; the remaining services stay
@@ -172,6 +245,12 @@ completion, and separately persisted applicant/target-unit Jamba
 notifications. The second runner is the negative F-02 review path: it proves
 no validation, F-04 start, or route is created while the case remains readable
 from PostgreSQL. These are not the mock baseline.
+
+On a host without an NVIDIA GPU, swap `-f compose.llm.yaml` for
+`-f compose.llm.gguf.yaml` in every command above and start
+`scripts/jamba-gguf-server.ps1` first; the closure is registered as
+`workflow-gguf` in `scripts/local-topologies.json`. `HF_CACHE_DIR` is unused in
+that lane because the host server owns the weights.
 
 Pull requests run this same Docker mock suite automatically in GitHub Actions;
 see [the PR workflow](.github/workflows/pr-contract-tests.yml).

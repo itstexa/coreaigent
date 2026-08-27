@@ -19,6 +19,7 @@ from routing import RoutingRejected, normalize_notification_output, notification
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 LLM_URL = os.environ.get("JAMBA_URL", "http://llm:8080/generate")
+LLM_TIMEOUT_SECONDS = float(os.environ.get("JAMBA_TIMEOUT_SECONDS", "185") or 185)
 LEASE_SECONDS = int(os.environ.get("WORKER_LEASE_SECONDS", "180"))
 POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", "0.2"))
 TAXONOMY_PATH = Path(os.environ.get("TAXONOMY_PATH", Path(__file__).parents[1] / "classification" / "taxonomy.json"))
@@ -30,7 +31,7 @@ def taxonomy():
 
 def _invoke(prompt):
     request = urllib.request.Request(LLM_URL, data=json.dumps({"prompt": prompt}, ensure_ascii=False).encode(), headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(request, timeout=185) as response:
+    with urllib.request.urlopen(request, timeout=LLM_TIMEOUT_SECONDS) as response:
         return json.load(response)
 
 
@@ -114,31 +115,76 @@ def run_route_once():
 
 def _notification_context(cur, notification_id):
     cur.execute(
-        "SELECT n.audience,r.case_id,r.request_type_id,g.document_summary,g.draft_text,g.regulation_suggestions,s.accepted_fields "
+        "SELECT n.audience,r.case_id,r.request_type_id,g.document_summary,g.draft_text,g.regulation_suggestions,s.accepted_fields,i.language "
         "FROM notification_records n JOIN routing_operations r USING(routing_id) "
         "LEFT JOIN correspondence_generations g ON g.generation_id=r.source_generation_id "
-        "JOIN current_validation_states s ON s.case_id=r.case_id AND s.revision=r.source_case_revision WHERE n.notification_id=%s FOR UPDATE OF n,r,s",
+        "JOIN current_validation_states s ON s.case_id=r.case_id AND s.revision=r.source_case_revision "
+        "JOIN intake_records i ON i.document_id=s.document_id WHERE n.notification_id=%s FOR UPDATE OF n,r,s",
         (notification_id,),
     )
     return cur.fetchone()
 
 
-def _notification_prompt(audience, context, repair_error=None):
+# The applicant reads their own notification, so it follows the language of the
+# document they filed.  The target unit's notification always stays in the
+# authority's own language: it is read by municipal staff, not by the applicant,
+# and the case context it quotes is stored in Turkish either way.
+NOTIFICATION_INSTRUCTIONS = {
+    "tr": {
+        "header": (
+            "Türkçe kısa belediye bildirimi üret. Yalnız tek JSON object döndür; markdown veya başka anahtar yok. "
+            "body en fazla iki kısa cümle ve 600 karakter olsun. JSON nesnesini mutlaka kapat ve nesneden sonra yazmayı durdur. "
+            "Zorunlu şema: title(string), body(string). body boş olamaz. Alıcı: {audience}. "
+        ),
+        "applicant_rule": "Başvuru sahibi için iç metadata, alan değerleri, taslak veya birim adı verme. ",
+        "target_rule": "Hedef birim için yalnız verilen case bağlamını kullan; yeni olgu uydurma. ",
+        "example": "Örnek: {\"title\":\"Başvuru işleme alındı\",\"body\":\"Başvurunuz ilgili birime yönlendirilmiştir.\"}.",
+        "repair": " Önceki çıktı reddedildi: {error}. Sadece title ve body anahtarlarını döndür.",
+        "input": "\nGirdi:\n",
+        "applicant_instruction": "Başvurunun işleme alındığını, ilgili birime yönlendirildiğini ve inceleme sonucunun bildirileceğini söyle.",
+    },
+    "en": {
+        "header": (
+            "Produce a short English municipal notification. Return exactly one JSON object; no markdown and no other keys. "
+            "body must be at most two short sentences and 600 characters. Close the JSON object and stop writing after it. "
+            "Required schema: title(string), body(string). body must not be empty. Recipient: {audience}. "
+        ),
+        "applicant_rule": "For the applicant, disclose no internal metadata, field values, draft text or unit name. ",
+        "target_rule": "For the target unit, use only the case context provided; invent no new facts. ",
+        "example": "Example: {\"title\":\"Your application has been received\",\"body\":\"Your application has been forwarded to the relevant unit.\"}.",
+        "repair": " The previous output was rejected: {error}. Return only the title and body keys.",
+        "input": "\nInput:\n",
+        "applicant_instruction": "State that the application has been received, forwarded to the relevant unit, and that the outcome of the review will be communicated.",
+    },
+}
+NOTIFICATION_FALLBACK_LANGUAGE = "tr"
+
+
+def notification_language(audience, language):
+    """Resolve the language one notification is written in.
+
+    Only the applicant's copy follows the document; anything unrecognised -- an
+    "unknown" detection included -- falls back to the authority's own language.
+    """
+    if audience != "applicant" or language not in NOTIFICATION_INSTRUCTIONS:
+        return NOTIFICATION_FALLBACK_LANGUAGE
+    return language
+
+
+def _notification_prompt(audience, context, repair_error=None, language=None):
+    wording = NOTIFICATION_INSTRUCTIONS[notification_language(audience, language)]
     if audience == "applicant":
-        input_context = {"instruction": "Başvurunun işleme alındığını, ilgili birime yönlendirildiğini ve inceleme sonucunun bildirileceğini söyle."}
+        input_context = {"instruction": wording["applicant_instruction"]}
     else:
         input_context = {
             "request_type_id": context[2], "document_summary": context[3], "draft_text": context[4],
             "regulation_suggestions": context[5], "validated_fields": context[6],
         }
-    repair_rule = " Önceki çıktı reddedildi: " + repair_error + ". Sadece title ve body anahtarlarını döndür." if repair_error else ""
+    repair_rule = wording["repair"].format(error=repair_error) if repair_error else ""
     return (
-        "Türkçe kısa belediye bildirimi üret. Yalnız tek JSON object döndür; markdown veya başka anahtar yok. "
-        "body en fazla iki kısa cümle ve 600 karakter olsun. JSON nesnesini mutlaka kapat ve nesneden sonra yazmayı durdur. "
-        "Zorunlu şema: title(string), body(string). body boş olamaz. Alıcı: " + audience + ". "
-        + ("Başvuru sahibi için iç metadata, alan değerleri, taslak veya birim adı verme. " if audience == "applicant" else "Hedef birim için yalnız verilen case bağlamını kullan; yeni olgu uydurma. ")
-        + "Örnek: {\"title\":\"Başvuru işleme alındı\",\"body\":\"Başvurunuz ilgili birime yönlendirilmiştir.\"}."
-        + repair_rule + "\nGirdi:\n"
+        wording["header"].format(audience=audience)
+        + (wording["applicant_rule"] if audience == "applicant" else wording["target_rule"])
+        + wording["example"] + repair_rule + wording["input"]
         + json.dumps(input_context, ensure_ascii=False)
     )
 
@@ -161,7 +207,7 @@ def run_notification_once():
         repair_error = None
         for attempt in (1, 2):
             try:
-                model = _invoke(_notification_prompt(context[0], context, repair_error))
+                model = _invoke(_notification_prompt(context[0], context, repair_error, context[7]))
                 generated = _validate_notification(model["response"], context[0])
                 payload = notification_payload(context[0], str(context[1]), generated["body"], {
                     "request_type_id": context[2], "document_summary": context[3], "draft_text": context[4], "regulation_suggestions": context[5], "validated_fields": context[6],
@@ -194,7 +240,7 @@ def recover_once():
             "LEFT JOIN routing_operations r ON r.case_id=s.case_id AND r.source_case_revision=s.revision "
             "WHERE s.completion_status='complete' AND c.status='classified' AND r.routing_id IS NULL "
             "AND (s.current_correspondence_generation_id IS NULL OR g.generation_status='completed') "
-            "ORDER BY s.updated_at LIMIT 25 FOR UPDATE SKIP LOCKED"
+            "ORDER BY s.updated_at LIMIT 25 FOR UPDATE OF s,c SKIP LOCKED"
             )
             rows = cur.fetchall()
             for case_id, revision, generation_id in rows:

@@ -1,31 +1,894 @@
 {
-  "taxonomyVersion": "demo-belediyesi-v1",
+  "taxonomyVersion": "demo-belediyesi-v2",
   "departments": [
-    {"id": "vatandas-hizmetleri", "label": "Vatandaş Hizmetleri Müdürlüğü", "active": true},
-    {"id": "bilgi-islem", "label": "Bilgi İşlem Müdürlüğü", "active": true},
-    {"id": "mali-hizmetler", "label": "Mali Hizmetler Müdürlüğü", "active": true},
-    {"id": "imar-sehircilik", "label": "İmar ve Şehircilik Müdürlüğü", "active": true},
-    {"id": "zabita", "label": "Zabıta Müdürlüğü", "active": true},
-    {"id": "diger", "label": "Diğer / Sınıflandırılamayan Başvurular Müdürlüğü", "active": true}
+    {
+      "id": "vatandas-hizmetleri",
+      "label": "Vatandaş Hizmetleri Müdürlüğü",
+      "active": true
+    },
+    {
+      "id": "bilgi-islem",
+      "label": "Bilgi İşlem Müdürlüğü",
+      "active": true
+    },
+    {
+      "id": "mali-hizmetler",
+      "label": "Mali Hizmetler Müdürlüğü",
+      "active": true
+    },
+    {
+      "id": "imar-sehircilik",
+      "label": "İmar ve Şehircilik Müdürlüğü",
+      "active": true
+    },
+    {
+      "id": "zabita",
+      "label": "Zabıta Müdürlüğü",
+      "active": true
+    },
+    {
+      "id": "diger",
+      "label": "Diğer / Sınıflandırılamayan Başvurular Müdürlüğü",
+      "active": true
+    }
   ],
   "units": [
-    {"id": "beyaz-masa", "label": "Beyaz Masa Birimi", "departmentId": "vatandas-hizmetleri", "active": true},
-    {"id": "dijital-hizmetler", "label": "Dijital Hizmetler Birimi", "departmentId": "bilgi-islem", "active": true},
-    {"id": "gelir-tahakkuk", "label": "Gelir ve Tahakkuk Birimi", "departmentId": "mali-hizmetler", "active": true},
-    {"id": "ruhsat", "label": "Ruhsat Birimi", "departmentId": "imar-sehircilik", "active": true},
-    {"id": "denetim", "label": "Denetim Birimi", "departmentId": "zabita", "active": true},
-    {"id": "siniflandirilmamis", "label": "Diğer / Sınıflandırılamayan Başvurular Birimi", "departmentId": "diger", "active": true}
+    {
+      "id": "beyaz-masa",
+      "label": "Beyaz Masa Birimi",
+      "departmentId": "vatandas-hizmetleri",
+      "active": true
+    },
+    {
+      "id": "dijital-hizmetler",
+      "label": "Dijital Hizmetler Birimi",
+      "departmentId": "bilgi-islem",
+      "active": true
+    },
+    {
+      "id": "gelir-tahakkuk",
+      "label": "Gelir ve Tahakkuk Birimi",
+      "departmentId": "mali-hizmetler",
+      "active": true
+    },
+    {
+      "id": "ruhsat",
+      "label": "Ruhsat Birimi",
+      "departmentId": "imar-sehircilik",
+      "active": true
+    },
+    {
+      "id": "denetim",
+      "label": "Denetim Birimi",
+      "departmentId": "zabita",
+      "active": true
+    },
+    {
+      "id": "siniflandirilmamis",
+      "label": "Diğer / Sınıflandırılamayan Başvurular Birimi",
+      "departmentId": "diger",
+      "active": true
+    }
   ],
   "requestTypes": [
-    {"id": "adres-bildirimi", "label": "Adres Değişikliği Bildirimi", "unitId": "beyaz-masa", "documentType": "application", "keywords": ["adres", "değişiklik", "ikamet", "bildirim", "kayıt"]},
-    {"id": "bilgi-edinme", "label": "Bilgi Edinme Talebi", "unitId": "beyaz-masa", "documentType": "information_request", "keywords": ["bilgi", "talep", "faaliyet", "rapor", "edinme"]},
-    {"id": "e-imza-arizasi", "label": "E-İmza Arızası", "unitId": "dijital-hizmetler", "documentType": "complaint", "keywords": ["e-imza", "sertifika", "imzalama", "hata", "sistem"]},
-    {"id": "sistem-erisim-arizasi", "label": "Sistem Erişim Arızası", "unitId": "dijital-hizmetler", "documentType": "complaint", "keywords": ["sistem", "erişim", "giriş", "şifre", "arıza"]},
-    {"id": "fatura-islemi", "label": "Fatura İşlemi", "unitId": "gelir-tahakkuk", "documentType": "invoice", "keywords": ["fatura", "ödeme", "tahakkuk", "mal", "hizmet"]},
-    {"id": "odeme-itirazi", "label": "Ödeme İtirazı", "unitId": "gelir-tahakkuk", "documentType": "complaint", "keywords": ["ödeme", "itiraz", "borç", "tahsilat", "vergi"]},
-    {"id": "ruhsat-basvurusu", "label": "Ruhsat Başvurusu", "unitId": "ruhsat", "documentType": "application", "keywords": ["ruhsat", "başvuru", "işyeri", "izin", "belge"]},
-    {"id": "ruhsat-sorgusu", "label": "Ruhsat Durum Sorgusu", "unitId": "ruhsat", "documentType": "information_request", "keywords": ["ruhsat", "durum", "sorgu", "başvuru", "sonuç"]},
-    {"id": "gurultu-sikayeti", "label": "Gürültü Şikayeti", "unitId": "denetim", "documentType": "complaint", "keywords": ["gürültü", "gece", "desibel", "rahatsızlık", "şikayet"]},
-    {"id": "isyeri-denetimi", "label": "İşyeri Denetim Bildirimi", "unitId": "denetim", "documentType": "official_letter", "keywords": ["işyeri", "denetim", "rapor", "tutanak", "kontrol"]}
+    {
+      "id": "adres-bildirimi",
+      "label": "Adres Değişikliği Bildirimi",
+      "unitId": "beyaz-masa",
+      "documentType": "application",
+      "keywords": {
+        "tr": [
+          "adres",
+          "değişiklik",
+          "ikamet",
+          "bildirim",
+          "kayıt"
+        ],
+        "en": [
+          "address",
+          "change",
+          "residen",
+          "notif",
+          "record"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "adres",
+            "ikamet",
+            "yerlesim yeri",
+            "oturdugum"
+          ],
+          [
+            "degisiklik",
+            "degisti",
+            "tasindim",
+            "tasinma",
+            "nakil",
+            "guncelleme",
+            "yeni adres"
+          ],
+          [
+            "bildirim",
+            "beyan",
+            "bildirmek",
+            "bildiriyorum"
+          ],
+          [
+            "kayit",
+            "kayd",
+            "nufus",
+            "sicil",
+            "sistemde"
+          ]
+        ],
+        "en": [
+          [
+            "address",
+            "residen",
+            "domicile"
+          ],
+          [
+            "change",
+            "moved",
+            "relocat",
+            "new address",
+            "update"
+          ],
+          [
+            "notif",
+            "declar",
+            "inform",
+            "report"
+          ],
+          [
+            "record",
+            "registr",
+            "system"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "bilgi-edinme",
+      "label": "Bilgi Edinme Talebi",
+      "unitId": "beyaz-masa",
+      "documentType": "information_request",
+      "keywords": {
+        "tr": [
+          "bilgi",
+          "talep",
+          "faaliyet",
+          "rapor",
+          "edinme"
+        ],
+        "en": [
+          "information",
+          "request",
+          "activit",
+          "report",
+          "access"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "bilgi",
+            "veri",
+            "belge"
+          ],
+          [
+            "edinme",
+            "bilgi edinme",
+            "4982",
+            "bilgi edinme hakki"
+          ],
+          [
+            "tarafima",
+            "verilmesini",
+            "suret",
+            "kopya",
+            "paylasilmasini"
+          ],
+          [
+            "rapor",
+            "faaliyet",
+            "istatistik",
+            "tutanak",
+            "yazi"
+          ]
+        ],
+        "en": [
+          [
+            "information",
+            "data",
+            "document"
+          ],
+          [
+            "access",
+            "freedom of information",
+            "obtain"
+          ],
+          [
+            "provide",
+            "copy",
+            "share",
+            "disclos"
+          ],
+          [
+            "report",
+            "activit",
+            "statistic"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "e-imza-arizasi",
+      "label": "E-İmza Arızası",
+      "unitId": "dijital-hizmetler",
+      "documentType": "complaint",
+      "keywords": {
+        "tr": [
+          "e-imza",
+          "sertifika",
+          "imzalama",
+          "hata",
+          "sistem"
+        ],
+        "en": [
+          "signature",
+          "certificat",
+          "digital",
+          "error",
+          "system"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "e-imza",
+            "elektronik imza",
+            "mobil imza",
+            "imza"
+          ],
+          [
+            "sertifika",
+            "token",
+            "akilli kart",
+            "kart okuyucu"
+          ],
+          [
+            "imzalama",
+            "imzalayamiyorum",
+            "imzalanmiyor",
+            "imzalayamadim"
+          ],
+          [
+            "hata",
+            "ariza",
+            "calismiyor",
+            "sorun",
+            "basarisiz"
+          ],
+          [
+            "sistem",
+            "uygulama",
+            "portal",
+            "program"
+          ]
+        ],
+        "en": [
+          [
+            "signature",
+            "e-signature",
+            "digital signature"
+          ],
+          [
+            "certificat",
+            "token",
+            "smart card"
+          ],
+          [
+            "sign",
+            "signing"
+          ],
+          [
+            "error",
+            "fail",
+            "not working",
+            "issue"
+          ],
+          [
+            "system",
+            "applicat",
+            "portal"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "sistem-erisim-arizasi",
+      "label": "Sistem Erişim Arızası",
+      "unitId": "dijital-hizmetler",
+      "documentType": "complaint",
+      "keywords": {
+        "tr": [
+          "sistem",
+          "erişim",
+          "giriş",
+          "şifre",
+          "arıza"
+        ],
+        "en": [
+          "system",
+          "access",
+          "password",
+          "unable",
+          "account"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "sistem",
+            "portal",
+            "uygulama",
+            "e-devlet"
+          ],
+          [
+            "erisim",
+            "giris",
+            "login",
+            "oturum",
+            "baglanti",
+            "giremiyorum"
+          ],
+          [
+            "sifre",
+            "parola",
+            "hesap",
+            "kilitlendi",
+            "kullanici adi"
+          ],
+          [
+            "ariza",
+            "hata",
+            "calismiyor",
+            "acilmiyor",
+            "sorun"
+          ]
+        ],
+        "en": [
+          [
+            "system",
+            "portal",
+            "applicat"
+          ],
+          [
+            "access",
+            "login",
+            "log in",
+            "sign in",
+            "connect"
+          ],
+          [
+            "password",
+            "account",
+            "locked",
+            "credential"
+          ],
+          [
+            "error",
+            "unable",
+            "fail",
+            "not working"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fatura-islemi",
+      "label": "Fatura İşlemi",
+      "unitId": "gelir-tahakkuk",
+      "documentType": "invoice",
+      "keywords": {
+        "tr": [
+          "fatura",
+          "ödeme",
+          "tahakkuk",
+          "mal",
+          "hizmet"
+        ],
+        "en": [
+          "invoice",
+          "payment",
+          "amount",
+          "service",
+          "goods"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "fatura",
+            "makbuz",
+            "tahakkuk"
+          ],
+          [
+            "odeme",
+            "tahsilat",
+            "ucret",
+            "tutar",
+            "bedel"
+          ],
+          [
+            "mal",
+            "hizmet",
+            "abonelik",
+            "su",
+            "atik"
+          ],
+          [
+            "islem",
+            "duzeltme",
+            "kesilme",
+            "gonderilmesi",
+            "kesilmesi"
+          ]
+        ],
+        "en": [
+          [
+            "invoice",
+            "receipt",
+            "bill"
+          ],
+          [
+            "payment",
+            "amount",
+            "fee",
+            "charge"
+          ],
+          [
+            "service",
+            "goods",
+            "subscription"
+          ],
+          [
+            "process",
+            "correct",
+            "issue"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "odeme-itirazi",
+      "label": "Ödeme İtirazı",
+      "unitId": "gelir-tahakkuk",
+      "documentType": "complaint",
+      "keywords": {
+        "tr": [
+          "ödeme",
+          "itiraz",
+          "borç",
+          "tahsilat",
+          "vergi"
+        ],
+        "en": [
+          "payment",
+          "object",
+          "debt",
+          "collect",
+          "tax"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "odeme",
+            "tahsilat",
+            "borc",
+            "tahakkuk",
+            "kesinti"
+          ],
+          [
+            "itiraz",
+            "haksiz",
+            "yanlis",
+            "hatali",
+            "mukerrer",
+            "kabul etmiyorum"
+          ],
+          [
+            "vergi",
+            "ceza",
+            "harc",
+            "emlak",
+            "cop",
+            "abonelik"
+          ],
+          [
+            "iade",
+            "duzeltilmesi",
+            "iptal",
+            "silinmesi",
+            "geri odenmesi"
+          ]
+        ],
+        "en": [
+          [
+            "payment",
+            "debt",
+            "collection",
+            "charge"
+          ],
+          [
+            "object",
+            "dispute",
+            "incorrect",
+            "wrong",
+            "duplicate",
+            "unfair"
+          ],
+          [
+            "tax",
+            "penalt",
+            "fee",
+            "propert"
+          ],
+          [
+            "refund",
+            "correct",
+            "cancel",
+            "revers"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "ruhsat-basvurusu",
+      "label": "Ruhsat Başvurusu",
+      "unitId": "ruhsat",
+      "documentType": "application",
+      "keywords": {
+        "tr": [
+          "ruhsat",
+          "başvuru",
+          "işyeri",
+          "izin",
+          "belge"
+        ],
+        "en": [
+          "licen",
+          "applicat",
+          "business",
+          "permit",
+          "document"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "ruhsat",
+            "izin belgesi",
+            "isletme belgesi"
+          ],
+          [
+            "basvuru",
+            "basvurmak",
+            "basvurusunda",
+            "almak istiyorum",
+            "duzenlenmesi"
+          ],
+          [
+            "isyeri",
+            "dukkan",
+            "kafe",
+            "market",
+            "lokanta",
+            "isletme"
+          ],
+          [
+            "acmak",
+            "acilis",
+            "faaliyete gecmek",
+            "isletmeye"
+          ],
+          [
+            "gerekli belge",
+            "ekte",
+            "evrak",
+            "dosyam ekinde"
+          ]
+        ],
+        "en": [
+          [
+            "licen",
+            "permit"
+          ],
+          [
+            "applicat",
+            "apply",
+            "obtain"
+          ],
+          [
+            "business",
+            "shop",
+            "store",
+            "restaurant",
+            "premises",
+            "cafe"
+          ],
+          [
+            "open",
+            "operat",
+            "start"
+          ],
+          [
+            "attach",
+            "required document",
+            "paperwork"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "ruhsat-sorgusu",
+      "label": "Ruhsat Durum Sorgusu",
+      "unitId": "ruhsat",
+      "documentType": "information_request",
+      "keywords": {
+        "tr": [
+          "ruhsat",
+          "durum",
+          "sorgu",
+          "başvuru",
+          "sonuç"
+        ],
+        "en": [
+          "licen",
+          "status",
+          "inquir",
+          "applicat",
+          "result"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "ruhsat",
+            "basvurum",
+            "dosyam",
+            "basvurumun"
+          ],
+          [
+            "durum",
+            "asama",
+            "ne zaman",
+            "sonuclandi",
+            "akibet"
+          ],
+          [
+            "sorgu",
+            "ogrenmek",
+            "bilgi almak",
+            "takip",
+            "sormak"
+          ],
+          [
+            "sonuc",
+            "onay",
+            "cevap",
+            "netice"
+          ]
+        ],
+        "en": [
+          [
+            "licen",
+            "permit",
+            "applicat"
+          ],
+          [
+            "status",
+            "stage",
+            "when",
+            "progress"
+          ],
+          [
+            "inquir",
+            "check",
+            "follow up",
+            "learn",
+            "find out"
+          ],
+          [
+            "result",
+            "approv",
+            "answer",
+            "outcome"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "gurultu-sikayeti",
+      "label": "Gürültü Şikayeti",
+      "unitId": "denetim",
+      "documentType": "complaint",
+      "keywords": {
+        "tr": [
+          "gürültü",
+          "gece",
+          "desibel",
+          "rahatsızlık",
+          "şikayet"
+        ],
+        "en": [
+          "noise",
+          "disturb",
+          "quiet",
+          "inspect",
+          "residen"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "gurultu",
+            "ses$",
+            "sesi",
+            "sesl",
+            "muzik",
+            "desibel",
+            "bagirma"
+          ],
+          [
+            "gece$",
+            "geceleri",
+            "gece yarisi",
+            "sabaha kadar",
+            "aksam",
+            "uyku",
+            "uyuyamiyoruz"
+          ],
+          [
+            "rahatsiz",
+            "huzursuz",
+            "dayanilmaz",
+            "bunaltici",
+            "tedirgin"
+          ],
+          [
+            "sikayet",
+            "sikayetci",
+            "ihbar"
+          ],
+          [
+            "komsu",
+            "isyeri",
+            "insaat",
+            "bar$",
+            "kafe",
+            "dugun",
+            "mekan"
+          ]
+        ],
+        "en": [
+          [
+            "noise",
+            "sound",
+            "music",
+            "loud",
+            "decibel"
+          ],
+          [
+            "night",
+            "late",
+            "sleep",
+            "hour"
+          ],
+          [
+            "disturb",
+            "nuisance",
+            "unbearable",
+            "annoy"
+          ],
+          [
+            "complain",
+            "report"
+          ],
+          [
+            "neighbo",
+            "business",
+            "construction",
+            "bar",
+            "venue"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "isyeri-denetimi",
+      "label": "İşyeri Denetim Bildirimi",
+      "unitId": "denetim",
+      "documentType": "official_letter",
+      "keywords": {
+        "tr": [
+          "işyeri",
+          "denetim",
+          "rapor",
+          "tutanak",
+          "kontrol"
+        ],
+        "en": [
+          "business",
+          "inspect",
+          "report",
+          "record",
+          "control"
+        ]
+      },
+      "signals": {
+        "tr": [
+          [
+            "isyeri",
+            "dukkan",
+            "isletme",
+            "market",
+            "lokanta",
+            "firma"
+          ],
+          [
+            "denetim",
+            "kontrol",
+            "teftis",
+            "denetlenmesi",
+            "denetlenmesini"
+          ],
+          [
+            "rapor",
+            "tutanak",
+            "zabit",
+            "bildirim"
+          ],
+          [
+            "hijyen",
+            "ruhsatsiz",
+            "kural",
+            "mevzuat",
+            "uygunsuz",
+            "ihlal",
+            "kacak"
+          ]
+        ],
+        "en": [
+          [
+            "business",
+            "premises",
+            "shop",
+            "establishment"
+          ],
+          [
+            "inspect",
+            "control",
+            "audit"
+          ],
+          [
+            "report",
+            "record",
+            "minutes"
+          ],
+          [
+            "hygien",
+            "unlicensed",
+            "violat",
+            "complian",
+            "regulation"
+          ]
+        ]
+      }
+    }
   ]
 }

@@ -5,7 +5,7 @@ import urllib.request
 
 
 BASE_URL = "http://llm:8080"
-MODEL_ID = "linguai/Jamba2-3B-Turkish-SFT-v1"
+MODEL_ID = "ai21labs/AI21-Jamba2-3B"
 
 
 def get(path):
@@ -27,7 +27,11 @@ def post(path, payload):
 
 
 ready = get("/ready")
-assert ready == {"status": "ready", "model": MODEL_ID, "model_loaded": True}, ready
+assert ready["status"] == "ready" and ready["model_loaded"] is True, ready
+assert ready["model"] == MODEL_ID, ready
+# The lane must name the real backend that served this run.
+assert ready["backend"] in {"transformers", "llama_cpp"}, ready
+assert set(ready) == {"status", "model", "model_loaded", "backend"}, ready
 result = post("/generate", {"prompt": "Yalnızca tamam yaz."})
 assert result["model"] == MODEL_ID, result
 assert len(result["modelRevision"]) == 40 and all(char in "0123456789abcdef" for char in result["modelRevision"]), result

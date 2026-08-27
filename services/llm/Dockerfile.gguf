@@ -1,0 +1,41 @@
+# GGUF adapter image for the pinned ai21labs/AI21-Jamba2-3B model.
+#
+# This is NOT a mock and NOT a second model: it serves the pinned GGUF build of
+# the same checkpoint through a llama.cpp server that runs outside the
+# container, because Docker Desktop cannot pass a Radeon GPU into a Linux
+# container.  The image therefore carries no weights and no torch stack - only
+# the service that owns validation, readiness, the prompt limit, and the
+# serialized generation deadline.  Keep Dockerfile as the reference CUDA
+# runtime.
+FROM python:3.12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONUNBUFFERED=1 \
+    BACKEND=llama_cpp
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    tini \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements-gguf.txt /app/requirements-gguf.txt
+RUN python -m pip install --no-cache-dir -r /app/requirements-gguf.txt \
+ && python - <<'PY'
+import importlib.util
+assert importlib.util.find_spec("fastapi") is not None
+# The GGUF lane must never carry the CUDA stack it cannot use.
+assert importlib.util.find_spec("torch") is None, "GGUF image must not ship torch"
+print("Jamba GGUF adapter dependencies imported")
+PY
+
+COPY app.py /app/app.py
+
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=5s --retries=12 \
+  CMD curl --fail http://127.0.0.1:8080/health || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]

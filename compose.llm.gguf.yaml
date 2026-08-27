@@ -1,0 +1,42 @@
+# Real Jamba inference through the pinned GGUF build on a Radeon GPU.
+#
+# Use this overlay INSTEAD OF compose.llm.yaml, never together with it:
+# compose.llm.yaml stays the reference in-container CUDA runtime, while this
+# file runs the same pinned model as its GGUF build inside a llama.cpp server
+# on the host.  Docker Desktop cannot pass a Radeon GPU into a Linux container,
+# so the weights and the Vulkan device stay on the host and only the service
+# contract runs here.  Start the host server first:
+#
+#   pwsh -File scripts/jamba-gguf-server.ps1
+#
+# This is the real model, not a mock: the adapter refuses to serve unless the
+# host server reports the pinned GGUF_FILE.
+services:
+  llm:
+    build:
+      context: ./services/llm
+      dockerfile: Dockerfile.gguf
+    image: coreaigent/llm:jamba-gguf
+    environment:
+      MOCK_SERVICE: null
+      MODEL_ID: "${MODEL_ID:-ai21labs/AI21-Jamba2-3B}"
+      MODEL_REVISION: "${MODEL_REVISION:-525c6c8e1d9f5bddedfbdc1dbb0ade2df84230c9}"
+      BACKEND: "llama_cpp"
+      LLAMA_SERVER_URL: "${LLAMA_SERVER_URL:-http://host.docker.internal:8090}"
+      GGUF_FILE: "${GGUF_FILE:-ai21labs_AI21-Jamba2-3B-Q8_0.gguf}"
+      # Optional: the host server is unauthenticated by default.  Set the same
+      # value here and in the launcher's -ApiKey to require a credential.
+      LLAMA_API_KEY: "${LLAMA_API_KEY:-}"
+      # Vulkan offload answers in seconds, so the bounded serialized lane keeps
+      # the reference GPU budget instead of a widened CPU one.
+      MAX_NEW_TOKENS: "${MAX_NEW_TOKENS:-512}"
+      TEMPERATURE: "${TEMPERATURE:-0.0}"
+      GENERATION_DEADLINE_SECONDS: "${GENERATION_DEADLINE_SECONDS:-110}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 30s

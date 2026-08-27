@@ -79,8 +79,13 @@ Jamba promptu/classification sonucu/extracted alanlar structured context olarak 
   placeholder'lar verilir; backend yalnız doğrulanmış değerleri sonradan
   yerleştirir.
 - Structured Jamba JSON'u schema ve retrieval citation ref'leri ile doğrulanır.
-  İlk geçersiz çıktıdan sonra en fazla bir repair attempt yapılır; ikinci hata
-  `STRUCTURED_OUTPUT_INVALID` ile failed olur ve partial draft publish edilmez.
+  Base instruct model geçerli JSON nesnesini markdown fence içine alabilir veya
+  nesneyi kapattıktan sonra yazmaya devam edebilir; bu nedenle yanıttan ilk
+  decode edilebilir JSON nesnesi okunur. Bu yalnızca ayrıştırma toleransıdır:
+  şema, enum, karakter limiti, citation ve no-source guard kontrolleri
+  değişmeden uygulanır. İlk geçersiz çıktıdan sonra en fazla bir repair attempt
+  yapılır; ikinci hata `STRUCTURED_OUTPUT_INVALID` ile failed olur ve partial
+  draft publish edilmez.
 - Resmi metin çıktısı `draft` niteliğindedir; otomatik imza/onay veya gerçek kurum gönderimi bu feature'ın scope'u değildir.
 
 ## Acceptance kriterleri

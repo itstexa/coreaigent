@@ -18,7 +18,10 @@ def main():
     for boundary in manifest.get("additionalEndpoints", []):
         assert boundary["service"] in manifest["services"]
         assert boundary["method"] in {"GET", "POST", "PATCH"}
-        assert boundary["path"].startswith("/cases/{case_id}")
+        # The case collection (GET /cases) is an endpoint on the same resource
+        # family as the per-case reads, so it belongs in this list even though it
+        # carries no {case_id} segment.
+        assert boundary["path"] == "/cases" or boundary["path"].startswith("/cases/{case_id}")
         identity = (boundary["service"], boundary["method"], boundary["path"])
         assert identity not in seen, f"duplicate endpoint: {identity}"
         seen.add(identity)

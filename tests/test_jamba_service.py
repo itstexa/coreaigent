@@ -9,9 +9,13 @@ import threading
 import time
 import unittest
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from services.llm.app import MODEL_ID, RuntimeConfig, create_app
+
+GGUF_FILE = "ai21labs_AI21-Jamba2-3B-Q8_0.gguf"
 
 
 class FakeLoader:
@@ -71,7 +75,10 @@ class JambaServiceAcceptanceTests(unittest.TestCase):
             response = client.get("/health")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "ok", "model": MODEL_ID, "model_loaded": True})
+        self.assertEqual(
+            response.json(),
+            {"status": "ok", "model": MODEL_ID, "model_loaded": True, "backend": "transformers"},
+        )
         self.assertEqual(loader.generate_call_count, 0)
 
     def test_health_is_live_but_ready_rejects_without_gpu(self):
@@ -248,6 +255,82 @@ class JambaServiceAcceptanceTests(unittest.TestCase):
         self.assertEqual(loader.generate_call_count, 2)
         self.assertEqual(loader.max_active_generations, 1)
         self.assertEqual([response.status_code for response in responses], [200, 200])
+
+
+class LlamaCppLaneTests(unittest.TestCase):
+    """The GGUF lane keeps the same contract in front of a host server."""
+
+    def gguf_config(self, **overrides):
+        return RuntimeConfig(
+            model_id=MODEL_ID,
+            model_revision="a" * 40,
+            deadline_seconds=110,
+            backend="llama_cpp",
+            llama_server_url="http://host.docker.internal:8090",
+            gguf_file=GGUF_FILE,
+            **overrides,
+        )
+
+    def test_ready_names_the_gguf_backend_that_served_the_run(self):
+        loader = FakeLoader()
+        app = create_app(loader=loader, config=self.gguf_config(), gpu_available=True)
+        with TestClient(app) as client:
+            ready = client.get("/ready")
+            health = client.get("/health")
+
+        self.assertEqual(ready.status_code, 200)
+        self.assertEqual(ready.json(), {
+            "status": "ready",
+            "model": MODEL_ID,
+            "model_loaded": True,
+            "backend": "llama_cpp",
+        })
+        self.assertEqual(health.json()["backend"], "llama_cpp")
+
+    def test_unreachable_host_server_is_not_ready_and_reattaches_when_it_returns(self):
+        loader = FakeLoader()
+        reachable = {"value": False}
+        with patch("services.llm.app._llama_server_reachable", lambda config: reachable["value"]),                 patch("services.llm.app.UPSTREAM_RETRY_INTERVAL", 0.0):
+            with TestClient(create_app(loader=loader, config=self.gguf_config())) as client:
+                stopped = client.get("/ready")
+                reachable["value"] = True
+                restarted = client.get("/ready")
+                answer = client.post("/generate", json={"prompt": "Hazır mısın?"})
+
+        self.assertEqual(stopped.status_code, 503)
+        # An absent host server is not an absent local GPU.
+        self.assertEqual(stopped.json()["error"]["code"], "model_not_ready")
+        self.assertEqual(restarted.status_code, 200)
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(loader.load_call_count, 1)
+
+    def test_a_host_server_that_stops_serving_the_pinned_model_flips_readiness_back(self):
+        loader = FakeLoader()
+        with patch("services.llm.app._llama_server_reachable", lambda config: True),                 patch("services.llm.app.UPSTREAM_RETRY_INTERVAL", 0.0):
+            with TestClient(create_app(loader=loader, config=self.gguf_config())) as client:
+                serving = client.get("/ready")
+                # The process still answers, but it no longer serves the pinned
+                # artifact, so re-attaching must fail instead of succeeding.
+                loader.healthy = lambda: False
+                loader.fail_load = True
+                stopped = client.get("/ready")
+                refused = client.post("/generate", json={"prompt": "Hazır mısın?"})
+
+        self.assertEqual(serving.status_code, 200)
+        self.assertEqual(stopped.status_code, 503)
+        self.assertEqual(stopped.json()["error"]["code"], "model_not_ready")
+        self.assertEqual(refused.status_code, 503)
+        self.assertEqual(loader.generate_call_count, 0)
+
+    def test_the_cuda_lane_is_never_probed_again_after_a_failed_load(self):
+        loader = FakeLoader(fail_load=True)
+        with patch("services.llm.app._gpu_available", lambda: True),                 patch("services.llm.app.UPSTREAM_RETRY_INTERVAL", 0.0):
+            config = RuntimeConfig(model_id=MODEL_ID, model_revision="a" * 40)
+            with TestClient(create_app(loader=loader, config=config)) as client:
+                for _ in range(3):
+                    self.assertEqual(client.get("/ready").status_code, 503)
+
+        self.assertEqual(loader.load_call_count, 1)
 
 
 if __name__ == "__main__":

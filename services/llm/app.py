@@ -1,8 +1,17 @@
-"""Jamba2-3B-Turkish inference API for the CoreAIgent ``llm`` service.
+"""Jamba2-3B inference API for the CoreAIgent ``llm`` service.
 
-The model loader is deliberately an injected boundary. Production uses
-``RealJambaLoader``; CPU tests inject a tiny/fake loader so they never download
-or initialize the real CUDA model.
+The model loader is deliberately an injected boundary. Two real loaders exist
+behind one HTTP contract:
+
+* ``RealJambaLoader`` runs the pinned Hugging Face checkpoint in-process on
+  CUDA. It stays the reference runtime.
+* ``LlamaCppLoader`` forwards to a llama.cpp server that serves the pinned
+  GGUF build of the same model. Docker Desktop cannot pass a Radeon GPU into a
+  Linux container, so that server runs on the host with the Vulkan backend
+  while this service keeps owning validation, readiness, and the deadline.
+
+CPU tests inject a tiny/fake loader, so they never download or initialize a
+real model.
 """
 
 from __future__ import annotations
@@ -12,17 +21,30 @@ import logging
 import os
 import re
 import threading
+import time
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-MODEL_ID = "linguai/Jamba2-3B-Turkish-SFT-v1"
+MODEL_ID = "ai21labs/AI21-Jamba2-3B"
 MODEL_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 MAX_PROMPT_TOKENS = 8192
+BACKENDS = ("transformers", "llama_cpp")
+DEADLINE_LIMIT = 120.0
+# Readiness/identity probes against the llama.cpp server must never block a
+# health check for long; generation gets the configured deadline plus enough
+# slack for the upstream socket to return the deadline error itself.
+UPSTREAM_PROBE_TIMEOUT = 5.0
+UPSTREAM_DEADLINE_SLACK = 15.0
+# The GGUF lane is a cheap HTTP hop, so an unreachable or restarted host
+# server can be re-probed instead of pinning the container to a dead state.
+UPSTREAM_RETRY_INTERVAL = 5.0
 JAMBA_FALLBACK_CHAT_TEMPLATE = """{% if bos_token is defined and bos_token is not none %}{{ bos_token }}{% endif %}{% for message in messages %}{% if message.role in ['system', 'user', 'assistant'] %}{{ '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>\\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""
 JAMBA_SYSTEM_PROMPT = "Sen verilen talimata doğrudan ve güvenilir biçimde yanıt veren yardımcı bir Türkçe asistansın."
 LOGGER = logging.getLogger("coreaigent.llm")
@@ -49,6 +71,22 @@ class RuntimeConfig:
     temperature: float = 0.7
     top_p: float = 0.9
     deadline_seconds: float = 60.0
+    backend: str = "transformers"
+    llama_server_url: str = ""
+    llama_api_key: str = ""
+    gguf_file: str = ""
+
+    @property
+    def gguf_mode(self) -> bool:
+        """Return True when the pinned GGUF build serves inference."""
+
+        return self.backend == "llama_cpp"
+
+    @property
+    def upstream_url(self) -> str:
+        """Return the llama.cpp base URL without a trailing slash."""
+
+        return self.llama_server_url.rstrip("/")
 
     @property
     def hf_cache_dir(self) -> str:
@@ -75,11 +113,15 @@ class RuntimeConfig:
             temperature=number("TEMPERATURE", "0.7", float),
             top_p=number("TOP_P", "0.9", float),
             deadline_seconds=number("GENERATION_DEADLINE_SECONDS", "60", float),
+            backend=os.environ.get("BACKEND", "transformers").strip().lower() or "transformers",
+            llama_server_url=os.environ.get("LLAMA_SERVER_URL", "").strip(),
+            llama_api_key=os.environ.get("LLAMA_API_KEY", "").strip(),
+            gguf_file=os.environ.get("GGUF_FILE", "").strip(),
         )
 
     def validation_error(self) -> Optional[str]:
         if self.model_id != MODEL_ID:
-            return "MODEL_ID must be linguai/Jamba2-3B-Turkish-SFT-v1"
+            return "MODEL_ID must be " + MODEL_ID
         if not MODEL_REVISION_PATTERN.fullmatch(self.model_revision):
             return "MODEL_REVISION must be a 40-character lowercase commit SHA"
         if not self.hf_home or not self.hf_home.startswith("/"):
@@ -90,8 +132,18 @@ class RuntimeConfig:
             return "TEMPERATURE must be between 0.0 and 2.0"
         if not 0.0 < self.top_p <= 1.0:
             return "TOP_P must be greater than 0.0 and at most 1.0"
-        if not 5.0 <= self.deadline_seconds <= 120.0:
-            return "GENERATION_DEADLINE_SECONDS must be between 5 and 120"
+        if self.backend not in BACKENDS:
+            return "BACKEND must be transformers or llama_cpp"
+        if self.gguf_mode:
+            if not self.upstream_url.startswith(("http://", "https://")):
+                return "LLAMA_SERVER_URL must be an http(s) URL for the llama_cpp backend"
+            if not self.gguf_file.endswith(".gguf"):
+                return "GGUF_FILE must name the pinned .gguf artifact"
+        if not 5.0 <= self.deadline_seconds <= DEADLINE_LIMIT:
+            return (
+                "GENERATION_DEADLINE_SECONDS must be between 5 and "
+                + str(int(DEADLINE_LIMIT))
+            )
         return None
 
 
@@ -125,6 +177,7 @@ class RealJambaLoader:
 
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA is unavailable")
+        device_map = {"": "cuda:0"}
 
         model_config = AutoConfig.from_pretrained(
             config.model_id,
@@ -145,10 +198,10 @@ class RealJambaLoader:
         )
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        # The pinned Turkish SFT checkpoint has Jamba chat tokens but no
-        # tokenizer chat_template.  Use the compatibility template maintained
-        # by the sibling jamba-sft runtime so generation starts in an assistant
-        # turn instead of continuing/echoing the raw user prompt.
+        # The pinned checkpoint ships a ChatML template.  Derived checkpoints
+        # sometimes drop it while keeping the Jamba chat tokens, so fall back to
+        # the compatibility template and start generation in an assistant turn
+        # instead of continuing/echoing the raw user prompt.
         if not getattr(tokenizer, "chat_template", None):
             vocab = tokenizer.get_vocab()
             if "<|im_start|>" in vocab and "<|im_end|>" in vocab:
@@ -159,7 +212,7 @@ class RealJambaLoader:
             revision=config.model_revision,
             cache_dir=config.hf_cache_dir,
             config=model_config,
-            device_map={"": "cuda:0"},
+            device_map=device_map,
             torch_dtype=torch.bfloat16,
             attn_implementation="sdpa",
             trust_remote_code=True,
@@ -208,10 +261,106 @@ class RealJambaLoader:
         return self._tokenizer.decode(completion, skip_special_tokens=True).strip()
 
 
+class LlamaCppLoader:
+    """Serves the pinned GGUF build through an external llama.cpp server.
+
+    Docker Desktop cannot expose a Radeon GPU to a Linux container, so the
+    accelerated lane runs ``llama-server`` on the host with the Vulkan backend.
+    This loader keeps the weights out of the container while still refusing to
+    serve anything other than the pinned GGUF artifact.
+    """
+
+    def __init__(self) -> None:
+        self.load_call_count = 0
+        self._url = ""
+        self._api_key = ""
+        self._model_path = ""
+
+    def load(self, config: RuntimeConfig) -> "LlamaCppLoader":
+        self.load_call_count += 1
+        self._url = config.upstream_url
+        self._api_key = config.llama_api_key
+        health = self._call("GET", "/health", None, UPSTREAM_PROBE_TIMEOUT)
+        if health.get("status") != "ok":
+            raise RuntimeError("llama.cpp server is not serving a model yet")
+        served = self._served_file(self._call("GET", "/props", None, UPSTREAM_PROBE_TIMEOUT))
+        if config.gguf_file and served != config.gguf_file:
+            raise RuntimeError(
+                "llama.cpp server serves " + (served or "an unknown file")
+                + " instead of the pinned " + config.gguf_file
+            )
+        return self
+
+    @property
+    def model_path(self) -> str:
+        """Return the artifact path reported by the llama.cpp server."""
+
+        return self._model_path
+
+    def healthy(self) -> bool:
+        """Report whether the upstream server still serves the model."""
+
+        try:
+            return self._call("GET", "/health", None, UPSTREAM_PROBE_TIMEOUT).get("status") == "ok"
+        except Exception:
+            return False
+
+    def token_count(self, prompt: str) -> int:
+        payload = self._call("POST", "/tokenize", {"content": prompt}, UPSTREAM_PROBE_TIMEOUT * 4)
+        tokens = payload.get("tokens")
+        if not isinstance(tokens, list):
+            raise RuntimeError("llama.cpp server returned no tokenization")
+        return len(tokens)
+
+    def generate(self, prompt: str, config: RuntimeConfig) -> str:
+        body = {
+            "messages": [
+                {"role": "system", "content": JAMBA_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": config.max_new_tokens,
+            "temperature": config.temperature,
+            "top_p": config.top_p,
+            "stream": False,
+        }
+        payload = self._call(
+            "POST",
+            "/v1/chat/completions",
+            body,
+            config.deadline_seconds + UPSTREAM_DEADLINE_SLACK,
+        )
+        choices = payload.get("choices")
+        if not isinstance(choices, list) or not choices:
+            return ""
+        message = choices[0].get("message") if isinstance(choices[0], dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        return content.strip() if isinstance(content, str) else ""
+
+    def _served_file(self, props: dict) -> str:
+        self._model_path = str(props.get("model_path") or "")
+        return self._model_path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+
+    def _call(self, method: str, path: str, body: Optional[dict], timeout: float) -> dict:
+        data = json.dumps(body).encode() if body is not None else None
+        headers = {"Content-Type": "application/json"} if data is not None else {}
+        if self._api_key:
+            headers["Authorization"] = "Bearer " + self._api_key
+        request = urllib.request.Request(self._url + path, data=data, headers=headers, method=method)
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read() or b"{}")
+        return payload if isinstance(payload, dict) else {}
+
+
 class JambaService:
     """Runtime state, lifecycle, validation, and serialized generation."""
 
-    def __init__(self, loader: ModelLoader, config: RuntimeConfig, gpu_available: bool) -> None:
+    def __init__(
+        self,
+        loader: ModelLoader,
+        config: RuntimeConfig,
+        gpu_available: bool,
+        device_probe: Optional[Callable[[], bool]] = None,
+    ) -> None:
         self.loader = loader
         self.config = config
         self.gpu_available = gpu_available
@@ -219,13 +368,29 @@ class JambaService:
         self.accepting_inference = False
         self.readiness_code: Optional[str] = None
         self._backend: Any = None
+        self._device_probe = device_probe
+        self._last_probe = 0.0
         self._generation_lock = threading.Lock()
+        self._lifecycle_lock = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="jamba-generation")
         self._initialize()
 
+    @property
+    def _reattachable(self) -> bool:
+        """Only the cheap HTTP backend may be probed again after a failure.
+
+        Reloading the in-process CUDA checkpoint costs minutes, so a failed
+        CUDA start stays failed until the container restarts.
+        """
+
+        return self.config.gguf_mode and self._device_probe is not None
+
+    def _device_unavailable_code(self) -> str:
+        return "model_not_ready" if self.config.gguf_mode else "gpu_unavailable"
+
     def _initialize(self) -> None:
         if not self.gpu_available:
-            self.readiness_code = "gpu_unavailable"
+            self.readiness_code = self._device_unavailable_code()
             return
         if (error := self.config.validation_error()) is not None:
             self.readiness_code = "model_not_ready"
@@ -234,12 +399,34 @@ class JambaService:
             self._backend = self.loader.load(self.config)
             self.model_loaded = True
             self.accepting_inference = True
+            self.readiness_code = None
         except Exception:
             LOGGER.exception("Jamba model initialization failed")
             self.readiness_code = "model_not_ready"
 
+    def _refresh_upstream(self) -> None:
+        """Re-attach to, or detach from, a restarted llama.cpp server."""
+
+        now = time.monotonic()
+        with self._lifecycle_lock:
+            if now - self._last_probe < UPSTREAM_RETRY_INTERVAL:
+                return
+            self._last_probe = now
+            if self.model_loaded:
+                healthy = getattr(self._backend, "healthy", lambda: True)()
+                if healthy:
+                    return
+                LOGGER.warning("llama.cpp server stopped serving the pinned model")
+                self.model_loaded = False
+                self.accepting_inference = False
+                self._backend = None
+            self.gpu_available = bool(self._device_probe and self._device_probe())
+            self._initialize()
+
     @property
     def ready(self) -> bool:
+        if self._reattachable:
+            self._refresh_upstream()
         return self.gpu_available and self.model_loaded and self.accepting_inference
 
     def readiness_error(self) -> JSONResponse:
@@ -325,6 +512,27 @@ def _gpu_available() -> bool:
         return False
 
 
+def _llama_server_reachable(config: RuntimeConfig) -> bool:
+    try:
+        headers = {"Authorization": "Bearer " + config.llama_api_key} if config.llama_api_key else {}
+        request = urllib.request.Request(config.upstream_url + "/health", headers=headers, method="GET")
+        with urllib.request.urlopen(request, timeout=UPSTREAM_PROBE_TIMEOUT) as response:
+            payload = json.loads(response.read() or b"{}")
+        return isinstance(payload, dict) and payload.get("status") == "ok"
+    except Exception:
+        return False
+
+
+def _device_available(config: RuntimeConfig) -> bool:
+    """Report whether the configured inference device can be used."""
+
+    return _llama_server_reachable(config) if config.gguf_mode else _gpu_available()
+
+
+def _default_loader(config: RuntimeConfig) -> ModelLoader:
+    return LlamaCppLoader() if config.gguf_mode else RealJambaLoader()
+
+
 def create_app(
     *,
     loader: Optional[ModelLoader] = None,
@@ -333,16 +541,22 @@ def create_app(
 ) -> FastAPI:
     runtime_config = config or RuntimeConfig.from_env()
     service = JambaService(
-        loader or RealJambaLoader(),
+        loader or _default_loader(runtime_config),
         runtime_config,
-        _gpu_available() if gpu_available is None else gpu_available,
+        _device_available(runtime_config) if gpu_available is None else gpu_available,
+        device_probe=(lambda: _device_available(runtime_config)) if gpu_available is None else None,
     )
     app = FastAPI(title="CoreAIgent LLM", docs_url=None, redoc_url=None)
     app.state.jamba_service = service
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        return {"status": "ok", "model": runtime_config.model_id, "model_loaded": service.model_loaded}
+        return {
+            "status": "ok",
+            "model": runtime_config.model_id,
+            "model_loaded": service.model_loaded,
+            "backend": runtime_config.backend,
+        }
 
     @app.get("/ready")
     async def ready() -> JSONResponse:
@@ -350,7 +564,12 @@ def create_app(
             return service.readiness_error()
         return JSONResponse(
             status_code=200,
-            content={"status": "ready", "model": runtime_config.model_id, "model_loaded": True},
+            content={
+                "status": "ready",
+                "model": runtime_config.model_id,
+                "model_loaded": True,
+                "backend": runtime_config.backend,
+            },
         )
 
     @app.post("/generate")

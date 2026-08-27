@@ -20,9 +20,12 @@ grows too large; every such file must be listed below.
 
 - Source request: [GitHub Issue #363](https://github.com/itstexa/coreaigent/issues/363),
   `[US-102] Jamba2-3B-Turkish Docker inference API oluştur`.
-- The deployed model identifier is `linguai/Jamba2-3B-Turkish-SFT-v1`. Its model
-  configuration declares `JambaForCausalLM`, `use_mamba_kernels: true`, and
-  Transformers `4.57.6`.
+- The deployed model identifier is `ai21labs/AI21-Jamba2-3B`, the upstream
+  base model. Its configuration declares `JambaForCausalLM`,
+  `use_mamba_kernels: true`, and Transformers `4.57.6`. A locally fine-tuned
+  checkpoint was evaluated and rejected on output quality, so the pinned
+  identity is the upstream repository at revision
+  `525c6c8e1d9f5bddedfbdc1dbb0ade2df84230c9`.
 - The local reference project `jamba-sft` uses CUDA 12.1 / PyTorch 2.5.1 and
   treats `mamba-ssm` plus `causal-conv1d` as preinstalled, compatibility-sensitive
   dependencies. Its inference loader uses `AutoModelForCausalLM`, sets
@@ -40,7 +43,7 @@ grows too large; every such file must be listed below.
 ### US-102: Türkçe Jamba inference API
 
 As a CoreAIgent demo operator
-I want the fixed `llm` service to serve `linguai/Jamba2-3B-Turkish-SFT-v1`
+I want the fixed `llm` service to serve `ai21labs/AI21-Jamba2-3B`
 So that Turkish prompts can receive model-generated text without loading the
 model for each request.
 
@@ -128,16 +131,16 @@ cannot be represented as a complete F-02 taxonomy without an owner decision.
 Feature: Türkçe Jamba inference API
 
   Scenario: A loaded service generates text for a Turkish prompt
-    Given the service process has loaded `linguai/Jamba2-3B-Turkish-SFT-v1`
+    Given the service process has loaded `ai21labs/AI21-Jamba2-3B`
     When a client sends `POST /generate` with a JSON body containing a non-empty Turkish `prompt`
-    Then it returns JSON containing `model` equal to `linguai/Jamba2-3B-Turkish-SFT-v1`
+    Then it returns JSON containing `model` equal to `ai21labs/AI21-Jamba2-3B`
     And it returns the generated text in `response`
 
   Scenario: A client checks the loaded service
     Given the model has finished loading in the service process
     When a client sends `GET /health`
     Then it returns JSON with `status` equal to `ok`
-    And it returns `model` equal to `linguai/Jamba2-3B-Turkish-SFT-v1`
+    And it returns `model` equal to `ai21labs/AI21-Jamba2-3B`
     And it returns `model_loaded` equal to `true`
 
   Scenario: A process is alive but cannot accept inference
@@ -180,8 +183,23 @@ Feature: GPU and SSM-compatible runtime
     Given a Docker host with a supported NVIDIA runtime and GPU access
     When the Jamba image is built and started with GPU access
     Then the service process can access the assigned GPU
-    And it loads `linguai/Jamba2-3B-Turkish-SFT-v1` with its required Jamba/SSM-compatible dependencies
+    And it loads `ai21labs/AI21-Jamba2-3B` with its required Jamba/SSM-compatible dependencies
     And `GET /health` reports that the model is loaded
+
+  Scenario: A host GPU that Docker cannot pass into a container serves the same model
+    Given a Docker host whose GPU has no supported container runtime, such as an AMD Radeon on Windows
+    And a host-native llama.cpp server that serves the pinned GGUF artifact with GPU offload
+    When the Jamba service is started with `BACKEND=llama_cpp` and that server's URL
+    Then `GET /ready` returns 200 and names `llama_cpp` as the backend that served the run
+    And `POST /generate` returns model-generated Turkish text with the pinned `model` and `modelRevision`
+    And the container reserves no GPU and holds no model weights
+
+  Scenario: The upstream server is absent or serves a different artifact
+    Given the Jamba service is configured with `BACKEND=llama_cpp` and a pinned `GGUF_FILE`
+    When the host server is unreachable, or reports any file other than the pinned artifact
+    Then `GET /health` returns 200 and `GET /ready` returns 503 with `model_not_ready`
+    And it must not report `model_loaded` as `true`
+    And it becomes ready again on its own once that server serves the pinned artifact
 
   Scenario: The configured Jamba/SSM runtime dependencies are incompatible
     Given the image is built with a Jamba/SSM dependency combination that cannot load the model
@@ -200,7 +218,7 @@ Feature: Reproducible verification
   Scenario: GPU verification loads the pinned real model
     Given a GPU-capable verification environment with a pre-populated persistent HF cache
     When the GPU smoke test runs with the pinned `MODEL_ID` and `MODEL_REVISION`
-    Then it verifies readiness and a real Turkish generation from Jamba2-3B-Turkish
+    Then it verifies readiness and a real Turkish generation from the pinned Jamba2-3B
     And it does not substitute a fake or tiny backend for the real-model result
 
 Feature: Operator documentation
@@ -320,9 +338,9 @@ Feature: F-02 hierarchical document classification
 |---|---|---|---|---|
 | OQ-102 | Is `services/jamba` a seventh, independently addressed Compose service, or must it replace/implement the existing fixed `llm` service? The issue specifies `/generate`; the current `llm` contract requires `/v1/generate` with a different request/response schema. | requirement-analysis | Resolved | Use the existing fixed `llm` Compose service. Issue #363 takes priority, therefore use `/generate`; a `services/llm/jamba/` internal folder is permitted but no separate Compose service is created. |
 | OQ-103 | Must `GET /ready` be implemented in addition to Issue #363's `GET /health`? Repository service guidance requires both for real services, while the issue lists only `/health`. | requirement-analysis | Resolved | Implement both. `/health` reports only process liveness with HTTP 200 and must not generate. `/ready` returns 200 only after the model accepts inference; otherwise it returns 503. |
-| OQ-104 | Is an NVIDIA GPU mandatory at runtime, or must a CPU fallback be supported? If GPU is mandatory, what JSON/health behavior is required when it is unavailable? | requirement-analysis | Resolved | Production targets CUDA. CPU mode is out of scope. Without a GPU, `/health` is 200 and `/ready` is 503 with `gpu_unavailable` or `model_not_ready`; CPU CI must not load the real model. |
+| OQ-104 | Is an NVIDIA GPU mandatory at runtime, or must a CPU fallback be supported? If GPU is mandatory, what JSON/health behavior is required when it is unavailable? | requirement-analysis | Resolved | GPU inference is mandatory and CPU inference stays out of scope. Two lanes are supported: `BACKEND=transformers` loads the pinned snapshot in-process on CUDA, and `BACKEND=llama_cpp` adapts a host-native llama.cpp server that offloads the pinned GGUF to a non-NVIDIA GPU (Vulkan) — the container itself reserves no GPU and holds no weights. Without a usable accelerator, `/health` is 200 and `/ready` is 503: `gpu_unavailable` for the CUDA lane, `model_not_ready` for an absent upstream server. CPU CI must not load the real model. |
 | OQ-105 | Which exact CUDA, PyTorch, Transformers, `mamba-ssm`, and `causal-conv1d` versions/platforms are supported, and are optimized Mamba kernels mandatory or may a compatible fallback be used? The reference project marks these SSM packages as preinstalled and compatibility-sensitive. | requirement-analysis | Resolved | Derive and lock the Jamba dependency stack from `jamba-sft` and `mamba-cpt-tr`; direct use of those projects as compatibility references is required. |
-| OQ-106 | What model revision must deployments use, and should Hugging Face weights be downloaded at image build time, container startup, or from a mounted persistent cache? | requirement-analysis | Resolved | Require `MODEL_ID=linguai/Jamba2-3B-Turkish-SFT-v1` and `MODEL_REVISION=5202214fe552041fc6dfe1e6486b61f75eb5fce0`, never `main`. Load at startup through a persistent HF cache volume pre-populated before competition/offline deployment; do not bake multi-GB weights into the image. |
+| OQ-106 | What model revision must deployments use, and should Hugging Face weights be downloaded at image build time, container startup, or from a mounted persistent cache? | requirement-analysis | Resolved | Require `MODEL_ID=ai21labs/AI21-Jamba2-3B` and `MODEL_REVISION=525c6c8e1d9f5bddedfbdc1dbb0ade2df84230c9`, never `main`. The CUDA lane loads at startup through a persistent HF cache volume pre-populated before competition/offline deployment; the GGUF lane keeps the SHA-256-verified quantized artifact on the host next to the pinned llama.cpp build. Neither lane bakes multi-GB weights into the image. |
 | OQ-107 | Which generation controls and limits are public API contract: for example `max_new_tokens`, sampling parameters, maximum prompt size, timeout, concurrency, and response time? Issue #363 defines only `prompt`. | requirement-analysis | Resolved | The public request remains only `prompt`. Sampling controls are service configuration/environment values; caller/orchestrator owns request timeout and the model server owns concurrency. |
 | OQ-108 | What HTTP status codes and JSON error shape are required for malformed JSON, empty/missing prompts, model-load failure, GPU unavailability, and generation failure? | requirement-analysis | Resolved | JSON errors use `{"error":{"code":"...","message":"..."}}`. Statuses: malformed JSON 400; missing/empty prompt 422; GPU unavailable, model-load failure, or not-ready 503; unexpected generation failure 500; server-side deadline, if configured, 504. |
 | OQ-109 | How must “model is loaded only once” be observed by tests: an internal load counter, structured logs/metrics, or a test double around the loader? | requirement-analysis | Resolved | Test through an injected loader test double: startup followed by N generation requests must have `loader.call_count == 1`. Structured logging is optional and not a test contract. |

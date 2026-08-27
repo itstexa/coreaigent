@@ -42,17 +42,21 @@ deterministic workflow/taxonomy katmanına aittir.
 
 ## Model ve runtime kimliği
 
-- Model: `linguai/Jamba2-3B-Turkish-SFT-v1`
-- Pinned revision: `5202214fe552041fc6dfe1e6486b61f75eb5fce0`
-- Weights: safetensors; shared local HF cache is required for offline runtime.
-- Varsayılan deployment revision: `9524af9e857e0359b8a3dad72bc216b65d3c0acd`
+- Model: `ai21labs/AI21-Jamba2-3B` (upstream base model)
+- Pinned revision: `525c6c8e1d9f5bddedfbdc1dbb0ade2df84230c9`
 - Revision yalnızca 40 karakterlik lowercase commit SHA olabilir; `main`
   kullanılamaz.
-- Bu SHA yerel HF cache'te iki ağırlık shard'ı bulunan snapshot olarak
-  doğrulanmıştır ve kardeş `jamba-sft` smoke akışında varsayılan revision'dır.
-  Başka bir checkpoint kullanılacaksa cache bütünlüğü ve GPU smoke yeniden
-  çalıştırılmalıdır.
-- Ağırlıklar image içine kopyalanmaz; `/var/cache/huggingface` kalıcı cache'tir.
+- Yerel olarak eğitilmiş bir checkpoint denendi ve çıktı kalitesi nedeniyle
+  reddedildi; pinned kimlik upstream repo'dur. Başka bir checkpoint
+  kullanılacaksa cache bütünlüğü ve GPU smoke yeniden çalıştırılmalıdır.
+- İki lane aynı modeli aynı kontrat arkasında sunar:
+  - `BACKEND=transformers` (`compose.llm.yaml`): safetensors ağırlıkları
+    container içinde CUDA üzerinde yüklenir; ağırlıklar image'a kopyalanmaz,
+    `/var/cache/huggingface` kalıcı cache'tir.
+  - `BACKEND=llama_cpp` (`compose.llm.gguf.yaml`): NVIDIA GPU'su olmayan
+    hostlar için. Ağırlıkları host üzerindeki llama.cpp Vulkan sunucusu tutar
+    (pinned `ai21labs_AI21-Jamba2-3B-Q8_0.gguf`, SHA-256 doğrulamalı);
+    container yalnızca adapter'dır, GPU rezerve etmez ve torch içermez.
 
 ## Logical generation task'ları
 
@@ -103,6 +107,32 @@ curl -X POST http://localhost:8085/v1/generate \
   }'
 ```
 
+### NVIDIA GPU'su olmayan host: GGUF lane
+
+Ön koşul yoktur: NVIDIA Container Toolkit gerekmez. Önce host sunucusu:
+
+```powershell
+.\scripts\jamba-gguf-server.ps1 -Root D:\coreaigent
+```
+
+Script pinned llama.cpp build'ini ve pinned Q8_0 GGUF'u indirir, iki SHA-256
+digest'ini de doğrular, pinlenmemiş artifact'ı sunmayı reddeder ve modeli
+`http://0.0.0.0:8090` üzerinde servis eder. Container'lar ona
+`host.docker.internal` üzerinden ulaştığı için tüm arayüzlere bind eder ve
+llama-server varsayılan olarak authentication uygulamaz: Windows firewall
+profilini Private tutun veya `-ApiKey <secret>` verip container tarafında aynı
+değeri `LLAMA_API_KEY` olarak ayarlayın. Sonra lane'i başlatın:
+
+```bash
+docker compose -f compose.yaml -f compose.llm.gguf.yaml up --build -d llm
+curl http://localhost:8085/ready
+```
+
+Adapter, upstream sunucu pinned `GGUF_FILE` dışında bir dosya sunuyorsa
+başlamayı reddeder; sunucu yeniden başlatılırsa kendiliğinden tekrar bağlanır,
+bu yüzden başlatma sırası önemli değildir. `/health` ve `/ready`, çalışmayı
+gerçekten hangi lane'in sunduğunu `backend` alanında bildirir.
+
 PowerShell wrapper ile aynı gerçek-LLM geliştirme akışı:
 
 ```powershell
@@ -115,7 +145,8 @@ gereklidir. Diğer servisler bu modda deterministic contract mock'larıdır.
 
 ## Failure contract
 
-- GPU yok veya model yüklenemedi: `/health` canlı kalır, `/ready` `503` döner.
+- GPU yok veya model yüklenemedi: `/health` canlı kalır, `/ready` `503` döner
+  (`gpu_unavailable` CUDA lane, `model_not_ready` GGUF lane).
 - Generation timeout: `504`, `category=timeout`, `retryable=true`.
 - Model dependency/empty output: `502`, `category=dependency`.
 - Geçersiz CoreAIgent payload: `400`, `category=validation`.

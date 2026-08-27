@@ -7,8 +7,8 @@ services:
     gpus: all
     environment:
       MOCK_SERVICE: null
-      MODEL_ID: "${MODEL_ID:-linguai/Jamba2-3B-Turkish-SFT-v1}"
-      MODEL_REVISION: "${MODEL_REVISION:-5202214fe552041fc6dfe1e6486b61f75eb5fce0}"
+      MODEL_ID: "${MODEL_ID:-ai21labs/AI21-Jamba2-3B}"
+      MODEL_REVISION: "${MODEL_REVISION:-525c6c8e1d9f5bddedfbdc1dbb0ade2df84230c9}"
       HF_HOME: "/var/cache/huggingface"
       HUGGINGFACE_HUB_CACHE: "/var/cache/huggingface"
       HF_HUB_OFFLINE: "${HF_HUB_OFFLINE:-1}"

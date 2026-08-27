@@ -10,9 +10,11 @@
   },
   "additionalEndpoints": [
     {"service": "validation", "method": "PATCH", "path": "/cases/{case_id}/supplemental-information", "request": "supplemental-information-request", "response": "validation-result"},
+    {"service": "workflow", "method": "GET", "path": "/cases", "response": "case-list-result"},
     {"service": "workflow", "method": "POST", "path": "/cases/{case_id}/correspondence", "request": "empty-object", "response": "correspondence-start-result"},
     {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/correspondence", "response": "case-correspondence-result"},
     {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/routing", "response": "case-routing-result"},
+    {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/document", "response": "case-document"},
     {"service": "workflow", "method": "GET", "path": "/cases/{case_id}", "response": "case-status-result"},
     {"service": "workflow", "method": "POST", "path": "/cases/{case_id}/review-completion", "request": "empty-object", "response": "review-completion-result"}
   ],

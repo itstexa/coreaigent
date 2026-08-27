@@ -131,6 +131,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 AUTH_TOKEN = os.environ.get("CASE_ACCESS_TOKEN", "")
 EXTRACTOR_MODE = os.environ.get("EXTRACTOR_MODE", "jamba")
 JAMBA_URL = os.environ.get("JAMBA_URL", "http://llm:8080/generate")
+# CUDA inference answers in seconds; the CPU overlay needs minutes, so the
+# caller-side budget is configurable instead of hard-coded.
+JAMBA_TIMEOUT_SECONDS = float(os.environ.get("JAMBA_TIMEOUT_SECONDS", "65") or 65)
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS intake_records (
     document_id text PRIMARY KEY, case_id uuid NOT NULL, workflow_id uuid NOT NULL,
@@ -138,6 +141,7 @@ CREATE TABLE IF NOT EXISTS intake_records (
     source_metadata jsonb NOT NULL DEFAULT '{}'::jsonb, correlation_id text NULL,
     ingest_status text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE intake_records ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'unknown';
 CREATE TABLE IF NOT EXISTS current_classifications (
     document_id text PRIMARY KEY REFERENCES intake_records(document_id), case_id uuid NOT NULL, workflow_id uuid NOT NULL,
     status text NOT NULL, department_id text NULL, department_label text NULL, unit_id text NULL, unit_label text NULL,
@@ -201,21 +205,66 @@ def labeled_candidates(text, definitions):
     return candidates
 
 
-def extract_candidates(text, definitions):
+def json_object(model_response):
+    """Read one JSON object from a Markdown/noisy model response.
+
+    A base instruct model routinely wraps its answer in a ```json fence or a
+    sentence.  Scanning for the first decodable object keeps the extractor
+    working without inventing values: key and type checks below still apply.
+    """
+
+    if not isinstance(model_response, str):
+        raise ValueError("model response must be text")
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", model_response):
+        try:
+            value, _end = decoder.raw_decode(model_response[match.start():])
+        except ValueError:
+            continue
+        if isinstance(value, dict):
+            return value
+    raise ValueError("model response contains no JSON object")
+
+
+# The instruction is written in the language of the document it is about.  A
+# Turkish instruction over an English petition makes a base instruct model answer
+# in Turkish, and here that means translating the applicant's own words before
+# they are stored as extracted values -- so the wording follows the document.
+# The field ids stay English in both, because they are the contract's keys.
+EXTRACTION_INSTRUCTIONS = {
+    "tr": (
+        "Yalnız JSON object döndür. Anahtarlar sadece şu field id'ler olsun: {fields}."
+        " Her değer metinden çıkarılmış string olsun; bulamadığını yazma. Metin:\n{text}"
+    ),
+    "en": (
+        "Return only a JSON object. Use exactly these field ids as keys: {fields}."
+        " Every value must be a string copied from the text; omit anything you cannot"
+        " find. Do not translate the values. Text:\n{text}"
+    ),
+}
+EXTRACTION_FALLBACK_LANGUAGE = "tr"
+
+
+def extraction_prompt(text, semantic_definitions, language=None):
+    """Build the F-03 instruction for the document's language.
+
+    An unrecognised or absent language falls back to the authority's own
+    language rather than guessing, which is the rule intake already applies.
+    """
+    template = EXTRACTION_INSTRUCTIONS.get(language) or EXTRACTION_INSTRUCTIONS[EXTRACTION_FALLBACK_LANGUAGE]
+    return template.format(fields=", ".join(item.field_id for item in semantic_definitions), text=text)
+
+
+def extract_candidates(text, definitions, language=None):
     if EXTRACTOR_MODE == "deterministic":
         return labeled_candidates(text, definitions)
     semantic_definitions = tuple(item for item in definitions if item.kind not in {"tckn", "phone-tr", "date", "attachment"})
-    prompt = (
-        "Yalnız JSON object döndür. Anahtarlar sadece şu field id'ler olsun: "
-        + ", ".join(item.field_id for item in semantic_definitions)
-        + ". Her değer metinden çıkarılmış string olsun; bulamadığını yazma. Metin:\n"
-        + text
-    )
+    prompt = extraction_prompt(text, semantic_definitions, language)
     request = urllib.request.Request(JAMBA_URL, data=json.dumps({"prompt": prompt}, ensure_ascii=False).encode(), headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=65) as response:
+        with urllib.request.urlopen(request, timeout=JAMBA_TIMEOUT_SECONDS) as response:
             payload = json.load(response)
-        semantic = json.loads(payload["response"])
+        semantic = json_object(payload["response"])
     except (KeyError, TypeError, ValueError, urllib.error.URLError, urllib.error.HTTPError) as exc:
         raise RuntimeError("Jamba structured extraction is unavailable") from exc
     allowed = {item.field_id for item in semantic_definitions}
@@ -284,17 +333,17 @@ def create_app(registry=None):
             return error(body, 503, "dependency", "Validation registry is unavailable", True)
         try:
             with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cursor:
-                cursor.execute("SELECT r.document_id, r.case_id, r.workflow_id, r.source_metadata, c.request_type_id, c.status, r.normalized_text FROM intake_records r JOIN current_classifications c USING (document_id) WHERE r.document_id = %s FOR UPDATE", (body["documentId"],))
+                cursor.execute("SELECT r.document_id, r.case_id, r.workflow_id, r.source_metadata, c.request_type_id, c.status, r.normalized_text, r.language FROM intake_records r JOIN current_classifications c USING (document_id) WHERE r.document_id = %s FOR UPDATE", (body["documentId"],))
                 row = cursor.fetchone()
                 if not row:
                     return error(body, 404, "validation", "Document classification was not found")
                 if row[5] != "classified" or row[4] not in loaded_registry:
                     return error(body, 409, "validation", "Document is not eligible for extraction")
-                record, text = row[:5], row[6]
+                record, text, language = row[:5], row[6], row[7]
                 cursor.execute("SELECT accepted_fields, missing_fields, invalid_fields, completion_status, revision FROM current_validation_states WHERE case_id = %s FOR UPDATE", (record[1],))
                 state = cursor.fetchone()
                 existing = None if not state else {"accepted_fields": state[0], "missing_fields": state[1], "invalid_fields": state[2], "completion_status": state[3], "revision": state[4]}
-                result, revision = persist_validation(cursor, record, body["requestId"], loaded_registry[record[4]], schema_version, extract_candidates(text, loaded_registry[record[4]]), existing)
+                result, revision = persist_validation(cursor, record, body["requestId"], loaded_registry[record[4]], schema_version, extract_candidates(text, loaded_registry[record[4]], language), existing)
         except RuntimeError:
             return error(body, 503, "dependency", "Jamba structured extraction is unavailable", True)
         except psycopg.Error:

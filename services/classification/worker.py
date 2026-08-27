@@ -5,7 +5,7 @@ import time
 
 import psycopg
 
-from app import classify, load_taxonomy
+from app import classify_document, load_taxonomy
 
 
 DATABASE_URL = os.environ["DATABASE_URL"]
@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS intake_records (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE intake_records ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'unknown';
 CREATE TABLE IF NOT EXISTS durable_outbox_jobs (
     job_id uuid PRIMARY KEY,
     document_id text NOT NULL UNIQUE REFERENCES intake_records(document_id),
@@ -76,14 +77,18 @@ def claim():
         return job
 
 
-def complete(job, result, taxonomy):
+def complete(job, classified, taxonomy):
+    # The HTTP endpoint and this worker must agree on the scoring model: the
+    # browser reads the response, the panel reads the row this writes, and a
+    # case whose two halves disagree is unexplainable to an operator.
+    result, classifier_version, reason = classified
     department, unit, request_type = result["department"], result["unit"], result["requestType"]
     with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cursor:
         cursor.execute(
             "INSERT INTO current_classifications (document_id, case_id, workflow_id, status, department_id, department_label, unit_id, unit_label, request_type_id, request_type_label, confidence, taxonomy_version, classifier_version, classification_reason) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'demo-keyword-v1', %s) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (document_id) DO UPDATE SET case_id = EXCLUDED.case_id, workflow_id = EXCLUDED.workflow_id, status = EXCLUDED.status, department_id = EXCLUDED.department_id, department_label = EXCLUDED.department_label, unit_id = EXCLUDED.unit_id, unit_label = EXCLUDED.unit_label, request_type_id = EXCLUDED.request_type_id, request_type_label = EXCLUDED.request_type_label, confidence = EXCLUDED.confidence, taxonomy_version = EXCLUDED.taxonomy_version, classifier_version = EXCLUDED.classifier_version, classification_reason = EXCLUDED.classification_reason, updated_at = now()",
-            (job[1], job[2], job[3], result["status"], department and department["id"], department and department["label"], unit and unit["id"], unit and unit["label"], request_type and request_type["id"], request_type and request_type["label"], result["confidence"], taxonomy.version, "No taxonomy keyword matched" if result["confidence"] == 0 else "Best matching taxonomy chain selected"),
+            (job[1], job[2], job[3], result["status"], department and department["id"], department and department["label"], unit and unit["id"], unit and unit["label"], request_type and request_type["id"], request_type and request_type["label"], result["confidence"], taxonomy.version, classifier_version, reason),
         )
         cursor.execute("UPDATE durable_outbox_jobs SET state = 'completed', claimed_until = NULL, updated_at = now() WHERE job_id = %s AND state = 'claimed'", (job[0],))
 
@@ -93,7 +98,7 @@ def run_once(taxonomy):
     if not job:
         return False
     try:
-        complete(job, classify(job[4], taxonomy), taxonomy)
+        complete(job, classify_document(job[4], taxonomy), taxonomy)
     except Exception:
         with psycopg.connect(DATABASE_URL) as db, db.transaction():
             db.execute("UPDATE durable_outbox_jobs SET state = 'pending', claimed_until = NULL, updated_at = now() WHERE job_id = %s AND state = 'claimed'", (job[0],))

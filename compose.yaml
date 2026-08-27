@@ -13,6 +13,19 @@ x-mock: &mock
     start_period: 2s
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: coreaigent/frontend:local
+    restart: unless-stopped
+    ports: ["3000:8080"]
+    depends_on:
+      ocr: { condition: service_healthy }
+      classification: { condition: service_healthy }
+      validation: { condition: service_healthy }
+      workflow: { condition: service_healthy }
+
   ocr:
     <<: *mock
     image: coreaigent/ocr-mock:1.0

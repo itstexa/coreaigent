@@ -20,6 +20,10 @@ class LocalTopologyTests(unittest.TestCase):
             "validation": ["compose.yaml", "compose.ocr.yaml", "compose.classification.yaml", "compose.llm.yaml", "compose.validation.yaml", "compose.validation.jamba.yaml"],
             "workflow": ["compose.yaml", "compose.ocr.yaml", "compose.classification.yaml", "compose.llm.yaml", "compose.validation.yaml", "compose.validation.jamba.yaml", "compose.workflow.yaml"],
             "llm": ["compose.yaml", "compose.llm.yaml"],
+            # GGUF closures serve the same pinned model through the host
+            # llama.cpp Vulkan server on hosts without an NVIDIA GPU.
+            "llm-gguf": ["compose.yaml", "compose.llm.gguf.yaml"],
+            "workflow-gguf": ["compose.yaml", "compose.ocr.yaml", "compose.classification.yaml", "compose.llm.gguf.yaml", "compose.validation.yaml", "compose.validation.jamba.yaml", "compose.workflow.yaml"],
         }
         self.assertEqual(set(self.topologies), set(expected))
         for service, files in expected.items():

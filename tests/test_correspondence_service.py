@@ -9,6 +9,7 @@ from services.workflow.correspondence import (
     NoSourceLegalClaimError,
     build_retrieval_context,
     extract_json_object,
+    parse_generated_draft,
     sanitize_text,
     semantic_repair_payload,
     validate_generated_draft,
@@ -111,6 +112,51 @@ class CorrespondenceAcceptanceTests(unittest.TestCase):
             retrieved_refs=[], source_status="no_relevant_source", similarity=score,
         )
         self.assertEqual(repaired["document_summary"], "Başvuru alınmıştır. İlgili birim inceleme yapacaktır.")
+
+
+    def test_a_schema_valid_answer_survives_trailing_model_noise_without_relabeling(self):
+        def unusable(_left, _right):
+            raise AssertionError("a schema-valid answer must not reach semantic repair")
+
+        answer = (
+            '{"document_summary": "Baskurt alinmistir.", "recommended_correspondence_type": "information_letter",'
+            ' "draft_text": "Basvurunuz ilgili birime iletilmistir.", "used_source_refs": []}"}'
+        )
+        self.assertEqual(
+            parse_generated_draft(answer, retrieved_refs=[], source_status="no_relevant_source", similarity=unusable),
+            {
+                "document_summary": "Baskurt alinmistir.",
+                "recommended_correspondence_type": "information_letter",
+                "draft_text": "Basvurunuz ilgili birime iletilmistir.",
+                "used_source_refs": [],
+            },
+        )
+
+    def test_parsing_still_repairs_off_schema_keys_and_never_bypasses_the_guard(self):
+        def score(left, right):
+            return 0.8 if (left, right) in {
+                ("summary", "başvuru belgesi kısa özet summary"),
+                ("type", "resmi yazışma türü correspondence type"),
+                ("draft", "resmi yazışma taslak metni draft letter"),
+                ("refs", "kullanılan kaynak atıf kimlikleri citation references"),
+            } else 0.0
+
+        fenced = (
+            '```json\n{"summary": "Başvuru", "type": "information_letter",'
+            ' "draft": "%s", "refs": []}\n```'
+        )
+        repaired = parse_generated_draft(
+            fenced % "Basvurunuz ilgili birime iletilmistir.",
+            retrieved_refs=[], source_status="no_relevant_source", similarity=score,
+        )
+        self.assertEqual(repaired["draft_text"], "Basvurunuz ilgili birime iletilmistir.")
+        with self.assertRaises(NoSourceLegalClaimError):
+            parse_generated_draft(
+                fenced % "5393 sayili Kanun uyarinca islem yapilacaktir.",
+                retrieved_refs=[], source_status="no_relevant_source", similarity=score,
+            )
+        with self.assertRaises(ValueError):
+            parse_generated_draft("Bir JSON nesnesi yok.", retrieved_refs=[], source_status="no_relevant_source", similarity=score)
 
 
 if __name__ == "__main__":
