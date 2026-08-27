@@ -152,6 +152,36 @@ class PostHocVerifyConfig(StageToggle):
 
 
 @dataclass
+class SemanticCacheConfig(StageToggle):
+    # ctx.engine.store.client üzerinde AYNI embedded Qdrant client'ta açılan
+    # ikinci bir koleksiyon — mevzuat_chunks'tan bağımsız, ikinci bir
+    # QdrantClient/local_path AÇILMAZ (embedded Qdrant tek client'a özel
+    # on-disk lock tutar, bkz. engine.py:RAGEngine.store / store.py modül
+    # docstring'i).
+    collection: str = "semantic_cache"
+    # [10] Semantic Cache — cosine benzerlik eşiği. 2026-08-27'de bu depodaki
+    # gerçek örnek sorularla (5 "aynı soru, farklı ifade" çifti + 6 "gerçekten
+    # farklı soru" çifti, bge-m3/CPU) kalibre edildi:
+    #   - Aynı sorunun küçük ifade farkıyla (kelime sırası, nezaket eki,
+    #     "sürüyor mu"/"ne kadar" gibi) tekrarı: 0.9320 - 0.9894 arası.
+    #   - Gevşek parafraz (farklı kelimeler, aynı niyet, ör. "Doğum izni kaç
+    #     gün?" <-> "Doğum sonrası izin süresi ne kadar?"): 0.8848 - 0.9398
+    #     arası.
+    #   - Gerçekten farklı sorular (ör. "Harcırah kanunu nedir?" <-> "Resmi
+    #     yazışmalarda kağıt boyutu nedir?"): 0.3215 - 0.4552 arası, en
+    #     yüksek false-positive riski 0.4552.
+    # 0.90 seçildi: gerçek-farklı soruların en yükseğinden (0.4552) ~2x pay
+    # bırakıyor, YANLIŞ CACHE HIT riskini (yanlış hukuki cevap döndürme —
+    # gereksiz bir cache miss'ten çok daha maliyetli) minimize etmek için
+    # bilinçli olarak gevşek parafrazların bir kısmını (0.8848/0.8923) da
+    # eleyecek kadar sıkı tutuldu — min_score'daki "yanlış negatif ucuz,
+    # yanlış pozitif pahalı" mantığıyla aynı, bkz. RerankConfig.min_score
+    # yorumu. Küçük corpus/az sorguyla ölçüldü — kullanım arttıkça (daha
+    # fazla gerçek vatandaş sorusu çiftiyle) yeniden kalibre edilmeli.
+    similarity_threshold: float = 0.90
+
+
+@dataclass
 class EmbeddingConfig:
     model: str = "BAAI/bge-m3"
     dim: int = 1024
@@ -213,6 +243,7 @@ class RAGConfig:
     crag: CRAGConfig = field(default_factory=CRAGConfig)
     citation_expansion: CitationExpansionConfig = field(default_factory=CitationExpansionConfig)
     post_hoc_verify: PostHocVerifyConfig = field(default_factory=PostHocVerifyConfig)
+    semantic_cache: SemanticCacheConfig = field(default_factory=SemanticCacheConfig)
     generation: GenerationConfig = field(default_factory=GenerationConfig)
     # structured embedding config — distinct from the legacy flat
     # embedding_model/embedding_dim/embedding_device fields above, which stay
@@ -274,6 +305,7 @@ class RAGConfig:
             crag=CRAGConfig(**(y.get("crag", {}) or {})),
             citation_expansion=CitationExpansionConfig(**(y.get("citation_expansion", {}) or {})),
             post_hoc_verify=PostHocVerifyConfig(**(y.get("post_hoc_verify", {}) or {})),
+            semantic_cache=SemanticCacheConfig(**(y.get("semantic_cache", {}) or {})),
             generation=GenerationConfig(
                 provider=gen.get("provider", "deepseek"),
                 model=os.environ.get("DEEPSEEK_MODEL") or gen.get("model", "deepseek-chat"),

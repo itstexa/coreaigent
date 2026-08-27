@@ -128,6 +128,20 @@ post_hoc_verify:             # [8] Hakem Ajan (Critic Agent) — [7] Generate'te
   llm_check: true             # false ise yalnızca ücretsiz yapısal kontrol çalışır, LLM çağrısı yapılmaz
   model: deepseek-chat
 
+semantic_cache:              # [10] Semantic Cache — DeepSeek cevaplarını sorgunun SEMANTİK
+                              # benzerliğine göre (tam string eşleşmesi değil) önbelleğe alır.
+                              # Kurum bilgi masalarında aynı sorunun ("doğum izni kaç gün?")
+                              # farklı ifadelerle sürekli tekrarlanması API maliyeti/gecikmesini
+                              # gereksiz yere katlıyor.
+  enabled: false              # 2026-08-27: bu depodaki disiplinle tutarlı olarak (bkz.
+                              # citation_expansion/post_hoc_verify) yeni teknik önce false ile
+                              # eklenip test edildi, geçerli DEEPSEEK_API_KEY ile uçtan uca
+                              # canlı ortamda doğrulanana kadar açılmıyor.
+  collection: semantic_cache  # ctx.engine.store.client üzerinde aynı embedded Qdrant client'ta
+                              # açılan ayrı bir koleksiyon — bkz. config.py yorumu.
+  similarity_threshold: 0.90  # kalibrasyon: bkz. config.py SemanticCacheConfig yorumu
+                              # (gerçek-farklı sorular 0.32-0.46, aynı-soru rewording 0.93-0.99)
+
 observability:
   debug: false
   trace: true

@@ -1,6 +1,11 @@
 """PDF korpus loader testleri — uçtan uca gerçek PDF dosyalarıyla (sentetik,
 uydurma içerikli). PyMuPDF (fitz) yalnızca test fixture'ı üretmek için
-kullanılıyor; üretim/runtime kodu (pdf_corpus.py) pypdf kullanıyor.
+kullanılıyor; üretim/runtime kodu (pdf_corpus.py) her sayfayı pdfplumber ile
+işliyor (tablo yapısını korumak için — bkz. pdf_corpus.py'deki
+"Tablo-farkında çıkarım: performans stratejisi" notu ve
+tests/test_table_aware_pdf.py), pypdf ise yalnızca şifre çözme kontrolü ve
+pdfplumber'ın tamamen başarısız olduğu nadir durumda geri dönüş yolu için
+kullanılıyor.
 
 TCKN test sabiti (11111111110) checksum algoritmasını geçen sentetik bir
 numaradır, gerçek bir kişiye ait değildir (bkz. test_pii.py).

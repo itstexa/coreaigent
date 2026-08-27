@@ -41,6 +41,12 @@ class PipelineContext:
     crag_loop_count: int = 0
     # [7] Generate output: {"answer": str, "citations": [...], "sources": [...]}
     answer: dict | None = None
+    # [10] Semantic Cache: True iff SemanticCacheCheckStage populated ``answer``
+    # from a past cached query instead of a fresh GenerateStage call. Read by
+    # SemanticCacheStoreStage to avoid re-storing an answer that was already
+    # in the cache (storing it again would just re-embed the paraphrase that
+    # triggered the hit, not the original stored query).
+    answer_from_cache: bool = False
 
     # short-circuit: e.g. router said ANSWER_DIRECTLY/CLARIFY, skip retrieval
     stopped: bool = False

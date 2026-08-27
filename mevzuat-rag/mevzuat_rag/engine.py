@@ -30,6 +30,7 @@ from mevzuat_rag.pipeline.stages.parent_doc import ParentDocStage
 from mevzuat_rag.pipeline.stages.post_hoc_verify import PostHocVerifyStage
 from mevzuat_rag.pipeline.stages.rerank import RerankStage
 from mevzuat_rag.pipeline.stages.router import RouterStage
+from mevzuat_rag.pipeline.stages.semantic_cache import SemanticCacheCheckStage, SemanticCacheStoreStage
 from mevzuat_rag.store import QdrantStore
 from mevzuat_rag.text_norm import TEXT_NORM_VERSION
 
@@ -167,8 +168,16 @@ class RAGEngine:
             CompressionStage(enabled=self.config.compression.enabled),
         ]
         if want_answer:
+            # [10] Semantic Cache: check FIRST (before even the router — a
+            # cache hit should skip retrieval/rerank/LLM generation entirely)
+            # and store LAST (after post_hoc_verify, so only a fully
+            # verified answer gets cached). retrieve()-only callers never see
+            # either stage — the cache only makes sense for the generated
+            # DeepSeek answer, not raw retrieval results.
+            stages.insert(0, SemanticCacheCheckStage(enabled=self.config.semantic_cache.enabled))
             stages.append(GenerateStage(enabled=True))
             stages.append(PostHocVerifyStage(enabled=self.config.post_hoc_verify.enabled))
+            stages.append(SemanticCacheStoreStage(enabled=self.config.semantic_cache.enabled))
         return Pipeline(stages)
 
     def _run(self, query: str, top_k: int, want_answer: bool) -> PipelineContext:
