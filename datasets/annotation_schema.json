@@ -1,0 +1,47 @@
+{
+  "schema_version": "0.1",
+  "dataset_type": "public_document_evaluation",
+  "fields": {
+    "id": {
+      "type": "string",
+      "description": "Benzersiz evrak kimliği",
+      "example": "EVR-001"
+    },
+    "document": {
+      "type": "string",
+      "description": "Tam evrak metni"
+    },
+    "expected.document_type": {
+      "type": "string",
+      "enum": ["dilekçe", "şikayet", "bilgi_talebi", "başvuru_formu", "itiraz"],
+      "description": "Evrak sınıfı"
+    },
+    "expected.topic": {
+      "type": "string",
+      "description": "Evrakın amacını veya konusunu özetleyen kısa başlık"
+    },
+    "expected.department": {
+      "type": "string",
+      "description": "Ana hedef müdürlük / birim"
+    },
+    "expected.critical_information": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sınıflandırma ve yönlendirme için kritik bilgilerin listesi"
+    },
+    "expected.missing_fields": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Evrakta eksik olan gerekli alanlar"
+    },
+    "expected.tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Konu ve arama etiketleri"
+    }
+  },
+  "notes": [
+    "Bu şema evaluation amaçlıdır; train/validation/test ayrımı bu sürümde kullanılmaz.",
+    "İçerik sentetik veya kamuya açık, kurgusal örneklerden oluşur; gerçek kişisel veri içermez."
+  ]
+}

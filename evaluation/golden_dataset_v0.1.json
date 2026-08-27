@@ -1,0 +1,290 @@
+{
+  "dataset_version": "0.1",
+  "purpose": "Rule Engine, Retrieval ve AI Pipeline çıktılarının karşılaştırmalı değerlendirilmesi",
+  "notes": "Her kayıtta missing_fields yalnızca 'Talep edilmiş fakat sağlanmamış' bilgiler içerir. Ambiguous örnekler primary_department (preferansı) ve related_departments (eşit derecede doğru alternatifler) ile açıkça tanımlanmıştır.",
+  "records": [
+    {
+      "id": "EVR-001",
+      "document": "Yenişehir Mahallesi Gül Sokak'taki çocuk parkını torunumla sık kullanıyorum. Parkın girişinde yalnızca üç basamak var; tekerlekli sandalye veya bebek arabasıyla giriş mümkün olmuyor. Geçen yıl çevre düzenlemesi yapılırken bu konunun da çözüleceği söylenmişti ancak herhangi bir çalışma görmedik. Girişe uygun eğimde bir rampa eklenmesi, parkı mahalledeki herkes için kullanılabilir hâle getirecektir. Ad Soyad: Elif Kaya. Adres: Yenişehir Mahallesi Gül Sokak No: 14. Telefon: 0532 111 22 33.",
+      "expected": {
+        "document_type": "dilekçe",
+        "topic": "Parkta engelli erişimi düzenlemesi",
+        "department": "Fen İşleri Müdürlüğü",
+        "critical_information": ["parkın konumu", "engelli erişim talebi", "rampa ihtiyacı"],
+        "missing_fields": [],
+        "tags": ["erişilebilirlik", "park", "altyapı"]
+      }
+    },
+    {
+      "id": "EVR-002",
+      "document": "Çamlık Köyü'nün alt tarafındaki sulama kanalının beton kaplaması uzun süredir kırık ve yer yer çökmüş durumdadır. Özellikle haziran ayından sonra kanala verilen su, tarlalara ulaşmadan toprağa sızıyor; bu nedenle sebze ekimi yapan birçok komşumuz zorlanıyor. Köylüler olarak kendi imkânımızla küçük onarımlar yaptık fakat kalıcı çözüm olmadı. Kaplamanın yenilenmesi, gelecek sezon ekim planlarını doğrudan etkileyecektir. Ad Soyad: Mehmet Akın. Telefon: 0544 222 33 44.",
+      "expected": {
+        "document_type": "dilekçe",
+        "topic": "Sulama kanalı yenileme talebi",
+        "department": "Fen İşleri Müdürlüğü",
+        "critical_information": ["sulama kanalı konum", "su kaybı", "yapısal hasar"],
+        "missing_fields": ["Adres"],
+        "tags": ["altyapı", "sulama", "kırsal"]
+      }
+    },
+    {
+      "id": "EVR-003",
+      "document": "Eşimle birlikte Bahçelievler Mahallesi'nde yaşıyoruz; ikimiz de ileri yaştayız ve son aylarda günlük ihtiyaçlarımızı karşılamakta zorlanıyoruz. Eşimin hareket kısıtlılığı nedeniyle temizlik, yemek hazırlığı ve hastane randevularına ulaşım konularında desteğe ihtiyaç duyuyoruz. Yakın akrabalarımız başka şehirde olduğu için düzenli yardım alamıyoruz. Evde bakım ve sosyal hizmetlerden yararlanma koşullarımızın değerlendirilmesini diliyoruz. Ad Soyad: Nermin Öz. Adres: Bahçelievler Mahallesi 3. Cadde No: 8. Telefon: 0505 333 44 55.",
+      "expected": {
+        "document_type": "dilekçe",
+        "topic": "Yaşlılar için evde destek talebi",
+        "department": "Sosyal Hizmetler Müdürlüğü",
+        "critical_information": ["yaşlılık durumu", "evde bakım ihtiyacı", "hareket kısıtlılığı"],
+        "missing_fields": [],
+        "tags": ["sosyal yardım", "yaşlı", "bakım"]
+      }
+    },
+    {
+      "id": "EVR-004",
+      "document": "Atatürk Mahallesi'ndeki kütüphane hafta içi mesai saatlerinde açık olsa da cumartesi ve pazar günleri kapalıdır. Ev ortamı kalabalık olan ve üniversite sınavına hazırlanan öğrenciler için sessiz çalışma alanı neredeyse yoktur. Özellikle deneme sınavları döneminde kütüphanenin hafta sonu en azından öğlene kadar açık tutulması mahallemiz için faydalı olacaktır. Bu düzenleme öğrencilerin çalışma imkânını belirgin biçimde artıracaktır. Ad Soyad: Deniz Arslan. Adres: Atatürk Mahallesi 5. Sokak No: 21.",
+      "expected": {
+        "document_type": "dilekçe",
+        "topic": "Kütüphane çalışma saatlerinin uzatılması",
+        "department": "Kültür ve Turizm Müdürlüğü",
+        "critical_information": ["kütüphane", "hafta sonu talebi", "öğrenci ihtiyacı"],
+        "missing_fields": ["Telefon"],
+        "tags": ["kültür", "kütüphane", "öğrenci"]
+      }
+    },
+    {
+      "id": "EVR-005",
+      "document": "Çınar Mahallesi Pazar Yolu üzerinde, ilkokulun karşısındaki üç çöp konteyneri yaklaşık sekiz gündür boşaltılmadı. Hafta sonu pazar kurulduğu için poşetler konteynerlerin dışına taşmış, rüzgârla yola savrulmuştur. Koku ve sinek oluştu; okul çıkışında çocuklar ve çevredeki dükkânlar durumdan etkileniyor. Daha önce telefonla bildirim yaptık fakat henüz ekip gelmedi. Konteynerlerin boşaltılması ve çevrenin temizlenmesi gerekiyor. Ad Soyad: Sibel Yıldız. Adres: Çınar Mahallesi Pazar Yolu No: 6. Telefon: 0530 444 55 66.",
+      "expected": {
+        "document_type": "şikayet",
+        "topic": "Atık toplama ve çevre temizliği",
+        "department": "Çevre Müdürlüğü",
+        "critical_information": ["çöp konteynerleri konumu", "sekiz günlük gecikme", "koku ve sinek"],
+        "missing_fields": [],
+        "tags": ["çevre", "atık", "temizlik", "şikayet"]
+      }
+    },
+    {
+      "id": "EVR-006",
+      "document": "Dereboyu Caddesi üzerindeki, eski fırının yanındaki eğlence mekânından hafta içi dâhil gece 01.00'den sonra yüksek sesli müzik geliyor. Camlarımız kapalı olduğu hâlde bas sesleri evlerin içinde hissediliyor; sabah erken işe giden ve küçük çocuğu olan komşularımız uyuyamıyor. Uyku eksikliğinden dolayı komşularımızdan birinin konsantrasyonu düştü, işte hata yaptı. İşletme çalışanlarını iki kez uyarmamıza rağmen 'birazdan kapatacağız' denilerek müzik devam etti. Gece saatleri ve ses düzeyi bakımından işlem yapılması gerekiyor. Ad Soyad: Murat Eren. Telefon: 0555 555 66 77.",
+      "expected": {
+        "document_type": "şikayet",
+        "topic": "Gece gürültüsü ve sağlık etkisi",
+        "primary_department": "Zabıta Müdürlüğü",
+        "related_departments": ["Sosyal Hizmetler Müdürlüğü"],
+        "critical_information": ["gürültü kaynağı", "saat aralığı", "sağlık etkisi (uyku bozukluğu)"],
+        "missing_fields": ["Adres"],
+        "tags": ["gürültü", "zabıta müdürlüğü", "sosyal hizmetler müdürlüğü", "gece", "sağlık", "şikayet"],
+        "ambiguity_notes": "Gürültü şikayeti Zabıta'nın doğrudan sorumluluğu olup ceza uygulamadır. Uyku bozukluğu sonuçları Sosyal Hizmetler açısından da ilgili olabilir (sağlık danışmanlığı), ancak ana çözüm yolu Zabıta'nın disiplin işlemidir.",
+        "acceptance_criteria": "Zabıta birincil; Sosyal Hizmetler ikincil olarak geçerlidir."
+      }
+    },
+    {
+      "id": "EVR-007",
+      "document": "Yıldırım Sokak'ta, 19 numaralı binanın karşısında geçen ay kablo çalışması için açılan kazı alanı işlem bittiği hâlde kapatılmadı. İlk yağmurdan sonra kaldırımın bir bölümü çöktü ve çevresine yalnızca ince bir şerit çekildi. Dün akşam yaşlı komşumuz Ayşe Hanım buradan geçerken dengesini kaybedip düştü; ambulans çağırmak zorunda kaldık. Çocukların da kullandığı bu yol için kalıcı bir güvenlik düzenlemesi gerekiyor. Ad Soyad: Ahmet Demir. Adres: Yıldırım Sokak No: 19. Telefon: 0541 666 77 88.",
+      "expected": {
+        "document_type": "şikayet",
+        "topic": "Açık kazı alanı ve çöken kaldırım",
+        "department": "Fen İşleri Müdürlüğü",
+        "critical_information": ["kazı alanı konumu", "çöken kaldırım", "yaralanma vakası"],
+        "missing_fields": [],
+        "tags": ["yol", "kaldırım", "güvenlik", "şikayet", "kazı"]
+      }
+    },
+    {
+      "id": "EVR-008",
+      "document": "İstasyona yakın apartmanların bulunduğu Ray Sokak'ta son iki haftadır özellikle sabah 06.30 ile 08.00 arasında yoğun, keskin kokulu bir duman hissediliyor. Dumanın hangi işletmeden çıktığı kesin değil; çevrede küçük atölyeler, oto elektrikçi ve bir depo bulunduğu için kaynağı ayırt edemiyoruz. Astımı olan komşularımızdan ikisi bu saatlerde nefes darlığı yaşadığını söyledi. Çevre Müdürlüğü'nün hava kalitesi ölçümü yapması ve işletmelerin denetlenmesi gerekiyor. Ad Soyad: Zeynep Korkmaz. Adres: İstasyon Mahallesi Ray Sokak No: 3.",
+      "expected": {
+        "document_type": "şikayet",
+        "topic": "Hava kirliliği ve duman",
+        "primary_department": "Çevre Müdürlüğü",
+        "related_departments": ["İmar ve Şehircilik Müdürlüğü"],
+        "critical_information": ["duman", "etkilenen bölge", "saat aralığı", "sağlık etkisi"],
+        "missing_fields": ["Telefon"],
+        "tags": ["çevre müdürlüğü", "imar ve şehircilik müdürlüğü", "hava", "duman", "sağlık", "şikayet"],
+        "ambiguity_notes": "Hava kirliliği ve duman Çevre Müdürlüğü'nün doğrudan sorumluluğudur (hava kalitesi ölçümü, emisyon denetimi). Ancak kaynağın belirsiz olması ve illegal imalathane ihtimali nedeniyle İmar ve Şehircilik de kaynak tespit açısından ilgili olabilir (ruhsatsız işletme denetimi).",
+        "acceptance_criteria": "Çevre Müdürlüğü birincil; İmar ve Şehircilik ikincil olarak geçerlidir."
+      }
+    },
+    {
+      "id": "EVR-009",
+      "document": "Belediyenin 2025 mali yılı içinde mahalle bazında yaptığı park bakım, oyun grubu yenileme ve peyzaj harcamalarının dökümüne ihtiyaç duyuyorum. Harcamaların hangi parklar için yapıldığı, toplam tutarları ve bu işler için ihaleyi alan firma veya firmaların unvanları tarafıma bildirilmelidir. Bu kayıtlar, mahalle meclisindeki park bütçesi görüşmesinde kullanılacaktır. Ad Soyad: Can Kılıç. TC Kimlik No: 12345678901. Telefon: 0533 777 88 99.",
+      "expected": {
+        "document_type": "bilgi_talebi",
+        "topic": "Park bakım harcamaları ve ihale bilgisi",
+        "department": "Mali Hizmetler Müdürlüğü",
+        "critical_information": ["2025 dönemi", "park bakım harcaması", "ihale firmaları"],
+        "missing_fields": [],
+        "tags": ["bilgi edinme", "ihale", "harcama", "park"]
+      }
+    },
+    {
+      "id": "EVR-010",
+      "document": "15 Temmuz 2026 tarihinde iş yeri açma ve çalışma ruhsatı için bıraktığım dosyanın şu an hangi aşamada olduğu e-devlet ekranından anlaşılmıyor; ekranda yalnızca 'incelemede' ibaresi görülüyor. Komşu iş yerlerinin ekranında farklı bir açıklama yer almış. Dosyada eksik belge, ek ücret veya benim tamamlamam gereken başka bir işlem varsa bildirilmesini bekliyorum. Dosya numarası 2026-IM-418'dir. Ad Soyad: Burak Şen. Telefon: 0542 888 99 00.",
+      "expected": {
+        "document_type": "bilgi_talebi",
+        "topic": "İmar ruhsat başvuru durumu ve gerekli işlemler",
+        "department": "İmar ve Şehircilik Müdürlüğü",
+        "critical_information": ["başvuru numarası", "ruhsat türü", "durum sorgusu"],
+        "missing_fields": ["TC Kimlik No"],
+        "tags": ["imar", "ruhsat", "bilgi edinme"]
+      }
+    },
+    {
+      "id": "EVR-011",
+      "document": "Geçen yaz belediyenin spor tesisinde çocuklar için ücretsiz yüzme kursu düzenlendiğini duymuştuk. Bu yıl da benzer bir programın açılıp açılmayacağı, kabul edilecek yaş grupları ve kayıt tarihleri sosyal medyada birbirinden farklı yazılıyor. Resmî duyurudaki koşulların tarafıma iletilmesine ihtiyaç duyuyorum. Ad Soyad: Ece Uslu. TC Kimlik No: 23456789012. Telefon: 0506 111 22 33.",
+      "expected": {
+        "document_type": "bilgi_talebi",
+        "topic": "Belediye spor kursu koşulları ve kayıt",
+        "department": "Kültür ve Turizm Müdürlüğü",
+        "critical_information": ["yüzme kursu", "yaş sınırı", "kayıt tarihi"],
+        "missing_fields": [],
+        "tags": ["spor", "kurs", "kayıt", "bilgi edinme"]
+      }
+    },
+    {
+      "id": "EVR-012",
+      "document": "Engelli bireyler için sağlanan ulaşım kartı desteğinden annem adına yararlanıyoruz. Kartın üzerinde geçerlilik tarihi görünmüyor ve kartı veren nokta, yenileme için bu yıl farklı belgeler istenebileceğini söyledi. Yenileme döneminin ne zaman olduğu, sağlık raporunun tekrar gerekli olup olmadığı ve işlemin hangi müdürlükte yürütüldüğünün açıklanmasına ihtiyaç duyuyorum. Ad Soyad: İpek Koç. TC Kimlik No: 34567890123.",
+      "expected": {
+        "document_type": "bilgi_talebi",
+        "topic": "Engelli ulaşım kartı yenileme koşulları",
+        "department": "Sosyal Hizmetler Müdürlüğü",
+        "critical_information": ["engelli ulaşım kartı", "yenileme süresi", "gerekli belgeler"],
+        "missing_fields": ["Telefon"],
+        "tags": ["engelli", "ulaşım", "sosyal hizmet", "bilgi edinme"]
+      }
+    },
+    {
+      "id": "EVR-013",
+      "document": "Ova Köyü'nde ailemden kalan arazide dört mevsim sebze üretimi yapabilmek için küçük ölçekli sera kurmayı planlıyorum. Genç çiftçilere ayrılan sera kurulum programında malzeme ve kurulum giderlerinin değerlendirmeye alınmasını bekliyorum. Köyümüzde benzer üretim yapan az sayıda kişi var; ürünleri ilçe pazarında satmayı hedefliyorum. Ad Soyad: Selin Acar. TC Kimlik No: 45678901234. Adres: Ova Köyü 42 Parsel. Telefon: 0534 222 33 44. E-posta: selin.acar@example.com. Ek: Proje özeti ve tapu fotokopisi ektedir.",
+      "expected": {
+        "document_type": "başvuru_formu",
+        "topic": "Sera desteği programı başvurusu",
+        "department": "Tarım Müdürlüğü",
+        "critical_information": ["sera projesi", "çiftçi başvurusu", "tapu belgesi"],
+        "missing_fields": [],
+        "tags": ["tarım", "çiftçi", "destek", "başvuru"]
+      }
+    },
+    {
+      "id": "EVR-014",
+      "document": "Bilgisayar mühendisliği üçüncü sınıf öğrencisiyim ve zorunlu yaz stajımı belediyenin bilgi teknolojileri biriminde yapmak istiyorum. Özellikle vatandaş işlemleri ve veri analizi projelerinde görev alarak deneyim kazanmayı hedefliyorum. Üniversitemin staj süresi 20 iş günüdür; kabul edilmem hâlinde sigorta belgesini de iletebilirim. Yazılım geliştirme staj programındaki değerlendirmeye alınmamı bekliyorum. Ad Soyad: Ozan Tunç. TC Kimlik No: 56789012345. Adres: Cumhuriyet Mahallesi Bilim Caddesi No: 10. Telefon: 0551 333 44 55. Ek: Özgeçmişim ektedir.",
+      "expected": {
+        "document_type": "başvuru_formu",
+        "topic": "Yazılım geliştirme staj başvurusu",
+        "department": "İnsan Kaynakları Müdürlüğü",
+        "critical_information": ["staj programı", "yazılım geliştirme", "özgeçmiş"],
+        "missing_fields": ["E-posta"],
+        "tags": ["staj", "istihdam", "yazılım", "başvuru"]
+      }
+    },
+    {
+      "id": "EVR-015",
+      "document": "Karaca Mahallesi İnönü Caddesi No: 27'de kiracı olarak oturduğum bina için riskli yapı nedeniyle tahliye bildirimi yapıldı. Ev sahibimiz dönüşüm sürecini başlatacağını bildirdiğinden, taşınma ve geçici kira giderleri konusunda zorlanıyoruz. Kentsel dönüşüm kapsamında kiracılara ayrılan yardım için dosyamın değerlendirmeye alınmasını istiyorum. Ad Soyad: Aslı Güven. TC Kimlik No: 67890123456. Adres: Karaca Mahallesi İnönü Caddesi No: 27. Telefon: 0543 444 55 66. E-posta: asli.guven@example.com. Ek: Tahliye bildirimi ve kira makbuzu ektedir.",
+      "expected": {
+        "document_type": "başvuru_formu",
+        "topic": "Kentsel dönüşüm kiracı desteği başvurusu",
+        "department": "İmar ve Şehircilik Müdürlüğü",
+        "critical_information": ["kentsel dönüşüm", "kiracı desteği", "tahliye bildirimi"],
+        "missing_fields": [],
+        "tags": ["imar", "kentsel dönüşüm", "kiracı", "başvuru"]
+      }
+    },
+    {
+      "id": "EVR-016",
+      "document": "Mevsimlik işlerde çalıştığım için son üç aydır düzenli gelir elde edemiyorum. Evde iki okul çağında çocuğum ve kronik rahatsızlığı bulunan annem yaşıyor; kış ayları yaklaşırken gıda ve yakacak giderlerini karşılamakta zorlanıyoruz. Daha önce bu yardım programından yararlanmadık. Ailem için gıda ve yakacak desteği kapsamında dosyamın değerlendirilmesini istiyorum. Ad Soyad: Hakan Topal. TC Kimlik No: 78901234567. Adres: Güneş Mahallesi 9. Sokak No: 4. Telefon: 0507 555 66 77. E-posta: hakan.topal@example.com. Ek: Gelir durumunu gösteren belge ektedir.",
+      "expected": {
+        "document_type": "başvuru_formu",
+        "topic": "Gıda ve yakacak yardımı başvurusu",
+        "department": "Sosyal Hizmetler Müdürlüğü",
+        "critical_information": ["gıda yardımı", "yakacak yardımı", "gelir belgesi"],
+        "missing_fields": [],
+        "tags": ["sosyal yardım", "gıda", "yakacak", "başvuru"]
+      }
+    },
+    {
+      "id": "EVR-017",
+      "document": "34 ZB 884 plakalı aracım hakkında düzenlenen 2026/117 numaralı park cezasının idari kayıttan çıkarılması gerekiyor. Ceza tutanağı tarafıma 03.08.2026 tarihinde tebliğ edildi. Tutanakta belirtilen saat olan 14.20'de aracım servis kaydına göre başka ilçedeki bakım noktasındaydı; bu nedenle belirtilen yerde bulunması mümkün değildir. Servis giriş-çıkış fişi ile görevli imzalı belge ektedir. Kaydın bu belgeler üzerinden tekrar ele alınmasını bekliyorum. Ad Soyad: Kerem Sönmez.",
+      "expected": {
+        "document_type": "itiraz",
+        "topic": "Park cezasına itiraz",
+        "department": "Zabıta Müdürlüğü",
+        "critical_information": ["ceza numarası", "tebliğ tarihi", "araç plakası", "servis belgesi"],
+        "missing_fields": [],
+        "tags": ["itiraz", "ceza", "park", "zabıta"]
+      }
+    },
+    {
+      "id": "EVR-018",
+      "document": "İş yerime ait ruhsatın iptaline ilişkin 2026-45 sayılı kararın yeniden ele alınması gerekiyor. Karar tarafıma 10.08.2026 tarihinde bildirildi. Ret gerekçesinde yangın merdiveni projesinin eksik olduğu belirtilmişse de, belediyeye daha önce sunduğumuz projede bu bölüm bulunmaktadır; muhtemelen dosyanın eski sürümü değerlendirilmiştir. İş yerinin kapalı kalması çalışanlarımızı da mağdur etmektedir. Güncel proje üzerinden kararın gözden geçirilmesini bekliyorum. Proje dosyası ve sunuş belgesi ektedir. Ad Soyad: Fırat Yalçın.",
+      "expected": {
+        "document_type": "itiraz",
+        "topic": "Ruhsat iptal kararına itiraz",
+        "department": "İmar ve Şehircilik Müdürlüğü",
+        "critical_information": ["karar numarası", "tebliğ tarihi", "ruhsat", "proje belgesi"],
+        "missing_fields": [],
+        "tags": ["itiraz", "imar", "ruhsat", "yangın merdiveni"]
+      }
+    },
+    {
+      "id": "EVR-019",
+      "document": "Su aboneliğime yansıtılan 4.850 TL tutarındaki kaçak kullanım bedelinin geçersiz sayılması gerekiyor. 2026/903 numaralı tahakkuk 01.08.2026 tarihinde tebliğ edildi. Sayaç değişimi için gelen ekip, eski sayacın arızalı olabileceğini sözlü olarak belirtmişti; buna rağmen kullanımın kaçak sayılması anlaşılır değildir. Son altı aya ait faturalarım düzenli ödendi ve tüketim miktarlarımda olağan dışı bir artış yoktur. Sayaç değişim tutanağı ve önceki faturalar ektedir. Ad Soyad: Gökçe Er.",
+      "expected": {
+        "document_type": "itiraz",
+        "topic": "Su tahakkuk bedeline itiraz",
+        "department": "Mali Hizmetler Müdürlüğü",
+        "critical_information": ["tahakkuk numarası", "tutar", "tebliğ tarihi", "sayaç tutanağı"],
+        "missing_fields": [],
+        "tags": ["itiraz", "su", "fatura", "mali"]
+      }
+    },
+    {
+      "id": "EVR-020",
+      "document": "Kızımın belediye burs programı için açılan dosyada verilen ret kararının yeniden ele alınması gerekiyor. Dosya numarası BRS-2026-77'dir. Sistem ekranında ret gerekçesi olarak gelir belgesi eksikliği yazmaktadır; oysa istenen belgeyi danışma birimine 22.07.2026 tarihinde teslim ettik ve teslim alan görevli dosyaya ekleneceğini söyledi. Aile gelirimiz burs koşullarını karşılamaktadır. Dosyanın bu teslim kaydı dikkate alınarak tekrar değerlendirilmesini bekliyorum. Ad Soyad: Leyla Bilgin.",
+      "expected": {
+        "document_type": "itiraz",
+        "topic": "Burs başvurusu ret kararına itiraz",
+        "primary_department": "Eğitim Müdürlüğü",
+        "related_departments": ["Sosyal Hizmetler Müdürlüğü"],
+        "critical_information": ["burs başvurusu", "başvuru numarası", "teslim kaydı"],
+        "missing_fields": ["Tebliğ Tarihi (sisteme yansıyan tarih)"],
+        "tags": ["itiraz", "burs", "eğitim müdürlüğü", "sosyal hizmetler müdürlüğü", "belge"],
+        "ambiguity_notes": "Burs ret kararı ve itiraz süreci Eğitim Müdürlüğü'nün doğrudan sorumluluğudur. Ancak gelir ve ekonomik durum değerlendirmesi Sosyal Hizmetler tarafından da yapılabilir (yoksul öğrenci desteği programları), bu yüzden konsültasyon için Sosyal Hizmetler de ilgili olabilir.",
+        "acceptance_criteria": "Eğitim Müdürlüğü birincil; Sosyal Hizmetler danışman/destek birim olarak ikincil geçerlidir."
+      }
+    }
+  ],
+  "metadata": {
+    "total_records": 20,
+    "distribution": {
+      "dilekçe": 4,
+      "şikayet": 4,
+      "bilgi_talebi": 4,
+      "başvuru_formu": 4,
+      "itiraz": 4
+    },
+    "ambiguous_examples": [
+      "EVR-006 (gürültü → Primary: Zabıta Müdürlüğü | Related: Sosyal Hizmetler)",
+      "EVR-008 (hava kirliliği → Primary: Çevre Müdürlüğü | Related: İmar ve Şehircilik)",
+      "EVR-020 (burs itirazı → Primary: Eğitim Müdürlüğü | Related: Sosyal Hizmetler)"
+    ],
+    "quality_notes": {
+      "missing_fields_definition": "Talep edilmiş ancak sağlanmamış/eksik olan bilgiler. Belgeler 'Ek:' kısmında açıkça belirtilmişse missing_fields içine dahil edilmez.",
+      "bug_fixes_from_v0_1": [
+        "EVR-015: Belgeler açıkça eklenir → missing_fields boş",
+        "EVR-018: Güncel proje eklenir → missing_fields boş",
+        "Ambiguous örnekler: 'primary_department' + 'related_departments' + 'acceptance_criteria' formatına geçildi (array yerine)"
+      ],
+      "difficulty_levels": {
+        "easy_keyword_match": ["EVR-001", "EVR-005", "EVR-007", "EVR-013"],
+        "moderate": ["EVR-002", "EVR-003", "EVR-004", "EVR-009", "EVR-010", "EVR-011", "EVR-012", "EVR-014", "EVR-016", "EVR-017", "EVR-019"],
+        "ambiguous_multi_department": ["EVR-006", "EVR-008", "EVR-020"],
+        "edge_cases": ["EVR-010 (durum sorgusu)", "EVR-015 (kiracı desteği)", "EVR-020 (burs + sosyal yardım)"]
+      }
+    },
+    "test_scenarios": {
+      "rule_engine": "Basit keyword + kategori matching test için EVR-001, 005, 007, 013 uygundur.",
+      "retrieval": "Ranking ve relevance scoring test için tüm set uygundur. Özellikle ambiguous örnekler (EVR-006, 008, 020) ikinci sıra ilgililik test eder.",
+      "pipeline": "End-to-end test için tüm 20 örnek; ağır yük test için ambiguous ve eksik bilgi örnekleri kullanılmalıdır."
+    }
+  }
+}
