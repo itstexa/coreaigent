@@ -100,6 +100,7 @@ launcher's `-ApiKey`. Treat the GGUF lane as a local development surface.
 
 ## Related docs
 
-- [`workflow.md`](workflow.md) — the only caller, and where guards live
+- [`workflow.md`](workflow.md) — F-04/F-05 caller and output guards
+- [`validation.md`](validation.md) — optional Jamba field-extractor caller
 - [`../development.md`](../development.md) — which lane to start
 - [`../contracts.md`](../contracts.md) — `llm-request` / `llm-response`

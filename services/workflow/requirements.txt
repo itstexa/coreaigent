@@ -6,3 +6,4 @@ sentence-transformers==3.3.1
 # safetensors artifact.  This compatible release supports loading that trusted,
 # locally pinned snapshot with the Jamba runtime's Torch 2.5.1.
 transformers==4.46.3
+sentencepiece==0.2.0

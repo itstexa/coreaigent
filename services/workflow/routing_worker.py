@@ -13,8 +13,11 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from app import ensure_schema
+from assignment import behavior_signals, choose_staff, normalize_identity
+from orchestrator import MAX_F04_START_ATTEMPTS
 from correspondence import extract_json_object
 from routing import RoutingRejected, normalize_notification_output, notification_payload, select_route
+from translation import TranslationUnavailable, translate
 
 
 DATABASE_URL = os.environ["DATABASE_URL"]
@@ -89,11 +92,91 @@ def _create_route(job):
         inserted = cur.fetchone()
         if not inserted:
             return None
+        _assign_case(cur, job[1], job[2], route["unit_id"], row[2])
         for audience in ("applicant", "target_unit"):
             notification_id, notification_job_id = uuid.uuid4(), uuid.uuid4()
             cur.execute("INSERT INTO notification_records (notification_id,routing_id,audience,generation_status) VALUES (%s,%s,%s,'queued')", (notification_id, routing_id, audience))
             cur.execute("INSERT INTO notification_jobs (job_id,notification_id,state) VALUES (%s,%s,'pending')", (notification_job_id, notification_id))
         return routing_id
+
+
+def _assign_case(cur, case_id, revision, unit_id, request_type_id):
+    """Persist one current-revision assignment after the route is durable."""
+    cur.execute(
+        "SELECT assignment_id FROM case_assignments WHERE case_id=%s AND source_case_revision=%s",
+        (case_id, revision),
+    )
+    if cur.fetchone():
+        return
+    # Serialize choices for one unit without locking unrelated municipal work.
+    cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (unit_id,))
+    cur.execute(
+        "SELECT s.accepted_fields,i.normalized_text,i.language FROM current_validation_states s "
+        "JOIN intake_records i USING(document_id) WHERE s.case_id=%s AND s.revision=%s",
+        (case_id, revision),
+    )
+    context = cur.fetchone() or ({}, "", "unknown")
+    identity = normalize_identity(context[0])
+    previous_topic_count = 0
+    if identity:
+        cur.execute(
+            "SELECT s.accepted_fields,c.request_type_id FROM current_validation_states s "
+            "JOIN current_classifications c USING(document_id) WHERE s.case_id<>%s",
+            (case_id,),
+        )
+        previous_topic_count = sum(
+            1 for fields, topic in cur.fetchall()
+            if topic == request_type_id and normalize_identity(fields) == identity
+        )
+    signals = behavior_signals(context[1], previous_topic_count=previous_topic_count, same_topic=bool(identity), source_language=context[2])
+    cur.execute(
+        "SELECT s.staff_id,s.display_name,s.role,COUNT(a.assignment_id) FILTER (WHERE a.assignment_status='assigned')::int,MAX(a.assigned_at), "
+        "COUNT(a.assignment_id) FILTER (WHERE a.request_type_id=%s)::int, "
+        "COUNT(a.assignment_id) FILTER (WHERE a.request_type_id=%s AND a.assignment_status='completed')::int "
+        "FROM staff_members s LEFT JOIN case_assignments a "
+        "ON a.staff_id=s.staff_id "
+        "WHERE s.unit_id=%s AND s.active=true "
+        "GROUP BY s.staff_id,s.display_name,s.role "
+        "ORDER BY COUNT(a.assignment_id) FILTER (WHERE a.assignment_status='assigned'),MAX(a.assigned_at) NULLS FIRST,s.staff_id LIMIT 25",
+        (request_type_id, request_type_id, unit_id),
+    )
+    candidates = [
+        {
+            "staff_id": row[0], "display_name": row[1], "role": row[2], "open_count": row[3],
+            "last_assigned_at": row[4], "topic_total": row[5], "topic_resolved": row[6],
+            "resolution_rate": (row[6] / row[5]) if row[5] else 0.0,
+        }
+        for row in cur.fetchall()
+    ]
+    selected = choose_staff(candidates, prioritize_resolution=signals["priority_mode"])
+    policy = "topic_resolution_rate" if signals["priority_mode"] and any(c["topic_total"] for c in candidates) else "least_open_assignments"
+    selection_reason = {
+        "policy": policy,
+        "repeat_count": signals["repeat_count"],
+        "aggression_level": signals["aggression_level"],
+        "aggression_score": signals["aggression_score"],
+        "marker_count": signals["marker_count"],
+        "topic_request_type_id": request_type_id,
+        "staff_topic_cases": selected["topic_total"] if selected else 0,
+        "staff_topic_resolution_rate": round(selected["resolution_rate"], 3) if selected else 0.0,
+    }
+    if not selected:
+        cur.execute(
+            "INSERT INTO case_assignments (assignment_id,case_id,source_case_revision,unit_id,request_type_id,selection_reason,assignment_status) "
+            "VALUES (%s,%s,%s,%s,%s,%s,'unassigned') ON CONFLICT (case_id,source_case_revision) DO NOTHING",
+            (uuid.uuid4(), case_id, revision, unit_id, request_type_id, Jsonb(selection_reason)),
+        )
+        return
+    cur.execute(
+        "SELECT state FROM current_case_states WHERE case_id=%s AND revision=%s",
+        (case_id, revision),
+    )
+    assignment_status = "completed" if (cur.fetchone() or [None])[0] == "completed" else "assigned"
+    cur.execute(
+        "INSERT INTO case_assignments (assignment_id,case_id,source_case_revision,unit_id,request_type_id,staff_id,display_name,role,selection_reason,assignment_status,assigned_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now()) ON CONFLICT (case_id,source_case_revision) DO NOTHING",
+        (uuid.uuid4(), case_id, revision, unit_id, request_type_id, selected["staff_id"], selected["display_name"], selected["role"], Jsonb(selection_reason), assignment_status),
+    )
 
 
 def run_route_once():
@@ -194,6 +277,24 @@ def _validate_notification(raw, audience):
     return normalize_notification_output(payload)
 
 
+def _english_notification_context(audience, context, language):
+    if language != "tr":
+        return context
+    translated = list(context)
+    # F-05's free-text context fields are natural language; identifiers and
+    # validated-field keys remain untouched.
+    for index in (3, 4):
+        if isinstance(translated[index], str):
+            translated[index] = translate(translated[index], "tr", "en")
+    return tuple(translated)
+
+
+def _applicant_notification_language(output, language):
+    if language != "tr":
+        return output
+    return {key: translate(value, "en", "tr") if isinstance(value, str) else value for key, value in output.items()}
+
+
 def run_notification_once():
     job = _notification_job()
     if not job:
@@ -207,8 +308,10 @@ def run_notification_once():
         repair_error = None
         for attempt in (1, 2):
             try:
-                model = _invoke(_notification_prompt(context[0], context, repair_error, context[7]))
+                prompt_context = _english_notification_context(context[0], context, context[7])
+                model = _invoke(_notification_prompt(context[0], prompt_context, repair_error, "en" if context[7] == "tr" else context[7]))
                 generated = _validate_notification(model["response"], context[0])
+                generated = _applicant_notification_language(generated, context[7])
                 payload = notification_payload(context[0], str(context[1]), generated["body"], {
                     "request_type_id": context[2], "document_summary": context[3], "draft_text": context[4], "regulation_suggestions": context[5], "validated_fields": context[6],
                 })
@@ -217,6 +320,8 @@ def run_notification_once():
                     db.execute("UPDATE notification_records SET generation_status='completed',payload=%s,model_id=%s,model_revision=%s,attempt_count=%s,completed_at=now(),error_code=NULL WHERE notification_id=%s AND generation_status='processing'", (Jsonb(payload), model.get("model"), model.get("modelRevision"), attempt, job[1]))
                 _complete_job("notification_jobs", job[0])
                 return True
+            except TranslationUnavailable:
+                raise
             except Exception as exc:
                 repair_error = str(exc) or "STRUCTURED_OUTPUT_INVALID"
         with psycopg.connect(DATABASE_URL) as db:
@@ -239,8 +344,17 @@ def recover_once():
             "LEFT JOIN correspondence_generations g ON g.generation_id=s.current_correspondence_generation_id "
             "LEFT JOIN routing_operations r ON r.case_id=s.case_id AND r.source_case_revision=s.revision "
             "WHERE s.completion_status='complete' AND c.status='classified' AND r.routing_id IS NULL "
-            "AND (s.current_correspondence_generation_id IS NULL OR g.generation_status='completed') "
-            "ORDER BY s.updated_at LIMIT 25 FOR UPDATE OF s,c SKIP LOCKED"
+            # A case with no generation is not necessarily overlooked: the
+            # orchestrator enqueues the F-04 start on the same poll validation
+            # completes, so reconciling that window routed every fresh case to
+            # the fallback unit as `not_requested` and the real `draft_ready`
+            # route was then dropped by the routing_jobs conflict clause.  Only
+            # a case F-04 has given up on is genuinely awaiting a fallback.
+            "AND (g.generation_status='completed' OR (s.current_correspondence_generation_id IS NULL AND EXISTS ("
+            " SELECT 1 FROM correspondence_start_jobs j WHERE j.case_id=s.case_id AND j.source_case_revision=s.revision"
+            " AND (j.state='failed' OR (j.state='waiting' AND j.attempt_count >= %s))))) "
+            "ORDER BY s.updated_at LIMIT 25 FOR UPDATE OF s,c SKIP LOCKED",
+            (MAX_F04_START_ATTEMPTS,),
             )
             rows = cur.fetchall()
             for case_id, revision, generation_id in rows:
@@ -249,12 +363,22 @@ def recover_once():
                 "ON CONFLICT (case_id,source_case_revision) DO NOTHING",
                     (uuid.uuid4(), case_id, revision, generation_id),
                 )
+            cur.execute(
+                "SELECT r.case_id,r.source_case_revision,r.target_unit_id,s.request_type_id "
+                "FROM routing_operations r LEFT JOIN case_assignments a "
+                "ON a.case_id=r.case_id AND a.source_case_revision=r.source_case_revision "
+                "JOIN current_validation_states s ON s.case_id=r.case_id AND s.revision=r.source_case_revision "
+                "WHERE a.assignment_id IS NULL ORDER BY r.created_at LIMIT 100 FOR UPDATE OF r SKIP LOCKED"
+            )
+            assignment_rows = cur.fetchall()
+            for case_id, revision, unit_id, request_type_id in assignment_rows:
+                _assign_case(cur, case_id, revision, unit_id, request_type_id)
     except psycopg.Error:
         # Validation owns these source tables and can legitimately be starting
         # at the same time.  A later scan repairs this without treating it as a
         # terminal routing rejection.
         return False
-    return bool(rows)
+    return bool(rows or assignment_rows)
 
 
 if __name__ == "__main__":

@@ -6,19 +6,35 @@
 
 ## Active Entry
 
-- **Status**: Approved
-- **Stage**: Implementation
-- **Session Started**: 2026-08-25
-- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_a18aacd_f09.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_a18aacd_f09.md`; `contracts/http/manifest.json`
+- **Status**: Pending Approval
+- **Stage**: Requirement Analysis
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_bd84424_f11.md`; `docs/design/DESIGN_bd84424_f00.md`; `docs/design/DESIGN_bd84424_f08.md`; `docs/design/DESIGN_bd84424_f03a.md`; `docs/design/DESIGN_bd84424_rag.md`; `docs/design/DESIGN_bd84424_f02a.md`; `docs/design/DESIGN_bd84424_f02b.md`; `docs/design/DESIGN_bd84424_learning_feedback.md`; `contracts/schemas/learning-feedback-result.schema.json`; `services/`; `frontend/`
 - **Requested By**: human operator
 - **Decisions / Scope Covered**:
-  - Implements unique public case endpoint manifest records and strict F-04/F-06 result schemas.
-  - Adds CI Python acceptance coverage and an implemented UI-facing API guide without changing authorization, persistence, or optimistic-concurrency semantics.
+  - Adds a local, pinned Turkish/English bridge for English-strong Jamba generation; no petition text is sent to an external translation API.
+  - Reworks the public and operator surfaces around truthful CoreAIgent petition analysis, using the supplied Stitch design as visual reference rather than as a claim of unsupported capabilities.
+  - Adds F0 as a local per-case ticket plus immutable system action trace; staff identities, assignment and external ticketing remain out of scope.
+  - Adds F8 as a transparent, local rule-based priority projection and queue order; it does not alter routing or claim a legal SLA.
+  - Adds the first user-F3 history slice as an ADMIN-only, same-validated-applicant and deterministic-text-overlap projection; it has no moderator/employee field and returns no petition bodies.
+  - Adapts the offline hybrid dense-plus-lexical RRF retrieval core from `feature/autonomous-core-integration` into the existing local BGE-M3/Jamba workflow; no cloud generator or new vector service is introduced.
+  - Adds F2 unit-local automatic first assignment: active staff with the fewest open assignments, deterministic tie-break, durable current-revision assignment, and explicit unassigned fallback; no external identity/authentication or manual CRUD.
+  - Adds F9 MVP visibility: classified-route confidence is transparently derived from authoritative F-02 confidence; fallback routes show `%0` and the human-review reason; no uncalibrated model or self-training is claimed.
+  - Extends F2 with a bounded behavior-aware policy: the third same-topic petition or an aggression-marker signal prioritizes the active target-unit staff member with the highest topic resolution rate; no applicant identity or petition text is persisted in the explanation, and no topic history falls back to least-open workload.
+  - Extends the F2 behavior signal with a pinned, local Turkish/English marker registry and exposes the bounded score in the ADMIN assignment detail; no external sentiment dependency or translation-model requirement is added to routing.
+  - Adds US-123 admin-approved, PII-minimized learning candidates from completed cases with complete validation; candidate capture is durable and idempotent, while anonymization review/export/fine-tuning remain separate.
 - **Open Questions Resolved This Session**:
-  - OQ-150 — local dependency closure is real whenever available; fallback mocks are explicit mixed-topology dependencies only.
-  - None; implemented route semantics are already approved.
-- **Approved By**: Serda
-- **Approval Date**: 2026-08-25
+  - OQ-174 — use the two pinned local Helsinki-NLP Turkish/English Marian models.
+  - OQ-175 — retain CoreAIgent and remove e-government portal framing.
+  - OQ-176 — use a local system-actor trace, not an external ticket vendor or invented staff identity.
+  - OQ-177 — use deterministic configured priority phrases, not model-inferred severity.
+  - OQ-178 — the user confirmed that admin/moderator-style users exist; this slice uses a bounded local demo staff registry rather than claiming an external identity provider.
+  - OQ-179 — retain the current contract and local runtime; import only the compatible hybrid-retrieval core now.
+  - OQ-180 and OQ-181 — local demo staff registry; manual reassignment and CRUD deferred.
+  - OQ-183 remains open — event definition, minimum sample size, and time-weighted calibration for resolution rate are deferred beyond the MVP.
+  - OQ-184 remains open — fine-tuning schedule and release approval for accumulated candidates are deferred beyond the MVP.
+- **Approved By**:
+- **Approval Date**:
 
 ---
 

@@ -35,11 +35,13 @@ correspondence type; backend PostgreSQL state is authoritative.
 | --- | --- | --- | --- |
 | `POST /v1/ocr` | demo public | F-01 document-input v2 | Queues a case/workflow; retain returned IDs. |
 | `GET /cases/{case_id}` | USER/ADMIN | Bearer header | Primary polling projection. ADMIN adds operational context. |
+| `GET /cases` | ADMIN | Bearer header | Paginated operator queue; accepts `limit`, `offset`, `state`, and `q`. |
 | `PATCH /cases/{case_id}/supplemental-information` | USER | `{ "fields": { "field-id": "value" } }`, Bearer, UUID `Idempotency-Key`, quoted `If-Match` | F-03 result v3 plus `ETag`; on `412`, reload before retry. |
 | `POST /cases/{case_id}/correspondence` | authorized | Empty/`{}`, Bearer, UUID key, quoted `If-Match` | Optional manual F-04 start: `202 queued`, `409` not ready, `412` stale. |
 | `GET /cases/{case_id}/correspondence` | USER/ADMIN | Bearer header | `not_requested`, `queued`, `processing`, `completed`, or `failed`; never a prior revision. |
 | `GET /cases/{case_id}/routing` | USER/ADMIN | Bearer header | `not_routed` or current route and notification states. |
 | `POST /cases/{case_id}/review-completion` | ADMIN | Empty body, Bearer, UUID key, quoted `If-Match` | Only `needs_review` becomes `completed`; USER gets `403`. |
+| `POST /cases/{case_id}/learning-feedback` | ADMIN | Empty body, Bearer, UUID key, quoted `If-Match` | Only a completed case with complete validation becomes a PII-minimized learning candidate; repeat calls return the same candidate. |
 
 ## Rendering rules
 

@@ -6,7 +6,7 @@ import json
 import re
 import unicodedata
 
-RETRIEVAL_CONFIG_VERSION = "municipality-rag-v1"
+RETRIEVAL_CONFIG_VERSION = "municipality-rag-v3-hybrid"
 EMBEDDING_MODEL_ID = "BAAI/bge-m3"
 EMBEDDING_DIMENSION = 1024
 TOP_K = 5
@@ -129,11 +129,35 @@ def _whole_sentence_prefix(value, maximum):
     return " ".join(selected)
 
 
-def build_retrieval_context(chunks):
-    """Select only top-k chunks at the configured inclusive cosine threshold."""
+MAX_RETRIEVAL_QUERY_CHARACTERS = 1200
 
-    ranked = sorted(chunks, key=lambda item: (-float(item["score"]), item["chunk_id"]))[:TOP_K]
-    selected = [item for item in ranked if float(item["score"]) >= MIN_COSINE_SIMILARITY]
+
+def retrieval_query(*, request_type_id, unit_label, semantic_fields, sanitized_document):
+    """Compose the dense-retrieval query out of the case's own words.
+
+    The v1 query embedded only the taxonomy slug, the department and unit labels
+    and a Python dict repr of the validated fields, so it never mentioned what
+    the citizen actually asked for.  Measured against the corpus its best score
+    was 0.44 -- under the pinned 0.60 relevance threshold -- which is why every
+    generation resolved `no_relevant_source` and no case became routable.  The
+    petition text is the query; the taxonomy terms only bias it.
+
+    The document is the PII-sanitized text, so a redacted name or TCKN never
+    reaches the embedding.
+    """
+
+    parts = [unit_label, request_type_id.replace("-", " ") if isinstance(request_type_id, str) else None]
+    parts.extend(semantic_fields.values() if isinstance(semantic_fields, dict) else [])
+    parts.append(sanitized_document)
+    words = " ".join(part.strip() for part in parts if isinstance(part, str) and part.strip())
+    return words[:MAX_RETRIEVAL_QUERY_CHARACTERS]
+
+
+def build_retrieval_context(chunks):
+    """Select top hybrid-ranked chunks with a semantic or exact-term evidence gate."""
+
+    ranked = sorted(chunks, key=lambda item: (-float(item.get("rank_score", item["score"])), item["chunk_id"]))[:TOP_K]
+    selected = [item for item in ranked if float(item["score"]) >= MIN_COSINE_SIMILARITY or float(item.get("lexical_score", 0)) >= MIN_COSINE_SIMILARITY]
     return ("relevant_source_found", selected) if selected else ("no_relevant_source", [])
 
 
@@ -172,7 +196,10 @@ def sanitize_text(source, *, known_values, field_handling):
         if field_handling.get(field_id, "redact") == "redact":
             result = _replace_known(result, field_id, value)
     patterns = (
-        ("TCKN", r"(?<!\d)\d{11}(?!\d)"),
+        # Turkish phone numbers begin with 0 (or +90); excluding a leading 0
+        # prevents the residual pass from labelling an unrecognised phone as a
+        # TCKN before the PHONE pattern gets a chance to redact it.
+        ("TCKN", r"(?<!\d)[1-9]\d{10}(?!\d)"),
         ("PHONE", r"(?<!\d)(?:\+90|0)?5\d{9}(?!\d)"),
         ("EMAIL", r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
         ("IBAN", r"\bTR\d{2}(?:\s?\d{4}){5}\s?\d{2}\b"),
@@ -185,6 +212,34 @@ def sanitize_text(source, *, known_values, field_handling):
             return "{{REDACTED_" + label + "_" + str(counter) + "}}"
         result = re.sub(pattern, replace, result, flags=re.IGNORECASE)
     return result
+
+
+def sanitize_learning_fields(fields, *, field_handling):
+    """Project validated fields for a training candidate without raw PII.
+
+    ``sanitized_text`` alone is not enough: an exporter may consume the
+    structured ``validated_fields`` column directly.  Redacted fields keep a
+    typed placeholder, task-required fields keep only their sanitized value,
+    and explicitly excluded identifiers are omitted entirely.
+    """
+
+    projected = {}
+    for field_id, entry in (fields or {}).items():
+        handling = field_handling.get(field_id, "redact")
+        if handling == "exclude" or not isinstance(entry, dict):
+            continue
+        value = entry.get("value")
+        item = {key: item_value for key, item_value in entry.items() if key != "value"}
+        if isinstance(value, str):
+            item["value"] = sanitize_text(
+                value,
+                known_values={field_id: value} if handling == "redact" else {},
+                field_handling={field_id: "redact"} if handling == "redact" else {},
+            )
+        elif value is not None:
+            item["value"] = value
+        projected[field_id] = item
+    return projected
 
 
 def _assert_text(name, value, maximum):

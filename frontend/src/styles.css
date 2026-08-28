@@ -399,7 +399,7 @@ h1, h2, h3, strong { font-family: inherit; }
 }
 
 /* ============================================================
-   Vatandaş e-Dilekçe portalı — /dilekce ve /dilekce/tesekkurler
+   Dilekçe analiz ekranı — /dilekce ve /dilekce/tesekkurler
    ============================================================ */
 
 .portal { min-height: 100vh; display: flex; flex-direction: column; background: var(--page); color: var(--ink); }
@@ -597,3 +597,102 @@ h1, h2, h3, strong { font-family: inherit; }
 .applicant-cell { display: flex; align-items: center; gap: 9px; }
 .applicant-cell > span:first-child { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; color: var(--cyan-2); background: var(--cyan-soft); font-size: 10px; font-weight: 700; }
 @media (max-width: 720px) { .queue-search input { width: 100%; } .queue-tools, .queue-search { width: 100%; } .queue-pager { flex-direction: column; align-items: stretch; } .pager-buttons button { flex: 1; justify-content: center; } }
+
+
+/* Yeni vaka özellikleri — eski açık tema ile uyumlu */
+.related-cases-card { margin-top: 20px; padding: 22px; }
+.related-case-list { display: grid; gap: 8px; }
+.related-case-list > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.related-case-list strong, .related-case-list small { display: block; }
+.related-case-list strong { color: var(--ink); font-size: 12px; }
+.related-case-list small, .related-boundary { color: var(--muted); font-size: 10px; }
+.related-state { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; color: #8b611a; background: #fff0ce; font-size: 10px; font-weight: 700; }
+.related-state.resolved { color: #177b5e; background: #e9f7f2; }
+.related-boundary { display: block; margin-top: 12px; }
+.priority-chip { display: inline-block; padding: 4px 8px; border-radius: 999px; color: #5f687b; background: #eff1f5; font-size: 9px; font-weight: 700; }
+.priority-chip.high { color: #8b611a; background: #fff0ce; }
+.priority-chip.critical { color: #a6384c; background: #fdebef; }
+.action-trace { max-width: 750px; margin: 0 auto 22px; padding: 15px; border: 1px solid #dce9f4; border-radius: 10px; background: #f7fbff; }
+.action-trace h3 { margin: 0 0 10px; color: #425675; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.action-trace > div { display: flex; gap: 9px; align-items: center; padding: 8px 0; border-top: 1px solid #e1ebf4; }
+.action-trace > div:first-of-type { border-top: 0; }
+.action-trace > div > span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #14795e; background: #e4f6ef; }
+.action-trace p { margin: 0; }
+.action-trace strong { display: block; color: #40506c; font-size: 10px; }
+.action-trace small { color: #8190a7; font-size: 8px; }
+.route-confidence { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.route-confidence small, .route-confidence span { display: block; color: var(--muted); font-size: 9px; }
+.route-confidence strong { display: block; margin-top: 4px; color: var(--ink); font-size: 18px; }
+.route-confidence > span { max-width: 150px; text-align: right; line-height: 1.4; }
+.route-confidence.fallback strong { color: var(--amber); }
+
+/* Kontrast düzeltmesi: ikincil açıklamalar açık zeminde kaybolmasın. */
+.pipeline .stage.waiting p { color: #596579; }
+.stat-grid small,
+.case-table th,
+.case-name small,
+.field-label > small,
+.quiet-label,
+.metric-card span,
+.metric-card small,
+.field-grid small,
+.narrative-grid small,
+.classification-chain small,
+.route-path small,
+.timeline-item small,
+.timeline-item p,
+.source-toggle small,
+.sample-card small,
+.draft-summary small,
+.reference-item small,
+.portal-field small,
+.portal-summary span,
+.portal-notes,
+.thanks-note { color: #5f6b7d; }
+.capability-card p,
+.form-section-heading p,
+.muted-copy,
+.next-action-card p { color: #5b6779; }
+
+/* Case detayında davranış sinyalini görünür ama suçlayıcı olmayan bir özetle sun. */
+.behavior-card { padding: 23px; border-left: 4px solid #2f66d0; }
+.behavior-card.elevated { border-left-color: #c7861c; background: #fffaf0; }
+.behavior-card.high { border-left-color: #c33d55; background: #fff7f8; }
+.behavior-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; color: #177b5e; background: #e9f7f2; font-size: 10px; font-weight: 700; }
+.behavior-badge.elevated { color: #8b611a; background: #fff0ce; }
+.behavior-badge.high { color: #a6384c; background: #fdebef; }
+.behavior-content { display: flex; align-items: center; gap: 17px; }
+.behavior-score { min-width: 86px; padding-right: 17px; border-right: 1px solid var(--line); }
+.behavior-score strong { display: block; color: var(--ink); font-size: 26px; line-height: 1; }
+.behavior-score small { display: block; margin-top: 6px; color: var(--muted); font-size: 9px; }
+.behavior-copy { min-width: 0; flex: 1; }
+.behavior-meter { height: 8px; margin-bottom: 9px; border-radius: 99px; background: #e9edf4; overflow: hidden; }
+.behavior-meter i { display: block; height: 100%; border-radius: inherit; background: #3b75dc; }
+.behavior-card.elevated .behavior-meter i { background: #c7861c; }
+.behavior-card.high .behavior-meter i { background: #c33d55; }
+.behavior-copy p { margin: 0 0 5px; color: #46546a; font-size: 11px; line-height: 1.5; }
+.behavior-copy > small { color: #69768a; font-size: 9px; }
+.behavior-facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); color: #69768a; font-size: 9px; }
+.behavior-facts strong { color: var(--ink); font-size: 11px; }
+.learning-card { padding: 23px; }
+.learning-card > .panel-heading > svg { color: var(--green); }
+.learning-card .secondary-button { margin-top: 9px; }
+.learning-pending { display: block; margin-top: 12px; color: #69768a; font-size: 10px; }
+.learning-success { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid #ccecdf; border-radius: 10px; color: #167455; background: #f0fbf6; }
+.learning-success strong { display: block; font-size: 12px; }
+.learning-success p { margin: 3px 0 0; color: #4e786b; font-size: 10px; }
+
+/* Kuyrukta talep türünü gri metin yerine departman renginde bir kategori etiketi yap. */
+.source-label { display: inline-block; border: 1px solid transparent; font-weight: 700; }
+.source-label.category-blue { color: #1458a6; border-color: #c6ddf7; background: #eaf4ff; }
+.source-label.category-violet { color: #6545a8; border-color: #ddd2f8; background: #f2edff; }
+.source-label.category-amber { color: #8b611a; border-color: #f1dfb8; background: #fff5df; }
+.source-label.category-green { color: #177b5e; border-color: #ccecdf; background: #e9f7f2; }
+.source-label.category-red { color: #a6384c; border-color: #f2cbd3; background: #fdebef; }
+.source-label.category-slate { color: #596579; border-color: #dce3ed; background: #f1f4f8; }
+
+@media (max-width: 650px) {
+  .behavior-content { align-items: flex-start; }
+  .behavior-score { min-width: 72px; padding-right: 12px; }
+  .behavior-facts { display: grid; gap: 7px; }
+}

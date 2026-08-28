@@ -32,6 +32,7 @@ function row(overrides: Partial<CaseListItem> = {}): CaseListItem {
     state: "draft_prepared",
     completed_steps: ["F-01", "F-02", "F-03"],
     last_error_code: null,
+    priority: { level: "normal", score: 40, reason: "Öncelik sinyali bulunmadı" },
     updated_at: minutesAgo(4),
     validation_status: "complete",
     routing_status: "routed",
@@ -162,7 +163,7 @@ describe("satır etiketleri", () => {
   });
 
   it("kanalı ve dili Türkçeye çevirir, bilinmeyeni olduğu gibi bırakır", () => {
-    expect(channelLabel("citizen-portal")).toBe("Vatandaş portalı");
+    expect(channelLabel("citizen-portal")).toBe("Dilekçe ekranı");
     expect(channelLabel("sms-gateway")).toBe("sms-gateway");
     expect(channelLabel(null)).toBeNull();
     expect(languageLabel("tr")).toBe("Türkçe");

@@ -37,6 +37,7 @@ processing begins.
 | `GET /cases/{case_id}/correspondence` | workflow | — | `case-correspondence-result` |
 | `GET /cases/{case_id}/routing` | workflow | — | `case-routing-result` |
 | `POST /cases/{case_id}/review-completion` | workflow | `empty-object` | `review-completion-result` |
+| `POST /cases/{case_id}/learning-feedback` | workflow | `empty-object` | `learning-feedback-result` |
 
 Error response for every boundary: `standard-error`. The case endpoints return it
 with a nested `error` object (`services/workflow/app.py:nested_error`).
@@ -66,6 +67,7 @@ and review completion, and a quoted `ETag` revision on the responses.
 | `case-correspondence-result` | workflow | frontend, runners | Current draft, summary, type, and regulation suggestions. |
 | `case-routing-result` | workflow | frontend, runners | Target unit decision and notification status. |
 | `review-completion-result` | workflow | frontend (ADMIN) | Idempotent completion of a `needs_review` case. |
+| `learning-feedback-result` | workflow | frontend (ADMIN) | PII-minimized, human-approved learning candidate reference; it does not fine-tune a model. |
 | `empty-object` | — | workflow | Explicit empty request body for the two POST case actions. |
 | `standard-error` | every service | every caller | Uniform error envelope. |
 

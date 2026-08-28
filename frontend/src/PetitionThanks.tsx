@@ -87,7 +87,7 @@ export function PetitionThanks({ reference }: { reference: string }) {
     <div className="portal">
       <header className="portal-header">
         <div className="brand-mark"><Sparkles size={17} /></div>
-        <div><strong>Demo Belediye Başkanlığı</strong><small>Vatandaş e-Dilekçe Portalı</small></div>
+        <div><strong>CoreAIgent</strong><small>Dilekçe Analiz Akışı</small></div>
         <button className="portal-back" onClick={() => navigate(PATHS.landing)}>
           <ArrowLeft size={15} /> Ana sayfa
         </button>

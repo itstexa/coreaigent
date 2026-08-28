@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "services" / "workflow"))
 
-from orchestrator import MAX_F04_START_ATTEMPTS, derive_case_state, next_start_action, project_case  # noqa: E402
+from orchestrator import MAX_F04_START_ATTEMPTS, derive_case_state, next_start_action, priority_for_text, project_case  # noqa: E402
 
 
 class AutomaticStartTests(unittest.TestCase):
@@ -44,6 +44,18 @@ class StateDerivationTests(unittest.TestCase):
     def test_missing_and_invalid_wait_for_user(self):
         self.assertEqual(derive_case_state("classified", "missing_information", None, None, None, {}), "waiting_for_user")
         self.assertEqual(derive_case_state("classified", "invalid_information", None, None, None, {}), "waiting_for_user")
+
+
+class PriorityTests(unittest.TestCase):
+    def test_critical_safety_phrase_wins_over_all_other_signals(self):
+        self.assertEqual(priority_for_text("Gaz kaçağı nedeniyle su baskını oluştu.")[:2], ("critical", 100))
+
+    def test_service_impact_phrase_is_high_but_not_critical(self):
+        self.assertEqual(priority_for_text("Kanalizasyon taşması ve hijyen sorunu var.")[:2], ("high", 70))
+
+    def test_no_signal_or_empty_text_is_normal(self):
+        self.assertEqual(priority_for_text("Parktaki bankın onarılmasını rica ederim.")[:2], ("normal", 40))
+        self.assertEqual(priority_for_text(None)[:2], ("normal", 40))
 
 
 class ProjectionTests(unittest.TestCase):
@@ -85,7 +97,7 @@ class ProjectionWriteTests(unittest.TestCase):
         self.assertIn("ON CONFLICT (case_id) DO UPDATE", sql)
         guard = sql.split("ON CONFLICT (case_id) DO UPDATE", 1)[1]
         self.assertIn("WHERE", guard)
-        for column in ("revision", "completed_steps", "state", "last_error_code"):
+        for column in ("revision", "completed_steps", "state", "last_error_code", "priority_level", "priority_score", "priority_reason"):
             self.assertIn(f"current_case_states.{column} IS DISTINCT FROM", guard, column)
 
     def test_a_reviewed_completion_is_never_reopened_by_the_projection(self):

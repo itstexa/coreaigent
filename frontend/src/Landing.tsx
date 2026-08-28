@@ -26,8 +26,8 @@ import {
 import { PATHS, navigate } from "./router";
 
 const STEPS = [
-  { title: "Yükleme", detail: "Evrak metni veya OCR çıktısı sisteme alınır." },
-  { title: "OCR", detail: "Metin normalize edilir, dil ve güven skoru üretilir." },
+  { title: "Dilekçe", detail: "Kişi talebini kendi cümleleriyle doğrudan metin alanına yazar." },
+  { title: "Metin analizi", detail: "Metin normalize edilir, dili ve işleme güveni belirlenir." },
   { title: "AI Analiz", detail: "Talep türü, departman ve birim sınıflandırılır." },
   { title: "Eksik Tespiti", detail: "Zorunlu alanlar doğrulanır, eksikler bildirilir." },
   { title: "Mevzuat Eşleştirme", detail: "İlgili kaynaklar taslağa referans olur." },
@@ -37,8 +37,8 @@ const STEPS = [
 const FEATURES = [
   {
     icon: <ScanText size={21} />,
-    title: "Yüksek Hassasiyetli OCR",
-    detail: "Taranmış evrak metni normalize edilir; dil tespiti ve güven skoru her dosyada kayıt altına alınır.",
+    title: "Metin Analizi",
+    detail: "Yazdığınız dilekçe normalize edilir; dil tespiti ve güven skoru dosyaya kaydedilir.",
     note: "Canlı serviste",
   },
   {
@@ -79,13 +79,13 @@ export function Landing() {
       <header className="landing-header">
         <div className="landing-logo">
           <div className="brand-mark"><Sparkles size={18} /></div>
-          <div><strong>CoreAIgent</strong><small>Kamu Evrak Zekâsı</small></div>
+          <div><strong>CoreAIgent</strong><small>Dilekçe Analiz Sistemi</small></div>
         </div>
         <nav className="landing-nav">
           <a href="#surec">Nasıl Çalışır</a>
           <a href="#yetenekler">Özellikler</a>
           <a href="#giris">Giriş</a>
-          <button className="primary-button" onClick={() => navigate(PATHS.panel)}>Sisteme Giriş</button>
+          <button className="primary-button" onClick={() => navigate(PATHS.panel)}>Operasyon Paneli</button>
         </nav>
       </header>
 
@@ -93,17 +93,17 @@ export function Landing() {
         <div className="landing-inner">
           <div>
             <span className="landing-badge"><Landmark size={13} /> TEKNOFEST 2026 · Kamu Teknolojileri</span>
-            <h1>Yapay Zekâ ile Kamu Evrakında<em>Dijital Dönüşüm</em></h1>
+            <h1>Dilekçenizi yazın.<em>Analizi CoreAIgent’e bırakın.</em></h1>
             <p className="lede">
-              OCR, otomatik sınıflandırma, eksik bilgi denetimi ve akıllı taslak oluşturma ile resmî
-              yazışma süreçlerini saniyeler içine indirin. Güvenli, hızlı ve kurumsal yapay zekâ çözümü.
+              Serbest metin dilekçenizden konu, ilgili birim ve eksik bilgiler çıkarılır; kaynaklı
+              resmî taslak hazırlanır. Son karar daima yetkili incelemesindedir.
             </p>
             <div className="landing-actions">
               <button className="primary-button" onClick={() => navigate(PATHS.petition)}>
-                Dilekçe Gönder <ArrowRight size={17} />
+                Dilekçe analizi başlat <ArrowRight size={17} />
               </button>
               <button className="ghost-button" onClick={() => navigate(PATHS.panel)}>
-                <Building2 size={16} /> Kurum Paneli
+                <Building2 size={16} /> Operasyon paneli
               </button>
             </div>
             <p className="landing-note"><ShieldCheck size={15} /> Nihai idari karar her zaman yetkili personeldedir.</p>
@@ -111,11 +111,11 @@ export function Landing() {
           <div className="landing-visual">
             <header>
               <FileText size={17} />
-              <strong>Dosya · Gürültü Şikâyeti</strong>
+              <strong>Dilekçe · Gürültü Şikâyeti</strong>
               <span>Örnek akış</span>
             </header>
             <div className="landing-pipeline">
-              <div className="done"><UploadCloud size={16} /> Evrak alındı <span>F-01</span></div>
+              <div className="done"><UploadCloud size={16} /> Metin alındı <span>F-01</span></div>
               <div className="done"><FileSearch size={16} /> Sınıflandırıldı <span>F-02</span></div>
               <div className="done"><ShieldCheck size={16} /> Alanlar doğrulandı <span>F-03</span></div>
               <div><PenLine size={16} /> Taslak hazırlanıyor <span>F-04</span></div>
@@ -129,8 +129,8 @@ export function Landing() {
         <div className="landing-inner">
           <div className="landing-heading">
             <span>Süreç</span>
-            <h2>6 Adımda Otomatik Süreç</h2>
-            <p>Geleneksel evrak işleme süreçlerini yapay zekâ ile optimize ediyoruz.</p>
+            <h2>6 Adımda Dilekçe Analizi</h2>
+            <p>Tek ihtiyacınız dilekçenizi kendi cümlelerinizle yazmak.</p>
           </div>
           <div className="step-grid">
             {STEPS.map((step, index) => (
@@ -168,17 +168,17 @@ export function Landing() {
         <div className="landing-inner">
           <div className="landing-heading">
             <span>Giriş</span>
-            <h2>İki ayrı kapı, tek iş akışı</h2>
-            <p>Vatandaş dilekçesini gönderir, kurum personeli aynı dosyayı panelde takip eder.</p>
+            <h2>Tek giriş, görünür süreç</h2>
+            <p>Dilekçe sahibi metni yazar; yetkili ekip aynı dosyayı panelden takip eder.</p>
           </div>
           <div className="entry-grid">
             <article className="entry-card">
-              <span className="landing-badge"><UserRound size={13} /> Vatandaş</span>
-              <h3>e-Dilekçe gönder</h3>
-              <p>Konunuzu seçin, kimlik ve başvuru bilgilerinizi girin; sistem resmî dilekçe metnini sizin adınıza düzenler.</p>
+              <span className="landing-badge"><UserRound size={13} /> Dilekçe sahibi</span>
+              <h3>Dilekçeni yaz</h3>
+              <p>Konuyu, olayı ve talebinizi anlatın. CoreAIgent metinden gerekli bilgileri ve doğru işlem yolunu çıkarır.</p>
               <ul>
                 <li><ShieldCheck size={15} /> Zorunlu alanlar anında denetlenir</li>
-                <li><FileText size={15} /> Dilekçe metnini göndermeden önce görürsünüz</li>
+                <li><FileText size={15} /> Metin olduğu gibi sizin kontrolünüzde kalır</li>
                 <li><Building2 size={15} /> Başvuru ilgili birime otomatik iletilir</li>
               </ul>
               <button className="primary-button" onClick={() => navigate(PATHS.petition)}>
@@ -206,7 +206,7 @@ export function Landing() {
         <div className="landing-inner">
           <div>
             <strong>CoreAIgent</strong>
-            <p>Kamu evrak iş akışı için yapay zekâ destekli karar desteği · Demo Belediye Başkanlığı senaryosu</p>
+            <p>Dilekçe analizi için yerel yapay zekâ destekli karar desteği</p>
           </div>
           <nav>
             <span>Veri Gizliliği</span>

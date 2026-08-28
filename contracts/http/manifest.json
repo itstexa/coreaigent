@@ -15,8 +15,10 @@
     {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/correspondence", "response": "case-correspondence-result"},
     {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/routing", "response": "case-routing-result"},
     {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/document", "response": "case-document"},
+    {"service": "workflow", "method": "GET", "path": "/cases/{case_id}/related-cases", "response": "related-cases-result"},
     {"service": "workflow", "method": "GET", "path": "/cases/{case_id}", "response": "case-status-result"},
-    {"service": "workflow", "method": "POST", "path": "/cases/{case_id}/review-completion", "request": "empty-object", "response": "review-completion-result"}
+    {"service": "workflow", "method": "POST", "path": "/cases/{case_id}/review-completion", "request": "empty-object", "response": "review-completion-result"},
+    {"service": "workflow", "method": "POST", "path": "/cases/{case_id}/learning-feedback", "request": "empty-object", "response": "learning-feedback-result"}
   ],
   "errorResponse": "standard-error"
 }

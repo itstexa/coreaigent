@@ -9,8 +9,8 @@ import uuid
 import psycopg
 from psycopg.types.json import Jsonb
 
-from app import CORPUS_VERSION, PROMPT_SCHEMA_VERSION, ensure_schema
-from orchestrator import MAX_F04_START_ATTEMPTS, derive_case_state, next_start_action
+from app import CORPUS_VERSION, PROMPT_SCHEMA_VERSION, RETRIEVAL_CONFIG_VERSION, ensure_schema, ticket_reference
+from orchestrator import MAX_F04_START_ATTEMPTS, derive_case_state, next_start_action, priority_for_text
 
 
 DATABASE_URL = os.environ["DATABASE_URL"]
@@ -19,25 +19,55 @@ COOLDOWN_SECONDS = int(os.environ.get("F04_RETRY_COOLDOWN_SECONDS", "30"))
 POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", "0.2"))
 
 
-def _upsert_state(cur, case_id, revision, state, steps, error=None):
+def _upsert_state(cur, case_id, revision, state, steps, error=None, priority=None):
     # The projection re-derives every current case on every poll, so a pass that
     # changes nothing must leave the row alone: updated_at is what the case list
     # shows as the last change, and a no-op write would report "just now" forever.
     sticky = "current_case_states.state='completed' AND current_case_states.revision=EXCLUDED.revision"
     projected_state = f"CASE WHEN {sticky} THEN 'completed' ELSE EXCLUDED.state END"
     projected_error = f"CASE WHEN {sticky} THEN NULL ELSE EXCLUDED.last_error_code END"
+    level, score, reason = priority or ("normal", 40, "Öncelik sinyali bulunmadı")
     cur.execute(
-        "INSERT INTO current_case_states (case_id,revision,state,completed_steps,last_error_code) VALUES (%s,%s,%s,%s,%s) "
+        "INSERT INTO current_case_states (case_id,revision,state,completed_steps,last_error_code,priority_level,priority_score,priority_reason) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) "
         "ON CONFLICT (case_id) DO UPDATE SET revision=EXCLUDED.revision,"
         f"state={projected_state},"
         "completed_steps=EXCLUDED.completed_steps,"
-        f"last_error_code={projected_error},updated_at=now() "
+        f"last_error_code={projected_error},priority_level=EXCLUDED.priority_level,priority_score=EXCLUDED.priority_score,priority_reason=EXCLUDED.priority_reason,updated_at=now() "
         "WHERE current_case_states.revision IS DISTINCT FROM EXCLUDED.revision "
         "OR current_case_states.completed_steps IS DISTINCT FROM EXCLUDED.completed_steps "
         f"OR current_case_states.state IS DISTINCT FROM ({projected_state}) "
-        f"OR current_case_states.last_error_code IS DISTINCT FROM ({projected_error})",
-        (case_id, revision, state, Jsonb(steps), error),
+        f"OR current_case_states.last_error_code IS DISTINCT FROM ({projected_error}) "
+        "OR current_case_states.priority_level IS DISTINCT FROM EXCLUDED.priority_level "
+        "OR current_case_states.priority_score IS DISTINCT FROM EXCLUDED.priority_score "
+        "OR current_case_states.priority_reason IS DISTINCT FROM EXCLUDED.priority_reason "
+        "RETURNING case_id,revision,state,completed_steps,last_error_code",
+        (case_id, revision, state, Jsonb(steps), error, level, score, reason),
     )
+    changed = cur.fetchone()
+    if changed:
+        cur.execute(
+            "INSERT INTO case_tickets (case_id,ticket_reference) VALUES (%s,%s) ON CONFLICT (case_id) DO NOTHING",
+            (case_id, ticket_reference(case_id)),
+        )
+        cur.execute(
+            "INSERT INTO case_action_log (case_id,action_type,actor,facts) VALUES (%s,'state_projected','system',%s)",
+            (case_id, Jsonb({"revision": changed[1], "state": changed[2], "completed_steps": changed[3], "last_error_code": changed[4]})),
+        )
+        if changed[2] == "completed":
+            cur.execute(
+                "UPDATE case_assignments SET assignment_status='completed',completed_at=now() "
+                "WHERE case_id=%s AND source_case_revision=%s AND assignment_status='assigned'",
+                (case_id, revision),
+            )
+        elif changed[1] > 1:
+            # A supplemental revision supersedes its previous queue owner; an
+            # old revision must not inflate the new workload count.
+            cur.execute(
+                "UPDATE case_assignments SET assignment_status='completed',completed_at=now() "
+                "WHERE case_id=%s AND source_case_revision<%s AND assignment_status='assigned'",
+                (case_id, revision),
+            )
+    return bool(changed)
 
 
 def reconcile_once():
@@ -46,15 +76,16 @@ def reconcile_once():
         with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
             cur.execute(
                 "SELECT c.case_id,COALESCE(s.revision,1),s.completion_status,s.missing_fields,s.invalid_fields,c.status,"
-                "g.generation_status,g.result_status,r.routing_status,j.attempt_count "
+                "g.generation_status,g.result_status,r.routing_status,j.attempt_count,i.original_text "
                 "FROM current_classifications c LEFT JOIN current_validation_states s USING(document_id) "
                 "LEFT JOIN correspondence_generations g ON g.generation_id=s.current_correspondence_generation_id "
                 "LEFT JOIN routing_operations r ON r.case_id=s.case_id AND r.source_case_revision=s.revision "
                 "LEFT JOIN correspondence_start_jobs j ON j.case_id=s.case_id AND j.source_case_revision=s.revision "
+                "LEFT JOIN intake_records i ON i.case_id=c.case_id "
                 "ORDER BY c.updated_at LIMIT 100 FOR UPDATE OF c"
             )
             for row in cur.fetchall():
-                case_id, revision, completion, missing, invalid, classification, generation, result, route, attempts = row
+                case_id, revision, completion, missing, invalid, classification, generation, result, route, attempts, original_text = row
                 notices = {}
                 if route == "routed":
                     current = cur.execute("SELECT audience,generation_status FROM notification_records n JOIN routing_operations r USING(routing_id) WHERE r.case_id=%s AND r.source_case_revision=%s", (case_id, revision)).fetchall()
@@ -66,7 +97,7 @@ def reconcile_once():
                 if generation == "failed" and not terminal:
                     state = "ready_for_processing"
                 steps = ["F-01", "F-02"] + (["F-03"] if completion == "complete" else []) + (["F-04"] if generation == "completed" else []) + (["F-05"] if route == "routed" else [])
-                _upsert_state(cur, case_id, revision, state, steps, "F04_TERMINAL_FAILURE" if terminal else None)
+                _upsert_state(cur, case_id, revision, state, steps, "F04_TERMINAL_FAILURE" if terminal else None, priority_for_text(original_text))
                 if completion in {"missing_information", "invalid_information"}:
                     kind, fields = completion, missing if completion == "missing_information" else invalid
                     cur.execute("INSERT INTO case_notifications (notification_id,case_id,source_case_revision,audience,kind,payload) VALUES (%s,%s,%s,'applicant',%s,%s) ON CONFLICT (case_id,source_case_revision,audience,kind) DO NOTHING", (uuid.uuid4(), case_id, revision, kind, Jsonb({"kind": kind, "fields": fields, "email_placeholder": None})))
@@ -111,7 +142,7 @@ def run_start_once():
                 cur.execute("UPDATE correspondence_start_jobs SET state='waiting',claimed_until=NULL,updated_at=now() WHERE job_id=%s", (job[0],))
                 return True
             generation, generation_job = uuid.uuid4(), uuid.uuid4()
-            cur.execute("INSERT INTO correspondence_generations (generation_id,case_id,document_id,workflow_id,source_case_revision,request_type_id,department_label,unit_label,corpus_version,retrieval_config_version,prompt_schema_version,validated_fields,generation_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'municipality-rag-v1',%s,%s,'queued')", (generation, job[1], state[0], state[1], job[2], state[2], state[6], state[7], CORPUS_VERSION, PROMPT_SCHEMA_VERSION, Jsonb(state[8])))
+            cur.execute("INSERT INTO correspondence_generations (generation_id,case_id,document_id,workflow_id,source_case_revision,request_type_id,department_label,unit_label,corpus_version,retrieval_config_version,prompt_schema_version,validated_fields,generation_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'queued')", (generation, job[1], state[0], state[1], job[2], state[2], state[6], state[7], CORPUS_VERSION, RETRIEVAL_CONFIG_VERSION, PROMPT_SCHEMA_VERSION, Jsonb(state[8])))
             cur.execute("INSERT INTO correspondence_generation_jobs (job_id,generation_id,state) VALUES (%s,%s,'pending')", (generation_job, generation))
             cur.execute("UPDATE current_validation_states SET current_correspondence_generation_id=%s WHERE case_id=%s AND revision=%s", (generation, job[1], job[2]))
             cur.execute("UPDATE correspondence_start_jobs SET state='waiting',claimed_until=NULL,updated_at=now() WHERE job_id=%s", (job[0],))

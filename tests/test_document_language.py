@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 WORKFLOW = Path(__file__).parents[1] / "services" / "workflow"
@@ -25,6 +26,7 @@ from services.validation.app import FieldDefinition, extraction_prompt  # noqa: 
 
 import routing_worker  # noqa: E402
 import worker  # noqa: E402
+from translation import MAX_CHUNK_CHARACTERS, _chunks  # noqa: E402
 
 
 TURKISH_PETITION = (
@@ -147,6 +149,47 @@ class PromptLanguageTests(unittest.TestCase):
             self.assertIn("Yalnız JSON object döndür", extraction_prompt("t", self.DEFINITIONS, language))
             self.assertIn("Türkçe resmî yazışma", worker._prompt(row=self.ROW, semantic_fields={}, sanitized_document="d", chunks=[], language=language))
             self.assertIn("Türkçe kısa belediye", routing_worker._notification_prompt("applicant", ("applicant", "c", "r", None, None, None, {}, language), None, language))
+
+
+class TranslationBridgeTests(unittest.TestCase):
+    ROW = ("case", 1, "gurultu-sikayeti", "Zabıta Müdürlüğü", "Denetim Birimi", "text", {}, "tr")
+
+    def test_turkish_values_cross_the_bridge_but_ids_do_not(self):
+        chunks = [{"chunk_id": "KAYNAK-1", "content": "Gürültü ölçümü yapılır."}]
+        with patch.object(worker, "translate", side_effect=lambda value, source, target: f"{source}>{target}:{value}") as translator:
+            row, fields, document, translated_chunks = worker._english_generation_values(self.ROW, {"incident-description": "Gece gürültüsü"}, "Ayşe için gürültü", chunks, "tr")
+        self.assertEqual(row[2], "gurultu-sikayeti")
+        self.assertEqual(row[3], "tr>en:Zabıta Müdürlüğü")
+        self.assertEqual(fields, {"incident-description": "tr>en:Gece gürültüsü"})
+        self.assertEqual(document, "tr>en:Ayşe için gürültü")
+        self.assertEqual(translated_chunks[0]["chunk_id"], "KAYNAK-1")
+        self.assertEqual(translated_chunks[0]["content"], "tr>en:Gürültü ölçümü yapılır.")
+        self.assertEqual(translator.call_count, 5)
+
+    def test_english_values_do_not_call_translation(self):
+        row = self.ROW[:-1] + ("en",)
+        chunks = [{"chunk_id": "SOURCE-1", "content": "Inspection is required."}]
+        with patch.object(worker, "translate") as translator:
+            actual = worker._english_generation_values(row, {"incident-description": "Noise"}, "Noise complaint", chunks, "en")
+        self.assertEqual(actual, (row, {"incident-description": "Noise"}, "Noise complaint", chunks))
+        translator.assert_not_called()
+
+    def test_only_human_readable_output_is_translated_back(self):
+        source = {"document_summary": "Summary", "draft_text": "Draft", "recommended_correspondence_type": "information_letter", "used_source_refs": ["SOURCE-1"]}
+        with patch.object(worker, "translate", side_effect=lambda value, source, target: f"{source}>{target}:{value}"):
+            actual = worker._applicant_language_output(source, "tr")
+        self.assertEqual(actual["document_summary"], "en>tr:Summary")
+        self.assertEqual(actual["draft_text"], "en>tr:Draft")
+        self.assertEqual(actual["recommended_correspondence_type"], "information_letter")
+        self.assertEqual(actual["used_source_refs"], ["SOURCE-1"])
+
+    def test_chunk_limit_has_exact_and_adjacent_behaviour(self):
+        for size, expected_count in ((MAX_CHUNK_CHARACTERS - 1, 1), (MAX_CHUNK_CHARACTERS, 1), (MAX_CHUNK_CHARACTERS + 1, 2)):
+            text = "x" * size
+            chunks = _chunks(text)
+            self.assertEqual(len(chunks), expected_count)
+            self.assertTrue(all(len(chunk) <= MAX_CHUNK_CHARACTERS for chunk in chunks))
+            self.assertEqual("".join(chunks), text)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ import type {
   CorrespondenceResult,
   ImplementationMode,
   OcrResult,
+  RelatedCasesResult,
   RoutingResult,
   ServiceHealth,
   ValidationResult,
@@ -243,7 +244,7 @@ function realClassification(result: RealWorkflowResult): ClassificationResult {
     requestType: { id: result.documentType, label: DOCUMENT_TYPE_LABELS[result.documentType] },
     confidence: result.confidence ?? 0,
     taxonomyVersion: "real-workflow",
-    classifierVersion: "Jamba2-3B-Turkish",
+    classifierVersion: "real-workflow-classifier",
     classificationReason: result.summary ?? "Gerçek workflow sonucu.",
   };
 }
@@ -546,6 +547,13 @@ export async function getCaseDocument(caseId: string): Promise<CaseDocument> {
   return response.data;
 }
 
+export async function getRelatedCases(caseId: string): Promise<RelatedCasesResult> {
+  const response = await request<RelatedCasesResult>(
+    `${BASES.workflowAdmin}/cases/${encodeURIComponent(caseId)}/related-cases`, {}, 10_000,
+  );
+  return response.data;
+}
+
 export async function supplementCase(
   caseId: string,
   revision: number,
@@ -588,12 +596,30 @@ export async function completeReview(caseId: string, revision: number): Promise<
   });
 }
 
+export async function saveLearningFeedback(caseId: string, revision: number): Promise<{ feedback_id: string; status: "candidate"; created_at: string }> {
+  const response = await request<{ case_id: string; case_revision: number; feedback_id: string; status: "candidate"; created_at: string }>(
+    `${BASES.workflowAdmin}/cases/${encodeURIComponent(caseId)}/learning-feedback`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+        "If-Match": `"${revision}"`,
+      },
+      body: "",
+    },
+  );
+  return response.data;
+}
+
 export async function serviceHealth(): Promise<ServiceHealth[]> {
   if (await realWorkflowAvailable()) {
     return [
       { name: "ocr", available: true, implementation: "real", detail: "Tek workflow sürecinde" },
-      { name: "classification", available: true, implementation: "real", detail: "Jamba2-3B-Turkish" },
-      { name: "validation", available: true, implementation: "real", detail: "Jamba2-3B-Turkish" },
+      { name: "classification", available: true, implementation: "real", detail: "Sürüm kontrollü taksonomi" },
+      { name: "validation", available: true, implementation: "real", detail: "Alan çıkarımı ve kural doğrulama" },
+      { name: "rag", available: true, implementation: "real", detail: "Yerel BGE-M3 retrieval" },
+      { name: "llm", available: true, implementation: "real", detail: "Jamba2-3B · llama.cpp" },
       { name: "workflow", available: true, implementation: "real", detail: "Yerel RAG + taslak" },
     ];
   }
@@ -601,6 +627,8 @@ export async function serviceHealth(): Promise<ServiceHealth[]> {
     { name: "ocr", path: `${BASES.ocr}/ready` },
     { name: "classification", path: `${BASES.classification}/ready` },
     { name: "validation", path: `${BASES.validation}/ready` },
+    { name: "rag", path: "/api/rag/ready" },
+    { name: "llm", path: "/api/llm/ready" },
     { name: "workflow", path: `${BASES.workflowUser}/ready` },
   ];
   return Promise.all(services.map(async ({ name, path }) => {

@@ -65,7 +65,9 @@ that closure. The wrapper prints `real_local` for a complete closure and
   `compose.validation.jamba.yaml` switches it to the real Jamba extractor and
   makes `validation` depend on a healthy `llm`.
 - `compose.workflow.yaml` adds the `workflow` API plus `correspondence-worker`,
-  `routing-worker`, and `orchestrator-worker` from the same image.
+  `routing-worker`, and `orchestrator-worker` from the same image. It also
+  mounts the offline Turkish/English translation-model cache used by the two
+  generation workers; no additional HTTP service is introduced.
 - `compose.integration.yaml` replaces every service with a SHA-pinned image from
   `.env`; `dev`/`integration`/`e2e` refuse to run without them.
 
@@ -98,6 +100,11 @@ Copy `.env.example` to `.env`. Names only — never commit values:
 - Generation budget: `MAX_NEW_TOKENS`, `TEMPERATURE`, `JAMBA_TIMEOUT_SECONDS`, `GENERATION_DEADLINE_SECONDS`.
 - Demo tokens: `CASE_ACCESS_TOKEN` (USER), `CASE_ADMIN_TOKEN` (ADMIN) — set in the overlays, not authentication.
 - Service-local: `DATABASE_URL`, `TAXONOMY_PATH`, `EXTRACTOR_MODE`, `WORKER_POLL_SECONDS`, `F04_RETRY_COOLDOWN_SECONDS`, `BGE_MODEL_REVISION`.
+
+For a fresh local workflow cache, run the workflow image once with
+`HF_HUB_OFFLINE=0` and `python prepare_translation_models.py`; normal Compose
+runs must remain offline afterwards. The exact pinned models and attribution
+are documented in [`services/workflow.md`](services/workflow.md#turkish-output-bridge-f11).
 
 ## CI
 

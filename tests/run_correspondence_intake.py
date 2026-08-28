@@ -126,7 +126,7 @@ def main():
         assert result["result_status"] == "draft_ready" and result["regulation_suggestions"], result
         for citation in result["regulation_suggestions"]:
             assert {"source_id", "corpus_version", "title", "source_type", "locator", "chunk_id"} <= set(citation), citation
-            assert citation["corpus_version"] == "demo-municipality-regulations-v1", citation
+            assert citation["corpus_version"] == "demo-municipality-regulations-v2", citation
     else:
         assert result["source_status"] == "no_relevant_source" and result["result_status"] == "review_required", result
         assert result["regulation_suggestions"] == [], result

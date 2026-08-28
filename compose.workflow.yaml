@@ -24,6 +24,7 @@ services:
         BASE_IMAGE: "${WORKFLOW_BASE_IMAGE:-python:3.12-slim}"
     image: coreaigent/workflow:local
     command: ["python", "worker.py"]
+    restart: unless-stopped
     healthcheck:
       disable: true
     environment:
@@ -47,12 +48,15 @@ services:
         BASE_IMAGE: "${WORKFLOW_BASE_IMAGE:-python:3.12-slim}"
     image: coreaigent/workflow:local
     command: ["python", "routing_worker.py"]
+    restart: unless-stopped
     healthcheck:
       disable: true
     environment:
       DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
       JAMBA_URL: http://llm:8080/generate
       JAMBA_TIMEOUT_SECONDS: "${JAMBA_TIMEOUT_SECONDS:-185}"
+      HF_HOME: /var/cache/huggingface
+      HF_HUB_OFFLINE: "1"
       TAXONOMY_PATH: /app/taxonomy.json
       WORKER_POLL_SECONDS: "0.05"
     depends_on:
@@ -60,6 +64,7 @@ services:
         condition: service_healthy
     volumes:
       - "./services/classification/taxonomy.json:/app/taxonomy.json:ro"
+      - "${HF_CACHE_DIR:-llm-hf-cache}:/var/cache/huggingface"
 
   orchestrator-worker:
     build:
@@ -69,6 +74,7 @@ services:
         BASE_IMAGE: "${WORKFLOW_BASE_IMAGE:-python:3.12-slim}"
     image: coreaigent/workflow:local
     command: ["python", "orchestrator_worker.py"]
+    restart: unless-stopped
     healthcheck:
       disable: true
     environment:

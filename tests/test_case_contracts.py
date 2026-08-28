@@ -21,13 +21,34 @@ class CaseContractTests(unittest.TestCase):
             ("workflow", "GET", "/cases/{case_id}/correspondence"),
             ("workflow", "GET", "/cases/{case_id}/routing"),
             ("workflow", "GET", "/cases/{case_id}/document"),
+            ("workflow", "GET", "/cases/{case_id}/related-cases"),
             ("workflow", "GET", "/cases/{case_id}"),
             ("workflow", "POST", "/cases/{case_id}/review-completion"),
+            ("workflow", "POST", "/cases/{case_id}/learning-feedback"),
         })
         for item in self.manifest["additionalEndpoints"]:
             self.assertIn(item["response"], self.schemas)
             if item["method"] != "GET":
                 self.assertIn(item["request"], self.schemas)
+
+    def test_related_case_contract_is_bounded_and_has_no_sensitive_content(self):
+        schema = self.schemas["related-cases-result"]
+        self.assertEqual(schema["properties"]["related_cases"]["maxItems"], 5)
+        item = schema["properties"]["related_cases"]["items"]
+        self.assertFalse(item["additionalProperties"])
+        for forbidden in ("text", "applicant_name", "moderator", "assignment"):
+            self.assertNotIn(forbidden, item["properties"])
+
+    def test_learning_feedback_contract_is_candidate_only(self):
+        schema = self.schemas["learning-feedback-result"]
+        self.assertEqual(schema["properties"]["status"], {"const": "candidate"})
+        self.assertFalse(schema["additionalProperties"])
+
+    def test_admin_case_status_exposes_bounded_behavior_signal(self):
+        admin_view = self.schemas["case-status-result"]["oneOf"][1]
+        signal = admin_view["properties"]["behavior_signal"]
+        self.assertEqual(signal["properties"]["aggression_score"]["maximum"], 1)
+        self.assertNotIn("text", signal["properties"])
 
     def test_correspondence_result_discriminates_lifecycle_branches(self):
         branches = self.schemas["case-correspondence-result"]["oneOf"]
@@ -48,6 +69,10 @@ class CaseContractTests(unittest.TestCase):
         self.assertNotIn("operational_context", user_view["properties"])
         self.assertIn("routing", admin_view["required"])
         self.assertIn("target_unit_notification", admin_view["required"])
+        self.assertIn("ticket", admin_view["required"])
+        self.assertIn("action_log", admin_view["required"])
+        self.assertNotIn("ticket", user_view["properties"])
+        self.assertNotIn("action_log", user_view["properties"])
         self.assertFalse(self.schemas["case-status-result"]["$defs"]["applicant_notice"]["additionalProperties"])
 
         routing_schema = admin_view["properties"]["routing"]["oneOf"][1]
@@ -65,6 +90,12 @@ class CaseContractTests(unittest.TestCase):
         item = schema["$defs"]["case_list_item"]
         self.assertFalse(item["additionalProperties"])
         self.assertEqual(set(item["required"]), set(item["properties"]))
+
+    def test_case_list_priority_is_closed_and_explainable(self):
+        priority = self.schemas["case-list-result"]["$defs"]["case_list_item"]["properties"]["priority"]
+        self.assertFalse(priority["additionalProperties"])
+        self.assertEqual(priority["properties"]["level"]["enum"], ["critical", "high", "normal"])
+        self.assertEqual(priority["properties"]["score"]["enum"], [40, 70, 100])
 
     def test_case_list_never_carries_correspondence_or_notification_content(self):
         """The queue names a case; it must not become a bulk content export.

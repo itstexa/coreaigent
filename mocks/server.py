@@ -21,7 +21,7 @@ def scenario(payload):
 
 
 def case_parts(path):
-    match = re.fullmatch(r"/cases/([^/]+)(?:/(correspondence|routing|review-completion|supplemental-information|document))?", path)
+    match = re.fullmatch(r"/cases/([^/]+)(?:/(correspondence|routing|review-completion|learning-feedback|supplemental-information|document))?", path)
     if not match:
         return None, None, None
     case_id, action = match.groups()
@@ -57,6 +57,7 @@ def mock_case_response(case_id, item, admin=False):
         }],
     }
     if admin:
+        reference = "CA-" + re.sub(r"[^0-9A-F]", "", case_id.upper())[:8].ljust(8, "0")
         response["operational_context"] = {
             "validated_fields": {},
             "department_id": item["department"],
@@ -74,6 +75,14 @@ def mock_case_response(case_id, item, admin=False):
             "body": "Contract mock tarafından kalıcı olmayan bildirim kaydı simüle edildi.",
             "email_placeholder": None,
         }
+        response["ticket"] = {"reference": reference, "created_at": "2026-01-01T00:00:00Z"}
+        response["action_log"] = [{
+            "action_id": 1, "type": "state_projected", "actor": "system", "state": state,
+            "case_revision": 1, "completed_steps": steps, "last_error_code": None,
+            "occurred_at": "2026-01-01T00:00:00Z",
+        }]
+        response["learning_feedback"] = None
+        response["behavior_signal"] = {"repeat_count": 0, "aggression_score": 0.0, "aggression_level": "normal", "marker_count": 0, "priority_mode": False}
     return response
 
 
@@ -273,6 +282,14 @@ class Handler(BaseHTTPRequestHandler):
         if SERVICE == "workflow" and case_item and action == "review-completion":
             CASE_STATE_OVERRIDES[case_id] = "completed"
             self.send_json(200, {"case_id": case_id, "case_revision": 1, "state": "completed"})
+            return
+        if SERVICE == "workflow" and case_item and action == "learning-feedback":
+            if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}})
+            elif case_item["classification"] != "processable":
+                self.send_json(409, {"error": {"code": "CASE_NOT_READY_FOR_LEARNING", "message": "Mock case is not complete"}})
+            else:
+                self.send_json(200, {"case_id": case_id, "case_revision": 1, "feedback_id": "feedback-" + case_item["id"], "status": "candidate", "created_at": "2026-01-01T00:00:00Z"})
             return
         expected = MANIFEST[SERVICE]["path"]
         try:

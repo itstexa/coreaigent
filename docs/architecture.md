@@ -70,13 +70,17 @@ The frontend keeps a browser-local index of recently opened case IDs
 
 ## Model boundary
 
-Two local models, both pinned and loaded offline:
+Four local model snapshots, all pinned and loaded offline:
 
 - **Jamba** (`ai21labs/AI21-Jamba2-3B`) is served only by the `llm` service.
   Business logic never imports a model library; it calls `POST /generate`.
 - **BGE-M3** (`BAAI/bge-m3`) is loaded in-process by
   `services/workflow/worker.py` for dense retrieval and schema repair. It is not
   exposed as an HTTP service.
+- **Marian Turkish→English and English→Turkish** are loaded in-process by the
+  workflow workers only for human-readable Jamba prompt/input and output
+  values. The pinned translation bridge keeps Jamba's English generation path
+  while persisting Turkish correspondence; IDs and citations bypass it.
 
 Model output is always constrained by deterministic server-side code: retrieval
 selection, PII minimization, and draft guards live in
@@ -118,6 +122,7 @@ flowchart LR
     PG --> OW[orchestrator-worker]
     OW --> CW[correspondence-worker]
     CW -->|BGE-M3 corpus.json| CW
+    CW -->|Marian tr↔en| CW
     CW --> LLM[llm / Jamba]
     CW --> RW[routing-worker]
     RW --> LLM

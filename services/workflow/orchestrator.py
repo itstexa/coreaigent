@@ -2,6 +2,25 @@
 
 MAX_F04_START_ATTEMPTS = 4  # initial start plus the approved three retries
 
+PRIORITY_RULES = (
+    ("critical", 100, (("yangin", "Yangın riski"), ("gaz kacagi", "Gaz kaçağı riski"), ("patlama", "Patlama riski"), ("cokme", "Çökme riski"), ("can guvenligi", "Can güvenliği riski"), ("yarali", "Yaralı bildirimi"), ("acil mudahale", "Acil müdahale talebi"))),
+    ("high", 70, (("su baskini", "Su baskını"), ("kanalizasyon", "Kanalizasyon etkisi"), ("zehirlenme", "Zehirlenme riski"), ("hijyen", "Hijyen riski"), ("salgin", "Salgın riski"))),
+)
+
+
+def _priority_text(value):
+    return (value or "").lower().translate(str.maketrans("ığüşöç", "igusoc"))
+
+
+def priority_for_text(value):
+    """Return the first configured safety/service-impact rule, never model inference."""
+    text = _priority_text(value)
+    for level, score, rules in PRIORITY_RULES:
+        for phrase, reason in rules:
+            if phrase in text:
+                return level, score, reason
+    return "normal", 40, "Öncelik sinyali bulunmadı"
+
 
 def next_start_action(classification_status, completion_status, generation_status, attempts):
     if classification_status != "classified" or completion_status != "complete":

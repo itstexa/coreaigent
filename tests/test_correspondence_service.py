@@ -10,6 +10,7 @@ from services.workflow.correspondence import (
     build_retrieval_context,
     extract_json_object,
     parse_generated_draft,
+    sanitize_learning_fields,
     sanitize_text,
     semantic_repair_payload,
     validate_generated_draft,
@@ -17,6 +18,27 @@ from services.workflow.correspondence import (
 
 
 class CorrespondenceAcceptanceTests(unittest.TestCase):
+    def test_learning_candidate_fields_redact_identifiers_and_drop_excluded_values(self):
+        fields = {
+            "applicant-name": {"value": "Mehmet Demir", "confidence": 0.8},
+            "tckn": {"value": "10000000146", "confidence": 1.0},
+            "phone": {"value": "+905321112233", "confidence": 1.0},
+            "incident-address": {"value": "Cumhuriyet Mahallesi 8. Sokak No 3", "confidence": 0.5},
+            "payment-reference": {"value": "PAY-SECRET-42", "confidence": 1.0},
+        }
+        projected = sanitize_learning_fields(fields, field_handling={
+            "applicant-name": "redact", "tckn": "redact", "phone": "redact",
+            "incident-address": "task_required", "payment-reference": "exclude",
+        })
+        self.assertNotIn("payment-reference", projected)
+        self.assertEqual(projected["applicant-name"]["value"], "{{APPLICANT_NAME}}")
+        self.assertEqual(projected["tckn"]["value"], "{{APPLICANT_TCKN}}")
+        self.assertEqual(projected["phone"]["value"], "{{PHONE}}")
+        self.assertEqual(projected["incident-address"]["value"], fields["incident-address"]["value"])
+        serialized = str(projected)
+        for secret in ("Mehmet Demir", "10000000146", "+905321112233", "PAY-SECRET-42"):
+            self.assertNotIn(secret, serialized)
+
     def test_retrieval_threshold_accepts_exact_limit_and_excludes_lower_scores(self):
         chunks = [
             {"chunk_id": "a", "score": 0.73, "content": "A"},
@@ -47,6 +69,12 @@ class CorrespondenceAcceptanceTests(unittest.TestCase):
         self.assertIn("Zafer Caddesi rögar kapağı", value)
         self.assertNotIn("Ayşe Yılmaz", value)
         self.assertNotIn("ayse@example.com", value)
+
+    def test_sanitizer_labels_a_residual_phone_as_phone_not_tckn(self):
+        value = sanitize_text("Beni 05321112233 numaralı telefondan arayın.", known_values={}, field_handling={})
+        self.assertIn("{{REDACTED_PHONE_1}}", value)
+        self.assertNotIn("{{REDACTED_TCKN_1}}", value)
+        self.assertNotIn("05321112233", value)
 
     def test_no_source_guard_allows_administrative_text_and_rejects_claims(self):
         allowed = {"document_summary": "Başvuru alınmıştır.", "recommended_correspondence_type": "information_letter", "draft_text": "Başvurunuz ilgili birime iletilmiştir.", "used_source_refs": []}

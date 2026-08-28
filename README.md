@@ -58,11 +58,12 @@ frontend reverse proxy adds the USER or ADMIN demo credential for the exact
 case route being called. This is still a demo access model, not production
 authentication.
 
-The repository has no public case-list endpoint, assignee model, employee
-assignment endpoint, or priority contract. The UI therefore keeps only a
-browser-local index of case IDs it created/opened and re-fetches each selected
-case from the backend. It explicitly marks priority and personnel assignment
-as unavailable instead of deriving them. See
+The repository provides `GET /cases` as an ADMIN-only operator queue, plus a
+PostgreSQL-backed F2 first-assignment projection. Ordinary routed cases use the
+least-loaded active demo staff member in the target unit; a third same-topic
+petition or bounded aggression signal prioritizes the staff member with the
+strongest topic resolution history. The UI exposes this only to ADMIN. This is
+a local workload fixture, not production identity or HR authentication. See
 [`docs/ui-feature-matrix.md`](docs/ui-feature-matrix.md) for the audited
 backend/UI capability matrix.
 
@@ -116,6 +117,22 @@ The PowerShell wrapper provides the equivalent mock test command on Windows:
 ```powershell
 .\scripts\coreaigent.ps1 test mock
 ```
+
+### Synthetic operator demo fixture
+
+To reset only case data and repopulate the real PostgreSQL overlay with the
+competition fixture (19 synthetic cases, recurring applicants, related
+history, priority/aggression examples, waiting-for-information and manual
+review states), keep the staff registry and run:
+
+```powershell
+Get-Content scripts/seed_demo_cases.sql -Raw |
+  docker exec -i coreaigent-postgres-1 psql -U coreaigent -d coreaigent -v ON_ERROR_STOP=1
+```
+
+The fixture is synthetic and contains no real citizen data. It intentionally
+creates completed generations directly so seeding does not spend Jamba
+inference time; the operator panel can therefore be refreshed immediately.
 
 To run the real local Jamba `llm` service, pick the lane that matches the host
 GPU. Both lanes serve the same pinned `ai21labs/AI21-Jamba2-3B` snapshot behind

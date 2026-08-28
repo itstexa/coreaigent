@@ -1,11 +1,323 @@
 {
-  "corpus_version": "demo-municipality-regulations-v1",
+  "corpus_version": "demo-municipality-regulations-v2",
   "sources": [
-    {"source_id":"REG-001","title":"3071 sayılı Dilekçe Hakkının Kullanılmasına Dair Kanun","source_type":"law","official_source_url":"https://www.mevzuat.gov.tr/MevzuatMetin/1.3.3071.pdf","chunks":[{"chunk_id":"REG-001-chunk-001","locator":"Madde 7","excerpt":"Dilekçe sahiplerine başvurunun sonucu veya yapılmakta olan işlem hakkında gerekçeli cevap verilir.","content":"Dilekçe sahiplerine başvurunun sonucu veya yapılmakta olan işlem hakkında gerekçeli cevap verilir."}]},
-    {"source_id":"REG-002","title":"5393 sayılı Belediye Kanunu","source_type":"law","official_source_url":"https://www.mevzuat.gov.tr/MevzuatMetin/1.5.5393.pdf","chunks":[{"chunk_id":"REG-002-chunk-001","locator":"Madde 14","excerpt":"Belediye mahallî müşterek nitelikteki hizmetleri yapar veya yaptırır.","content":"Belediye mahallî müşterek nitelikteki hizmetleri yapar veya yaptırır."}]},
-    {"source_id":"REG-003","title":"Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik","source_type":"regulation","official_source_url":"https://www.mevzuat.gov.tr/","chunks":[{"chunk_id":"REG-003-chunk-001","locator":"Resmî yazışma usulü","excerpt":"Resmî yazışmaların usul ve esaslarını düzenler.","content":"Resmî yazışmaların usul ve esaslarını düzenler."}]},
-    {"source_id":"REG-004","title":"İşyeri Açma ve Çalışma Ruhsatlarına İlişkin Yönetmelik","source_type":"regulation","official_source_url":"https://www.mevzuat.gov.tr/","chunks":[{"chunk_id":"REG-004-chunk-001","locator":"Ruhsat işlemleri","excerpt":"İşyeri açma ve çalışma ruhsatlarına ilişkin usulü düzenler.","content":"İşyeri açma ve çalışma ruhsatlarına ilişkin usulü düzenler."}]},
-    {"source_id":"REG-005","title":"5490 sayılı Nüfus Hizmetleri Kanunu","source_type":"law","official_source_url":"https://www.mevzuat.gov.tr/MevzuatMetin/1.5.5490.pdf","chunks":[{"chunk_id":"REG-005-chunk-001","locator":"Adres kayıt sistemi","excerpt":"Adres kayıt sistemine ilişkin hükümleri düzenler.","content":"Adres kayıt sistemine ilişkin hükümleri düzenler."}]},
-    {"source_id":"REG-006","title":"2872 sayılı Çevre Kanunu","source_type":"law","official_source_url":"https://www.mevzuat.gov.tr/MevzuatMetin/1.3.2872.pdf","chunks":[{"chunk_id":"REG-006-chunk-001","locator":"Çevrenin korunması","excerpt":"Çevrenin korunmasına ilişkin esasları düzenler.","content":"Çevrenin korunmasına ilişkin esasları düzenler."}]}
+    {
+      "source_id": "REG-001",
+      "title": "3071 sayılı Dilekçe Hakkının Kullanılmasına Dair Kanun",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.3071.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-001-chunk-001",
+          "locator": "Madde 7",
+          "excerpt": "Türk vatandaşlarının ve Türkiye'de ikamet eden yabancıların kendileriyle veya kamu ile ilgili dilek ve şikâyetleri hakkında yetkili makamlara yaptıkları başvuruların sonucu veya yapılmakta olan işlemin safahatı hakkında dilekçe sahiplerine en geç otuz gün içinde gerekçeli olarak cevap verilir. İşlem safahatının duyurulması hâlinde alınan sonuç ayrıca bildirilir.",
+          "content": "3071 sayılı Dilekçe Hakkının Kullanılmasına Dair Kanun Madde 7. Türk vatandaşlarının ve Türkiye'de ikamet eden yabancıların kendileriyle veya kamu ile ilgili dilek ve şikâyetleri hakkında yetkili makamlara yaptıkları başvuruların sonucu veya yapılmakta olan işlemin safahatı hakkında dilekçe sahiplerine en geç otuz gün içinde gerekçeli olarak cevap verilir. İşlem safahatının duyurulması hâlinde alınan sonuç ayrıca bildirilir."
+        },
+        {
+          "chunk_id": "REG-001-chunk-002",
+          "locator": "Madde 4",
+          "excerpt": "Yetkili makamlara verilen veya gönderilen dilekçelerde, dilekçe sahibinin adı, soyadı ve imzası ile iş veya ikametgâh adresinin bulunması gerekir. Bu bilgileri taşımayan dilekçeler incelenemez.",
+          "content": "3071 sayılı Dilekçe Hakkının Kullanılmasına Dair Kanun Madde 4. Yetkili makamlara verilen veya gönderilen dilekçelerde, dilekçe sahibinin adı, soyadı ve imzası ile iş veya ikametgâh adresinin bulunması gerekir. Bu bilgileri taşımayan dilekçeler incelenemez."
+        },
+        {
+          "chunk_id": "REG-001-chunk-003",
+          "locator": "Madde 5",
+          "excerpt": "Yetkili olmayan bir kamu kurumuna verilen dilekçeler, ilgili kuruma gönderilir ve bu durum dilekçe sahibine yazılı olarak bildirilir.",
+          "content": "3071 sayılı Dilekçe Hakkının Kullanılmasına Dair Kanun Madde 5. Yetkili olmayan bir kamu kurumuna verilen dilekçeler, ilgili kuruma gönderilir ve bu durum dilekçe sahibine yazılı olarak bildirilir."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-002",
+      "title": "5393 sayılı Belediye Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.5393.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-002-chunk-001",
+          "locator": "Madde 14",
+          "excerpt": "Belediye, mahallî müşterek nitelikte olmak şartıyla imar, su ve kanalizasyon, ulaşım, çevre ve çevre sağlığı, temizlik ve katı atık, zabıta, itfaiye, acil yardım, şehir içi trafik, park ve yeşil alanlar, kültür ve sanat, sosyal hizmet ve yardım, ekonomi ve ticaretin geliştirilmesi hizmetlerini yapar veya yaptırır.",
+          "content": "5393 sayılı Belediye Kanunu Madde 14. Belediye, mahallî müşterek nitelikte olmak şartıyla imar, su ve kanalizasyon, ulaşım, çevre ve çevre sağlığı, temizlik ve katı atık, zabıta, itfaiye, acil yardım, şehir içi trafik, park ve yeşil alanlar, kültür ve sanat, sosyal hizmet ve yardım, ekonomi ve ticaretin geliştirilmesi hizmetlerini yapar veya yaptırır."
+        },
+        {
+          "chunk_id": "REG-002-chunk-002",
+          "locator": "Madde 15/b",
+          "excerpt": "Belediye, kanunların belediyeye verdiği yetki çerçevesinde yönetmelik çıkarmaya, emir vermeye, yasak koymaya ve uygulamaya, bunlara uymayanlar hakkında mevzuatta öngörülen ceza ve diğer yaptırımları uygulamaya yetkilidir.",
+          "content": "5393 sayılı Belediye Kanunu Madde 15/b. Belediye, kanunların belediyeye verdiği yetki çerçevesinde yönetmelik çıkarmaya, emir vermeye, yasak koymaya ve uygulamaya, bunlara uymayanlar hakkında mevzuatta öngörülen ceza ve diğer yaptırımları uygulamaya yetkilidir."
+        },
+        {
+          "chunk_id": "REG-002-chunk-003",
+          "locator": "Madde 15/c",
+          "excerpt": "Belediye, gerçek ve tüzel kişilerin faaliyetleri ile ilgili olarak kanunlarda belirtilen izin veya ruhsatı verir ve bu faaliyetleri denetler.",
+          "content": "5393 sayılı Belediye Kanunu Madde 15/c. Belediye, gerçek ve tüzel kişilerin faaliyetleri ile ilgili olarak kanunlarda belirtilen izin veya ruhsatı verir ve bu faaliyetleri denetler."
+        },
+        {
+          "chunk_id": "REG-002-chunk-004",
+          "locator": "Madde 51",
+          "excerpt": "Belediye zabıtası, beldede esenlik, huzur, sağlık ve düzenin sağlanmasıyla görevli olup bu amaçla belediye meclisi tarafından alınan ve belediye zabıtası tarafından yerine getirilmesi gereken emir ve yasaklarla bunlara uymayanlar hakkında mevzuatta öngörülen ceza ve diğer yaptırımları uygular.",
+          "content": "5393 sayılı Belediye Kanunu Madde 51. Belediye zabıtası, beldede esenlik, huzur, sağlık ve düzenin sağlanmasıyla görevli olup bu amaçla belediye meclisi tarafından alınan ve belediye zabıtası tarafından yerine getirilmesi gereken emir ve yasaklarla bunlara uymayanlar hakkında mevzuatta öngörülen ceza ve diğer yaptırımları uygular."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-003",
+      "title": "Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik",
+      "source_type": "regulation",
+      "official_source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=19825&MevzuatTur=21&MevzuatTertip=5",
+      "chunks": [
+        {
+          "chunk_id": "REG-003-chunk-001",
+          "locator": "Madde 1",
+          "excerpt": "Bu Yönetmeliğin amacı, kamu kurum ve kuruluşları arasındaki resmî yazışmalara ilişkin usul ve esasları düzenlemektir.",
+          "content": "Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik Madde 1. Bu Yönetmeliğin amacı, kamu kurum ve kuruluşları arasındaki resmî yazışmalara ilişkin usul ve esasları düzenlemektir."
+        },
+        {
+          "chunk_id": "REG-003-chunk-002",
+          "locator": "Madde 10",
+          "excerpt": "Resmî yazışmalarda kullanılacak belgede başlık, sayı, tarih, konu, muhatap, ilgi, metin, imza, ek ve dağıtım bölümleri bulunur. Konu bölümüne belgenin içeriğini yansıtacak kısa bir ifade yazılır.",
+          "content": "Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik Madde 10. Resmî yazışmalarda kullanılacak belgede başlık, sayı, tarih, konu, muhatap, ilgi, metin, imza, ek ve dağıtım bölümleri bulunur. Konu bölümüne belgenin içeriğini yansıtacak kısa bir ifade yazılır."
+        },
+        {
+          "chunk_id": "REG-003-chunk-003",
+          "locator": "Madde 12",
+          "excerpt": "Bir belgeye cevap niteliğinde hazırlanan yazılarda, cevabı verilen belgenin tarih ve sayısı ilgi bölümünde belirtilir. Metin, muhatabın anlayacağı açık ve anlaşılır bir dille yazılır.",
+          "content": "Resmî Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik Madde 12. Bir belgeye cevap niteliğinde hazırlanan yazılarda, cevabı verilen belgenin tarih ve sayısı ilgi bölümünde belirtilir. Metin, muhatabın anlayacağı açık ve anlaşılır bir dille yazılır."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-004",
+      "title": "İşyeri Açma ve Çalışma Ruhsatlarına İlişkin Yönetmelik",
+      "source_type": "regulation",
+      "official_source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=9207&MevzuatTur=21&MevzuatTertip=5",
+      "chunks": [
+        {
+          "chunk_id": "REG-004-chunk-001",
+          "locator": "Madde 6",
+          "excerpt": "Yetkili idarelerden usulüne uygun olarak işyeri açma ve çalışma ruhsatı alınmadan işyeri açılamaz ve çalıştırılamaz. İşyeri açmak isteyen gerçek veya tüzel kişiler, işyeri açma ve çalışma ruhsatı başvuru ve beyan formunu doldurarak yetkili idareye başvurur.",
+          "content": "İşyeri Açma ve Çalışma Ruhsatlarına İlişkin Yönetmelik Madde 6. Yetkili idarelerden usulüne uygun olarak işyeri açma ve çalışma ruhsatı alınmadan işyeri açılamaz ve çalıştırılamaz. İşyeri açmak isteyen gerçek veya tüzel kişiler, işyeri açma ve çalışma ruhsatı başvuru ve beyan formunu doldurarak yetkili idareye başvurur."
+        },
+        {
+          "chunk_id": "REG-004-chunk-002",
+          "locator": "Madde 13",
+          "excerpt": "Sıhhî işyerlerinde başvuru üzerine, beyana göre işyeri açma ve çalışma ruhsatı aynı gün düzenlenerek ilgiliye verilir. Ruhsatın verilmesinden sonra en geç bir ay içinde işyeri denetlenir ve mevzuata aykırılık tespit edilmesi hâlinde süre verilerek eksikliklerin giderilmesi istenir.",
+          "content": "İşyeri Açma ve Çalışma Ruhsatlarına İlişkin Yönetmelik Madde 13. Sıhhî işyerlerinde başvuru üzerine, beyana göre işyeri açma ve çalışma ruhsatı aynı gün düzenlenerek ilgiliye verilir. Ruhsatın verilmesinden sonra en geç bir ay içinde işyeri denetlenir ve mevzuata aykırılık tespit edilmesi hâlinde süre verilerek eksikliklerin giderilmesi istenir."
+        },
+        {
+          "chunk_id": "REG-004-chunk-003",
+          "locator": "Madde 5/j",
+          "excerpt": "Umuma açık istirahat ve eğlence yerlerinde ilgili mevzuatta belirlenen standartlara aykırı biçimde çevreyi rahatsız edecek şekilde gürültü çıkarılamaz; canlı müzik yayını yapılabilmesi için yetkili idarenin izni gerekir.",
+          "content": "İşyeri Açma ve Çalışma Ruhsatlarına İlişkin Yönetmelik Madde 5/j. Umuma açık istirahat ve eğlence yerlerinde ilgili mevzuatta belirlenen standartlara aykırı biçimde çevreyi rahatsız edecek şekilde gürültü çıkarılamaz; canlı müzik yayını yapılabilmesi için yetkili idarenin izni gerekir."
+        },
+        {
+          "chunk_id": "REG-004-chunk-004",
+          "locator": "Madde 8",
+          "excerpt": "Ruhsat başvurusunda istenen bilgi veya belgelerin eksik olması hâlinde ilgiliye eksiklikler bildirilir ve tamamlanması için süre verilir. Eksiklikler tamamlanmadıkça ruhsat düzenlenemez.",
+          "content": "İşyeri Açma ve Çalışma Ruhsatlarına İlişkin Yönetmelik Madde 8. Ruhsat başvurusunda istenen bilgi veya belgelerin eksik olması hâlinde ilgiliye eksiklikler bildirilir ve tamamlanması için süre verilir. Eksiklikler tamamlanmadıkça ruhsat düzenlenemez."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-005",
+      "title": "5490 sayılı Nüfus Hizmetleri Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.5490.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-005-chunk-001",
+          "locator": "Madde 48",
+          "excerpt": "Adres kayıt sistemi, Türkiye'de yerleşim yeri ve diğer adres bilgilerinin elektronik ortamda merkezî olarak tutulduğu sistemdir. Kurumlar hizmet sunumunda adres kayıt sistemindeki adres bilgilerini esas alır.",
+          "content": "5490 sayılı Nüfus Hizmetleri Kanunu Madde 48. Adres kayıt sistemi, Türkiye'de yerleşim yeri ve diğer adres bilgilerinin elektronik ortamda merkezî olarak tutulduğu sistemdir. Kurumlar hizmet sunumunda adres kayıt sistemindeki adres bilgilerini esas alır."
+        },
+        {
+          "chunk_id": "REG-005-chunk-002",
+          "locator": "Madde 50",
+          "excerpt": "Adres beyanı ile yükümlü kişiler, yerleşim yeri adresine ilişkin değişiklikleri yirmi iş günü içinde nüfus müdürlüğüne bildirmekle yükümlüdür. Bildirim, kimlik ve adres bilgilerini içeren bir beyan ile yapılır.",
+          "content": "5490 sayılı Nüfus Hizmetleri Kanunu Madde 50. Adres beyanı ile yükümlü kişiler, yerleşim yeri adresine ilişkin değişiklikleri yirmi iş günü içinde nüfus müdürlüğüne bildirmekle yükümlüdür. Bildirim, kimlik ve adres bilgilerini içeren bir beyan ile yapılır."
+        },
+        {
+          "chunk_id": "REG-005-chunk-003",
+          "locator": "Madde 51",
+          "excerpt": "Gerçeğe aykırı adres beyanında bulunanlar ile bildirim yükümlülüğünü süresi içinde yerine getirmeyenler hakkında idarî para cezası uygulanır.",
+          "content": "5490 sayılı Nüfus Hizmetleri Kanunu Madde 51. Gerçeğe aykırı adres beyanında bulunanlar ile bildirim yükümlülüğünü süresi içinde yerine getirmeyenler hakkında idarî para cezası uygulanır."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-006",
+      "title": "2872 sayılı Çevre Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.2872.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-006-chunk-001",
+          "locator": "Madde 14",
+          "excerpt": "Kişilerin huzur ve sükûnunu, beden ve ruh sağlığını bozacak şekilde ilgili yönetmeliklerle belirlenen standartlar üzerinde gürültü ve titreşim oluşturulması yasaktır. Gürültü kaynakları için ilgili idare tarafından ölçüm ve denetim yapılır.",
+          "content": "2872 sayılı Çevre Kanunu Madde 14. Kişilerin huzur ve sükûnunu, beden ve ruh sağlığını bozacak şekilde ilgili yönetmeliklerle belirlenen standartlar üzerinde gürültü ve titreşim oluşturulması yasaktır. Gürültü kaynakları için ilgili idare tarafından ölçüm ve denetim yapılır."
+        },
+        {
+          "chunk_id": "REG-006-chunk-002",
+          "locator": "Madde 20/h",
+          "excerpt": "Gürültüye ilişkin sınır değerlere aykırı davranan işletme ve işyerlerine idarî para cezası verilir; aykırılığın giderilmemesi hâlinde faaliyet durdurulabilir.",
+          "content": "2872 sayılı Çevre Kanunu Madde 20/h. Gürültüye ilişkin sınır değerlere aykırı davranan işletme ve işyerlerine idarî para cezası verilir; aykırılığın giderilmemesi hâlinde faaliyet durdurulabilir."
+        },
+        {
+          "chunk_id": "REG-006-chunk-003",
+          "locator": "Madde 12",
+          "excerpt": "Bu Kanun hükümlerine uyulup uyulmadığının denetimi, yetki devri yapılan belediyeler dâhil ilgili idarelerce yapılır. Denetim sonucu tespit edilen aykırılıklar için gerekli idarî işlem uygulanır.",
+          "content": "2872 sayılı Çevre Kanunu Madde 12. Bu Kanun hükümlerine uyulup uyulmadığının denetimi, yetki devri yapılan belediyeler dâhil ilgili idarelerce yapılır. Denetim sonucu tespit edilen aykırılıklar için gerekli idarî işlem uygulanır."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-007",
+      "title": "4982 sayılı Bilgi Edinme Hakkı Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.4982.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-007-chunk-001",
+          "locator": "Madde 4",
+          "excerpt": "Herkes bilgi edinme hakkına sahiptir. Kurum ve kuruluşlar, bu Kanunda yer alan istisnalar dışındaki her türlü bilgi veya belgeyi başvuranların yararlanmasına sunmak ve bilgi edinme başvurularını etkin, süratli ve doğru sonuçlandırmak üzere gerekli tedbirleri almakla yükümlüdür.",
+          "content": "4982 sayılı Bilgi Edinme Hakkı Kanunu Madde 4. Herkes bilgi edinme hakkına sahiptir. Kurum ve kuruluşlar, bu Kanunda yer alan istisnalar dışındaki her türlü bilgi veya belgeyi başvuranların yararlanmasına sunmak ve bilgi edinme başvurularını etkin, süratli ve doğru sonuçlandırmak üzere gerekli tedbirleri almakla yükümlüdür."
+        },
+        {
+          "chunk_id": "REG-007-chunk-002",
+          "locator": "Madde 11",
+          "excerpt": "Kurum ve kuruluşlar, başvuru üzerine istenen bilgi veya belgeye erişimi onbeş iş günü içinde sağlar. İstenen bilgi veya belgenin başvurulan kurum içindeki başka bir birimden sağlanması hâlinde bu süre otuz iş gününe kadar uzar ve gerekçesi başvurana yazılı olarak bildirilir.",
+          "content": "4982 sayılı Bilgi Edinme Hakkı Kanunu Madde 11. Kurum ve kuruluşlar, başvuru üzerine istenen bilgi veya belgeye erişimi onbeş iş günü içinde sağlar. İstenen bilgi veya belgenin başvurulan kurum içindeki başka bir birimden sağlanması hâlinde bu süre otuz iş gününe kadar uzar ve gerekçesi başvurana yazılı olarak bildirilir."
+        },
+        {
+          "chunk_id": "REG-007-chunk-003",
+          "locator": "Madde 6",
+          "excerpt": "Bilgi edinme başvurusu dilekçesinde başvuru sahibinin adı ve soyadı, imzası, oturma yeri veya iş adresi ile istenen bilgi veya belgenin niteliği bulunur. Bu bilgileri içermeyen başvurular işleme alınmaz.",
+          "content": "4982 sayılı Bilgi Edinme Hakkı Kanunu Madde 6. Bilgi edinme başvurusu dilekçesinde başvuru sahibinin adı ve soyadı, imzası, oturma yeri veya iş adresi ile istenen bilgi veya belgenin niteliği bulunur. Bu bilgileri içermeyen başvurular işleme alınmaz."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-008",
+      "title": "2464 sayılı Belediye Gelirleri Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.2464.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-008-chunk-001",
+          "locator": "Madde 1",
+          "excerpt": "Belediye vergi, harç ve katılma payları bu Kanunda gösterilen esaslara göre tarh, tahakkuk ve tahsil edilir.",
+          "content": "2464 sayılı Belediye Gelirleri Kanunu Madde 1. Belediye vergi, harç ve katılma payları bu Kanunda gösterilen esaslara göre tarh, tahakkuk ve tahsil edilir."
+        },
+        {
+          "chunk_id": "REG-008-chunk-002",
+          "locator": "Madde 77",
+          "excerpt": "İşyeri açma izni harcı, belediye sınırları içinde bir işyerinin açılması hâlinde bir defaya mahsus olmak üzere alınır. Harcın tahakkuku işyerinin alanı esas alınarak yapılır.",
+          "content": "2464 sayılı Belediye Gelirleri Kanunu Madde 77. İşyeri açma izni harcı, belediye sınırları içinde bir işyerinin açılması hâlinde bir defaya mahsus olmak üzere alınır. Harcın tahakkuku işyerinin alanı esas alınarak yapılır."
+        },
+        {
+          "chunk_id": "REG-008-chunk-003",
+          "locator": "Madde 96",
+          "excerpt": "Bu Kanunda yer alan maktu vergi ve harç tarifeleri belirlenen usule göre güncellenir; belediyeler tahakkuk ve tahsil işlemlerini yürürlükteki tarifelere göre yürütür.",
+          "content": "2464 sayılı Belediye Gelirleri Kanunu Madde 96. Bu Kanunda yer alan maktu vergi ve harç tarifeleri belirlenen usule göre güncellenir; belediyeler tahakkuk ve tahsil işlemlerini yürürlükteki tarifelere göre yürütür."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-009",
+      "title": "213 sayılı Vergi Usul Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.4.213.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-009-chunk-001",
+          "locator": "Madde 116",
+          "excerpt": "Vergi hatası, vergiye müteallik hesaplarda veya vergilendirmede yapılan hatalar yüzünden haksız yere fazla veya eksik vergi istenmesi veya alınmasıdır.",
+          "content": "213 sayılı Vergi Usul Kanunu Madde 116. Vergi hatası, vergiye müteallik hesaplarda veya vergilendirmede yapılan hatalar yüzünden haksız yere fazla veya eksik vergi istenmesi veya alınmasıdır."
+        },
+        {
+          "chunk_id": "REG-009-chunk-002",
+          "locator": "Madde 122",
+          "excerpt": "Mükellefler, vergi muamelelerindeki hataların düzeltilmesini ilgili idareden yazı ile isteyebilirler. Düzeltme talebi, hatanın tespit edilmesi hâlinde ilgili idare tarafından resen de yerine getirilir.",
+          "content": "213 sayılı Vergi Usul Kanunu Madde 122. Mükellefler, vergi muamelelerindeki hataların düzeltilmesini ilgili idareden yazı ile isteyebilirler. Düzeltme talebi, hatanın tespit edilmesi hâlinde ilgili idare tarafından resen de yerine getirilir."
+        },
+        {
+          "chunk_id": "REG-009-chunk-003",
+          "locator": "Madde 124",
+          "excerpt": "Düzeltme talebi reddolunanlar şikâyet yolu ile ilgili makama başvurabilirler.",
+          "content": "213 sayılı Vergi Usul Kanunu Madde 124. Düzeltme talebi reddolunanlar şikâyet yolu ile ilgili makama başvurabilirler."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-010",
+      "title": "5070 sayılı Elektronik İmza Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.5070.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-010-chunk-001",
+          "locator": "Madde 5",
+          "excerpt": "Güvenli elektronik imza, elle atılan imza ile aynı hukukî sonucu doğurur. Kanunların resmî şekle veya özel bir merasime tabi tuttuğu hukukî işlemler ile teminat sözleşmeleri güvenli elektronik imza ile gerçekleştirilemez.",
+          "content": "5070 sayılı Elektronik İmza Kanunu Madde 5. Güvenli elektronik imza, elle atılan imza ile aynı hukukî sonucu doğurur. Kanunların resmî şekle veya özel bir merasime tabi tuttuğu hukukî işlemler ile teminat sözleşmeleri güvenli elektronik imza ile gerçekleştirilemez."
+        },
+        {
+          "chunk_id": "REG-010-chunk-002",
+          "locator": "Madde 9",
+          "excerpt": "Elektronik sertifika hizmet sağlayıcısı, sertifika sahibinin başvurusu üzerine veya sertifikanın kullanımına ilişkin bir güvenlik sorunu tespit edilmesi hâlinde sertifikayı gecikmeksizin iptal eder ve durumu sertifika sahibine bildirir.",
+          "content": "5070 sayılı Elektronik İmza Kanunu Madde 9. Elektronik sertifika hizmet sağlayıcısı, sertifika sahibinin başvurusu üzerine veya sertifikanın kullanımına ilişkin bir güvenlik sorunu tespit edilmesi hâlinde sertifikayı gecikmeksizin iptal eder ve durumu sertifika sahibine bildirir."
+        },
+        {
+          "chunk_id": "REG-010-chunk-003",
+          "locator": "Madde 10",
+          "excerpt": "Elektronik sertifika hizmet sağlayıcısı, verdiği hizmetin sürekliliğini sağlamak, güvenli ürün ve sistemler kullanmak ve sertifika sahibini hizmete ilişkin arıza ve kesintiler hakkında bilgilendirmekle yükümlüdür.",
+          "content": "5070 sayılı Elektronik İmza Kanunu Madde 10. Elektronik sertifika hizmet sağlayıcısı, verdiği hizmetin sürekliliğini sağlamak, güvenli ürün ve sistemler kullanmak ve sertifika sahibini hizmete ilişkin arıza ve kesintiler hakkında bilgilendirmekle yükümlüdür."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-011",
+      "title": "5326 sayılı Kabahatler Kanunu",
+      "source_type": "law",
+      "official_source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/1.5.5326.pdf",
+      "chunks": [
+        {
+          "chunk_id": "REG-011-chunk-001",
+          "locator": "Madde 36",
+          "excerpt": "Başkalarının huzur ve sükûnunu bozacak şekilde gürültüye neden olan kişiye idarî para cezası verilir. Bu kabahat dolayısıyla idarî para cezasına kolluk veya belediye zabıta görevlileri karar verir.",
+          "content": "5326 sayılı Kabahatler Kanunu Madde 36. Başkalarının huzur ve sükûnunu bozacak şekilde gürültüye neden olan kişiye idarî para cezası verilir. Bu kabahat dolayısıyla idarî para cezasına kolluk veya belediye zabıta görevlileri karar verir."
+        },
+        {
+          "chunk_id": "REG-011-chunk-002",
+          "locator": "Madde 32",
+          "excerpt": "Yetkili makamlar tarafından adlî işlemler dışında verilen ve yerine getirilmesi gereken emre aykırı hareket eden kişiye idarî para cezası verilir. Bu madde ancak ilgili kanunda açıkça hüküm bulunan hâllerde uygulanabilir.",
+          "content": "5326 sayılı Kabahatler Kanunu Madde 32. Yetkili makamlar tarafından adlî işlemler dışında verilen ve yerine getirilmesi gereken emre aykırı hareket eden kişiye idarî para cezası verilir. Bu madde ancak ilgili kanunda açıkça hüküm bulunan hâllerde uygulanabilir."
+        }
+      ]
+    },
+    {
+      "source_id": "REG-012",
+      "title": "Kamu Hizmetlerinin Sunumunda Uyulacak Usul ve Esaslara İlişkin Yönetmelik",
+      "source_type": "regulation",
+      "official_source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=200915169&MevzuatTur=3&MevzuatTertip=5",
+      "chunks": [
+        {
+          "chunk_id": "REG-012-chunk-001",
+          "locator": "Madde 5",
+          "excerpt": "İdare, hizmet sunumunda başvuru sahibinden istenen bilgi ve belgeleri asgarîye indirir, başka idarelerin elinde bulunan bilgi ve belgeleri başvurandan istemez ve başvurunun hangi aşamada olduğunu ilgilisine bildirir.",
+          "content": "Kamu Hizmetlerinin Sunumunda Uyulacak Usul ve Esaslara İlişkin Yönetmelik Madde 5. İdare, hizmet sunumunda başvuru sahibinden istenen bilgi ve belgeleri asgarîye indirir, başka idarelerin elinde bulunan bilgi ve belgeleri başvurandan istemez ve başvurunun hangi aşamada olduğunu ilgilisine bildirir."
+        },
+        {
+          "chunk_id": "REG-012-chunk-002",
+          "locator": "Madde 6",
+          "excerpt": "İdare, hizmetlerin elektronik ortamda sunumunda erişilebilirliği ve sürekliliği sağlamak, sistem kesintisi hâlinde başvuru sahiplerini bilgilendirmek ve alternatif başvuru kanalı sunmakla yükümlüdür.",
+          "content": "Kamu Hizmetlerinin Sunumunda Uyulacak Usul ve Esaslara İlişkin Yönetmelik Madde 6. İdare, hizmetlerin elektronik ortamda sunumunda erişilebilirliği ve sürekliliği sağlamak, sistem kesintisi hâlinde başvuru sahiplerini bilgilendirmek ve alternatif başvuru kanalı sunmakla yükümlüdür."
+        },
+        {
+          "chunk_id": "REG-012-chunk-003",
+          "locator": "Madde 8",
+          "excerpt": "Başvuru üzerine yapılan iş ve işlemler öngörülen sürede tamamlanır; süre uzatımı gerektiren hâllerde gerekçesi başvurana bildirilir.",
+          "content": "Kamu Hizmetlerinin Sunumunda Uyulacak Usul ve Esaslara İlişkin Yönetmelik Madde 8. Başvuru üzerine yapılan iş ve işlemler öngörülen sürede tamamlanır; süre uzatımı gerektiren hâllerde gerekçesi başvurana bildirilir."
+        }
+      ]
+    }
   ]
 }

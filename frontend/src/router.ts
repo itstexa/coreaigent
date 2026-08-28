@@ -17,6 +17,7 @@ export type Route =
   | { kind: "petition" }
   | { kind: "thanks"; reference: string }
   | { kind: "panel-overview" }
+  | { kind: "panel-queue" }
   | { kind: "panel-intake" }
   | { kind: "panel-case"; caseId: string };
 
@@ -24,6 +25,7 @@ export const PATHS = {
   landing: "/",
   petition: "/dilekce",
   panel: "/panel",
+  panelQueue: "/panel/dosyalar",
   panelIntake: "/panel/yeni",
 } as const;
 
@@ -56,6 +58,7 @@ export function parseRoute(pathname: string): Route {
   }
   if (parts[0] === "panel") {
     if (parts.length === 1) return { kind: "panel-overview" };
+    if (parts[1] === "dosyalar" && parts.length === 2) return { kind: "panel-queue" };
     if (parts[1] === "yeni") return { kind: "panel-intake" };
     if (parts[1] === "dosya" && parts.length === 3) return { kind: "panel-case", caseId: parts[2] };
     return { kind: "panel-overview" };

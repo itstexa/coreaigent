@@ -17,6 +17,7 @@ services:
       dockerfile: Dockerfile
     image: coreaigent/classification:local
     command: ["python", "worker.py"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
       TAXONOMY_PATH: /app/taxonomy.json

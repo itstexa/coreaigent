@@ -21,7 +21,6 @@ import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { apiErrorMessage, revisionFrom, runIntake, supplementCase, type IntakeProgress } from "./api";
 import {
-  AUTHORITY,
   MIN_TEXT_LENGTH,
   PETITION_CHANNEL,
   SAMPLES,
@@ -106,7 +105,7 @@ const COMPLETION_LABELS: Record<ValidationResult["completionStatus"], string> = 
  * anlatılması beklenen üç şey örnek olarak durur; metnin tamamı silinebilir,
  * portal bu ipuçlarının hiçbirini dilekçeye eklemez.
  */
-const PLACEHOLDER = `Demo Belediye Başkanlığına,
+const PLACEHOLDER = `İlgili Birime,
 
 Talebinizi kendi cümlelerinizle anlatın: neyin, nerede ve ne zaman olduğunu, kurumdan ne istediğinizi yazın. Adınızı, T.C. kimlik numaranızı ve ulaşılabilir telefonunuzu da eklerseniz dosyanız daha hızlı ilerler.
 
@@ -346,7 +345,7 @@ export function PetitionForm() {
     <div className="portal">
       <header className="portal-header">
         <div className="brand-mark"><Sparkles size={17} /></div>
-        <div><strong>Demo Belediye Başkanlığı</strong><small>Vatandaş e-Dilekçe Portalı</small></div>
+        <div><strong>CoreAIgent</strong><small>Dilekçe Analiz Akışı</small></div>
         <button className="portal-back" onClick={() => navigate(PATHS.landing)}>
           <ArrowLeft size={15} /> Ana sayfa
         </button>
@@ -594,10 +593,10 @@ export function PetitionForm() {
               <div className="portal-card">
                 <h3><FileSearch size={16} /> Bu dilekçede</h3>
                 <div className="portal-summary">
-                  <div><span>Kurum</span><strong>{AUTHORITY}</strong></div>
+                  <div><span>Sistem</span><strong>CoreAIgent</strong></div>
                   <div><span>Karakter</span><strong>{length}</strong></div>
                   <div><span>Kayıt başlığı</span><strong>{length ? petitionTitle(text) : "—"}</strong></div>
-                  <div><span>Kanal</span><strong>Vatandaş e-Dilekçe</strong></div>
+                  <div><span>Kanal</span><strong>Doğrudan dilekçe</strong></div>
                   {record?.state && <div><span>Dosya durumu</span><strong>{record.state}</strong></div>}
                 </div>
               </div>

@@ -31,7 +31,7 @@ export const QUEUE_FILTERS: Array<{ value: string; label: string; short: string 
 export type QueueCounts = Record<string, number>;
 
 export const CHANNEL_LABELS: Record<string, string> = {
-  "citizen-portal": "Vatandaş portalı",
+  "citizen-portal": "Dilekçe ekranı",
   "operator-console": "Operatör",
 };
 

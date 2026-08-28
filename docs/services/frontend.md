@@ -13,7 +13,7 @@ container that fronts it and reaches the services.
 | Surface | Path | Entry component |
 | --- | --- | --- |
 | Public landing | `/` | `frontend/src/Landing.tsx` |
-| Citizen petition portal | `/dilekce`, `/dilekce/tesekkurler/:ref` | `PetitionForm.tsx`, `PetitionThanks.tsx` |
+| Dilekçe analiz ekranı | `/dilekce`, `/dilekce/tesekkurler/:ref` | `PetitionForm.tsx`, `PetitionThanks.tsx` |
 | Operator panel | `/panel`, `/panel/yeni`, `/panel/dosya/:caseId` | `App.tsx` |
 
 Routes are derived from the URL in `frontend/src/router.ts`; there is no second
@@ -78,6 +78,18 @@ answer as a real one is the one thing the project rules forbid outright.
 4. Write actions (supplemental information, correspondence start, review
    completion) send `Idempotency-Key` and `If-Match`; the client surfaces
    `412`/`428`/`409` rather than retrying blindly.
+
+## Product language and visual boundary
+
+The public entry point is **CoreAIgent Dilekçe Analiz Sistemi**, not an
+e-Devlet or municipal-login imitation. Its primary action is writing a
+petition as free text; it does not promise binary upload, an OCR scan, account
+login, e-mail delivery, or a final administrative decision. The operator panel
+uses the same CoreAIgent visual system and shows F2's ADMIN-only local first
+assignment when a routed case has an active unit staff member. Ordinary cases
+are load-balanced; repeated or bounded behavior-signal cases also show the
+topic-resolution policy and its counters. This is a demo workload registry,
+not production identity/authentication.
 
 ## Failure behaviour
 

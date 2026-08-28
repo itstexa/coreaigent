@@ -12,7 +12,10 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "services" / "workflow"))
 
-from app import CASE_LIST_SQL, case_document_item, case_list_bounds, case_list_item  # noqa: E402
+from app import (  # noqa: E402
+    CASE_LIST_SQL, applicant_identity, case_document_item, case_list_bounds,
+    case_list_item, related_case_item, text_similarity_score,
+)
 
 
 SCHEMA = Draft202012Validator(json.loads((ROOT / "contracts/schemas/case-list-result.schema.json").read_text(encoding="utf-8")))
@@ -28,6 +31,9 @@ def row(**overrides):
         "state": "completed",
         "completed_steps": ["F-01", "F-02", "F-03", "F-04", "F-05"],
         "last_error_code": None,
+        "priority_level": "normal",
+        "priority_score": 40,
+        "priority_reason": "Öncelik sinyali bulunmadı",
         "updated_at": UPDATED,
         "completion_status": "complete",
         "document_id": "doc-1",
@@ -61,6 +67,7 @@ class CaseListItemTests(unittest.TestCase):
         self.assertEqual(item["channel"], "citizen-portal")
         self.assertEqual(item["updated_at"], "2026-08-27T09:30:00+00:00")
         self.assertEqual(item["classification_confidence"], 1.0)
+        self.assertEqual(item["priority"], {"level": "normal", "score": 40, "reason": "Öncelik sinyali bulunmadı"})
         self.assertIn("konu sinyalinden", item["classification_reason"])
 
     def test_numeric_confidence_is_json_serialisable(self):
@@ -107,6 +114,10 @@ class CaseListItemTests(unittest.TestCase):
     def test_non_string_metadata_is_not_rendered_as_a_title(self):
         self.assertIsNone(case_list_item(row(source_metadata={"title": 12, "channel": []}))["title"])
 
+    def test_priority_is_projected_as_stored_not_recomputed_in_the_api(self):
+        item = case_list_item(row(priority_level="critical", priority_score=100, priority_reason="Gaz kaçağı riski"))
+        self.assertEqual(item["priority"], {"level": "critical", "score": 100, "reason": "Gaz kaçağı riski"})
+
 
 class CaseListBoundsTests(unittest.TestCase):
     def test_default_window(self):
@@ -124,6 +135,24 @@ class CaseListBoundsTests(unittest.TestCase):
         self.assertEqual(case_list_bounds(None, None), (25, 0))
 
 
+class RelatedCaseTests(unittest.TestCase):
+    def test_same_applicant_key_ignores_turkish_case_and_whitespace(self):
+        self.assertEqual(applicant_identity({"applicant-name": {"value": "  Ayşe  IŞIK "}}), "ayse isik")
+        self.assertIsNone(applicant_identity({}))
+
+    def test_similarity_threshold_has_an_exact_inclusive_boundary(self):
+        self.assertEqual(text_similarity_score("bir iki ucx dort bes", "bir"), 20)
+        self.assertEqual(text_similarity_score("bir iki ucx dort bes", "bir alti"), 17)
+        self.assertEqual(text_similarity_score("", "bir iki"), 0)
+
+    def test_related_item_exposes_status_but_not_the_petition_or_identity(self):
+        item = related_case_item(("case-2", "DOC-2", "completed", CREATED, {"title": "Eski bildirim"}), 60)
+        self.assertEqual(item["resolved"], True)
+        self.assertEqual(item["similarity_score"], 60)
+        self.assertNotIn("text", item)
+        self.assertNotIn("applicant_name", item)
+
+
 class CaseListQueryTests(unittest.TestCase):
     """The queue must not drop a case, and must not lock rows it only reads."""
 
@@ -138,6 +167,10 @@ class CaseListQueryTests(unittest.TestCase):
 
     def test_read_only_projection_takes_no_row_locks(self):
         self.assertNotIn("FOR UPDATE", CASE_LIST_SQL.upper())
+
+    def test_queue_read_sorts_priority_before_newness(self):
+        source = (ROOT / "services/workflow/app.py").read_text(encoding="utf-8")
+        self.assertIn("ORDER BY cs.priority_score DESC,cs.updated_at DESC,cs.case_id", source)
 
     def test_routing_is_joined_on_the_projected_revision_only(self):
         sql = " ".join(CASE_LIST_SQL.split())

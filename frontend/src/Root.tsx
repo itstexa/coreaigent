@@ -31,6 +31,8 @@ export function Root() {
       return <PetitionThanks reference={route.reference} />;
     case "panel-overview":
       return <App view="overview" caseId={null} />;
+    case "panel-queue":
+      return <App view="queue" caseId={null} />;
     case "panel-intake":
       return <App view="new" caseId={null} />;
     case "panel-case":

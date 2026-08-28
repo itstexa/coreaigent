@@ -7,16 +7,20 @@ import json
 import os
 import re
 import uuid
+from pathlib import Path
 
 import psycopg
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from psycopg.types.json import Jsonb
 
+from correspondence import RETRIEVAL_CONFIG_VERSION, sanitize_learning_fields, sanitize_text
+from assignment import behavior_signals
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 AUTH_TOKEN = os.environ.get("CASE_ACCESS_TOKEN", "")
 ADMIN_TOKEN = os.environ.get("CASE_ADMIN_TOKEN", "")
-CORPUS_VERSION = "demo-municipality-regulations-v1"
+CORPUS_VERSION = "demo-municipality-regulations-v2"
 PROMPT_SCHEMA_VERSION = "f04-correspondence-v1"
 
 SCHEMA_SQL = """
@@ -58,6 +62,44 @@ CREATE TABLE IF NOT EXISTS routing_operations (
  routing_reason jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now(), routed_at timestamptz NULL,
  UNIQUE (case_id, source_case_revision)
 );
+CREATE TABLE IF NOT EXISTS staff_members (
+ staff_id text PRIMARY KEY, display_name text NOT NULL, role text NOT NULL CHECK (role IN ('operator','moderator','admin')),
+ unit_id text NOT NULL, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS case_assignments (
+ assignment_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
+ unit_id text NOT NULL, request_type_id text NULL, staff_id text NULL REFERENCES staff_members(staff_id), display_name text NULL, role text NULL,
+ selection_reason jsonb NOT NULL DEFAULT '{}'::jsonb,
+ assignment_status text NOT NULL CHECK (assignment_status IN ('assigned','unassigned','completed')),
+ assigned_at timestamptz NULL, completed_at timestamptz NULL, created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE (case_id, source_case_revision)
+);
+ALTER TABLE case_assignments ADD COLUMN IF NOT EXISTS request_type_id text NULL;
+ALTER TABLE case_assignments ADD COLUMN IF NOT EXISTS selection_reason jsonb NOT NULL DEFAULT '{}'::jsonb;
+DO $$ BEGIN
+ IF to_regclass('public.current_validation_states') IS NOT NULL THEN
+  UPDATE case_assignments a
+  SET request_type_id = s.request_type_id
+  FROM current_validation_states s
+  WHERE a.request_type_id IS NULL
+    AND a.case_id = s.case_id
+    AND a.source_case_revision = s.revision;
+ END IF;
+END $$;
+INSERT INTO staff_members (staff_id,display_name,role,unit_id) VALUES
+ ('beyaz-masa-operator-1','Beyaz Masa Operatörü 1','operator','beyaz-masa'),
+ ('beyaz-masa-operator-2','Beyaz Masa Operatörü 2','moderator','beyaz-masa'),
+ ('dijital-hizmetler-operator-1','Dijital Hizmetler Operatörü 1','operator','dijital-hizmetler'),
+ ('dijital-hizmetler-operator-2','Dijital Hizmetler Operatörü 2','moderator','dijital-hizmetler'),
+ ('gelir-tahakkuk-operator-1','Gelir ve Tahakkuk Operatörü 1','operator','gelir-tahakkuk'),
+ ('gelir-tahakkuk-operator-2','Gelir ve Tahakkuk Operatörü 2','moderator','gelir-tahakkuk'),
+ ('ruhsat-operator-1','Ruhsat Operatörü 1','operator','ruhsat'),
+ ('ruhsat-operator-2','Ruhsat Operatörü 2','moderator','ruhsat'),
+ ('denetim-operator-1','Denetim Operatörü 1','operator','denetim'),
+ ('denetim-operator-2','Denetim Operatörü 2','moderator','denetim'),
+ ('siniflandirilmamis-operator-1','Genel Başvuru Operatörü 1','operator','siniflandirilmamis'),
+ ('siniflandirilmamis-operator-2','Genel Başvuru Operatörü 2','moderator','siniflandirilmamis')
+ ON CONFLICT (staff_id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS routing_jobs (
  job_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
  source_generation_id uuid NULL REFERENCES correspondence_generations(generation_id), recovery_reason text NULL,
@@ -82,8 +124,33 @@ CREATE TABLE IF NOT EXISTS current_case_states (
  case_id uuid PRIMARY KEY, revision bigint NOT NULL CHECK (revision > 0),
  state text NOT NULL CHECK (state IN ('received','normalized','classified','needs_review','extracting','waiting_for_user','ready_for_processing','draft_prepared','routed','notification_pending','completed','failed')),
  completed_steps jsonb NOT NULL DEFAULT '[]'::jsonb, last_error_code text NULL,
+ priority_level text NOT NULL DEFAULT 'normal' CHECK (priority_level IN ('critical','high','normal')),
+ priority_score smallint NOT NULL DEFAULT 40 CHECK (priority_score IN (40,70,100)), priority_reason text NOT NULL DEFAULT 'Öncelik sinyali bulunmadı',
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE current_case_states ADD COLUMN IF NOT EXISTS priority_level text NOT NULL DEFAULT 'normal';
+ALTER TABLE current_case_states ADD COLUMN IF NOT EXISTS priority_score smallint NOT NULL DEFAULT 40;
+ALTER TABLE current_case_states ADD COLUMN IF NOT EXISTS priority_reason text NOT NULL DEFAULT 'Öncelik sinyali bulunmadı';
+CREATE TABLE IF NOT EXISTS case_tickets (
+ case_id uuid PRIMARY KEY, ticket_reference text NOT NULL UNIQUE,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ CHECK (ticket_reference ~ '^CA-[0-9A-F]{8}$')
+);
+CREATE TABLE IF NOT EXISTS case_action_log (
+ action_id bigserial PRIMARY KEY, case_id uuid NOT NULL REFERENCES case_tickets(case_id),
+ action_type text NOT NULL CHECK (action_type='state_projected'),
+ actor text NOT NULL CHECK (actor='system'), facts jsonb NOT NULL DEFAULT '{}'::jsonb,
+ occurred_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS case_action_log_case_time_idx ON case_action_log(case_id, action_id);
+CREATE OR REPLACE FUNCTION case_action_log_is_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION 'case_action_log is immutable'; END $$;
+DROP TRIGGER IF EXISTS case_action_log_no_mutation ON case_action_log;
+CREATE TRIGGER case_action_log_no_mutation BEFORE UPDATE OR DELETE ON case_action_log
+ FOR EACH ROW EXECUTE FUNCTION case_action_log_is_immutable();
+INSERT INTO case_tickets (case_id,ticket_reference)
+ SELECT case_id,'CA-' || upper(substr(replace(case_id::text,'-',''),1,8)) FROM current_case_states
+ ON CONFLICT (case_id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS correspondence_start_jobs (
  job_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
  state text NOT NULL CHECK (state IN ('pending','claimed','waiting','completed','failed')),
@@ -101,6 +168,12 @@ CREATE TABLE IF NOT EXISTS case_notifications (
 CREATE TABLE IF NOT EXISTS review_completion_replays (
  case_id uuid NOT NULL, idempotency_key uuid NOT NULL, source_case_revision bigint NOT NULL,
  response_body jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (case_id,idempotency_key)
+);
+CREATE TABLE IF NOT EXISTS learning_feedback (
+ feedback_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
+ document_id text NOT NULL, request_type_id text NOT NULL, sanitized_text text NOT NULL,
+ validated_fields jsonb NOT NULL DEFAULT '{}'::jsonb, status text NOT NULL DEFAULT 'candidate' CHECK (status IN ('candidate','exported')),
+ created_at timestamptz NOT NULL DEFAULT now(), UNIQUE (case_id, source_case_revision)
 );
 """
 
@@ -163,10 +236,36 @@ def _case_uuid(case_id):
         return None, nested_error(400, "CASE_ID_INVALID", "case_id must be a UUID")
 
 
+def ticket_reference(case_id):
+    """Stable local ticket label; it is not an external helpdesk identifier."""
+    return "CA-" + str(case_id).replace("-", "")[:8].upper()
+
+
+def action_log_item(row):
+    """Project only the allowlisted, non-PII facts of an immutable F0 action."""
+    action_id, action_type, actor, facts, occurred_at = row
+    if action_type != "state_projected":
+        raise ValueError("unrecognised action type")
+    values = facts if isinstance(facts, dict) else {}
+    revision = values.get("revision")
+    return {
+        "action_id": action_id,
+        "type": action_type,
+        "actor": actor,
+        "state": values.get("state") if isinstance(values.get("state"), str) else None,
+        "case_revision": revision if isinstance(revision, int) and revision > 0 else None,
+        "completed_steps": values.get("completed_steps") if isinstance(values.get("completed_steps"), list) and all(isinstance(step, str) for step in values["completed_steps"]) else [],
+        "last_error_code": values.get("last_error_code") if isinstance(values.get("last_error_code"), str) else None,
+        "occurred_at": occurred_at.isoformat(),
+    }
+
+
 # The applicant is named by whichever field the request type's schema defines
 # for it; the admin list shows one column, so the first present key wins.
 APPLICANT_NAME_KEYS = ("applicant-name", "business-name", "supplier-name")
 CASE_LIST_MAX_LIMIT = 100
+RELATED_CASE_LIMIT = 5
+RELATED_CASE_THRESHOLD = 20
 
 
 def _accepted_value(accepted_fields, key):
@@ -185,6 +284,32 @@ def _applicant_name(accepted_fields):
     return None
 
 
+def _fold_text(value):
+    return (value or "").lower().translate(str.maketrans("ığüşöç", "igusoc"))
+
+
+def applicant_identity(accepted_fields):
+    """A local comparison key, never returned to a caller."""
+    value = _applicant_name(accepted_fields)
+    return " ".join(_fold_text(value).split()) if value else None
+
+
+def text_similarity_score(reference, candidate):
+    """Deterministic token overlap for F3 history; no model or raw-text response."""
+    left = set(re.findall(r"[a-z0-9]{3,}", _fold_text(reference)))
+    right = set(re.findall(r"[a-z0-9]{3,}", _fold_text(candidate)))
+    return 0 if not left or not right else round(100 * len(left & right) / len(left | right))
+
+
+def related_case_item(row, score):
+    case_id, document_id, state, created_at, source_metadata = row
+    return {
+        "case_id": str(case_id), "document_id": document_id, "state": state,
+        "resolved": state == "completed", "submitted_at": created_at.isoformat(),
+        "similarity_score": score, "title": _metadata_text(source_metadata, "title"),
+    }
+
+
 def _metadata_text(metadata, key):
     value = (metadata or {}).get(key)
     return value if isinstance(value, str) and value else None
@@ -198,7 +323,7 @@ def case_list_item(row):
     projection but validation never ran -- still lists with null field values
     instead of being dropped from the operator's queue.
     """
-    (case_id, revision, state, completed_steps, last_error_code, updated_at, completion_status,
+    (case_id, revision, state, completed_steps, last_error_code, priority_level, priority_score, priority_reason, updated_at, completion_status,
      document_id, request_type_id, accepted_fields, department_id, department_label, unit_id,
      unit_label, request_type_label, classification_status, confidence, routing_status,
      created_at, language, source_metadata, classification_reason) = row
@@ -208,6 +333,7 @@ def case_list_item(row):
         "state": state,
         "completed_steps": completed_steps or [],
         "last_error_code": last_error_code,
+        "priority": {"level": priority_level, "score": priority_score, "reason": priority_reason},
         "updated_at": updated_at.isoformat(),
         "validation_status": completion_status,
         "routing_status": routing_status or "not_routed",
@@ -270,7 +396,7 @@ def case_list_bounds(limit, offset):
 
 
 CASE_LIST_SQL = (
-    "SELECT cs.case_id,cs.revision,cs.state,cs.completed_steps,cs.last_error_code,cs.updated_at,"
+    "SELECT cs.case_id,cs.revision,cs.state,cs.completed_steps,cs.last_error_code,cs.priority_level,cs.priority_score,cs.priority_reason,cs.updated_at,"
     "s.completion_status,COALESCE(s.document_id,c.document_id),COALESCE(s.request_type_id,c.request_type_id),"
     "s.accepted_fields,c.department_id,c.department_label,c.unit_id,c.unit_label,c.request_type_label,"
     "c.status,c.confidence,r.routing_status,i.created_at,i.language,i.source_metadata,c.classification_reason "
@@ -337,7 +463,7 @@ def create_app():
         try:
             with psycopg.connect(DATABASE_URL) as db:
                 total = db.execute("SELECT count(*) FROM (" + CASE_LIST_SQL + where + ") AS matched", params).fetchone()[0]
-                rows = db.execute(CASE_LIST_SQL + where + " ORDER BY cs.updated_at DESC,cs.case_id LIMIT %s OFFSET %s", params + [size, start]).fetchall()
+                rows = db.execute(CASE_LIST_SQL + where + " ORDER BY cs.priority_score DESC,cs.updated_at DESC,cs.case_id LIMIT %s OFFSET %s", params + [size, start]).fetchall()
         except psycopg.Error:
             return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
         return {"total": total, "limit": size, "offset": start, "cases": [case_list_item(row) for row in rows]}
@@ -380,7 +506,7 @@ def create_app():
                 if state[3] != "complete":
                     return nested_error(409, "CASE_NOT_READY_FOR_CORRESPONDENCE", "Case requires additional or corrected information.", case_state="waiting_for_user", completion_status=state[3])
                 generation, job = uuid.uuid4(), uuid.uuid4()
-                cur.execute("INSERT INTO correspondence_generations (generation_id,case_id,document_id,workflow_id,source_case_revision,request_type_id,department_label,unit_label,corpus_version,retrieval_config_version,prompt_schema_version,validated_fields,generation_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'municipality-rag-v1',%s,%s,'queued')", (generation, case, state[0], state[1], expected_revision, state[2], state[5], state[6], CORPUS_VERSION, PROMPT_SCHEMA_VERSION, Jsonb(state[7])))
+                cur.execute("INSERT INTO correspondence_generations (generation_id,case_id,document_id,workflow_id,source_case_revision,request_type_id,department_label,unit_label,corpus_version,retrieval_config_version,prompt_schema_version,validated_fields,generation_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'queued')", (generation, case, state[0], state[1], expected_revision, state[2], state[5], state[6], CORPUS_VERSION, RETRIEVAL_CONFIG_VERSION, PROMPT_SCHEMA_VERSION, Jsonb(state[7])))
                 cur.execute("INSERT INTO correspondence_generation_jobs (job_id,generation_id,state) VALUES (%s,%s,'pending')", (job, generation))
                 cur.execute("UPDATE current_validation_states SET current_correspondence_generation_id=%s WHERE case_id=%s AND revision=%s", (generation, case, expected_revision))
                 response = {"case_id": case_id, "job_id": str(job), "case_revision": expected_revision, "generation_status": "queued"}
@@ -472,6 +598,49 @@ def create_app():
             return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
         return case_document_item(case_id, record)
 
+    @app.get("/cases/{case_id}/related-cases")
+    def related_cases(case_id: str, request: Request):
+        """ADMIN-only, bounded same-applicant history without returning petition bodies."""
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                current = db.execute(
+                    "SELECT i.original_text,s.accepted_fields FROM intake_records i "
+                    "LEFT JOIN current_validation_states s ON s.case_id=i.case_id WHERE i.case_id=%s", (case,),
+                ).fetchone()
+                if not current:
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                identity = applicant_identity(current[1])
+                if not identity:
+                    return {"case_id": case_id, "history_scope": "unavailable", "similar_count": 0, "related_cases": []}
+                rows = db.execute(
+                    "SELECT cs.case_id,i.document_id,cs.state,i.created_at,i.source_metadata,i.original_text,s.accepted_fields "
+                    "FROM current_case_states cs JOIN intake_records i ON i.case_id=cs.case_id "
+                    "LEFT JOIN current_validation_states s ON s.case_id=cs.case_id "
+                    "WHERE cs.case_id<>%s ORDER BY i.created_at DESC LIMIT 200", (case,),
+                ).fetchall()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        matched = []
+        for candidate in rows:
+            if applicant_identity(candidate[6]) != identity:
+                continue
+            score = text_similarity_score(current[0], candidate[5])
+            if score >= RELATED_CASE_THRESHOLD:
+                matched.append((candidate, score))
+        matched.sort(key=lambda item: (-item[1], item[0][3], str(item[0][0])))
+        return {
+            "case_id": case_id, "history_scope": "same_validated_applicant", "similar_count": len(matched),
+            "related_cases": [related_case_item(item[:5], score) for item, score in matched[:RELATED_CASE_LIMIT]],
+        }
+
     @app.get("/cases/{case_id}")
     def case_status(case_id: str, request: Request):
         role = _role(request)
@@ -490,16 +659,92 @@ def create_app():
                 route_status = db.execute("SELECT routing_status FROM routing_operations WHERE case_id=%s AND source_case_revision=%s", (case, state[0])).fetchone()
                 response = {"case_id": case_id, "case_revision": state[0], "state": state[1], "completed_steps": state[2], "last_error_code": state[3], "updated_at": state[4].isoformat(), "validation_status": validation[0] if validation else None, "routing_status": route_status[0] if route_status else "not_routed", "applicant_notifications": [{"kind": row[0], "payload": row[1], "created_at": row[2].isoformat()} for row in notices]}
                 if role == "ADMIN":
-                    details = db.execute("SELECT s.accepted_fields,c.department_id,c.unit_id,c.request_type_id,g.document_summary,g.draft_text FROM current_validation_states s JOIN current_classifications c USING(document_id) LEFT JOIN correspondence_generations g ON g.generation_id=s.current_correspondence_generation_id WHERE s.case_id=%s", (case,)).fetchone()
+                    details = db.execute("SELECT s.accepted_fields,c.department_id,c.unit_id,c.request_type_id,g.document_summary,g.draft_text,i.normalized_text,i.language FROM current_validation_states s JOIN current_classifications c USING(document_id) JOIN intake_records i USING(document_id) LEFT JOIN correspondence_generations g ON g.generation_id=s.current_correspondence_generation_id WHERE s.case_id=%s", (case,)).fetchone()
                     route = db.execute("SELECT target_department_id,target_unit_id FROM routing_operations WHERE case_id=%s AND source_case_revision=%s", (case, state[0])).fetchone()
                     unit_notice = db.execute("SELECT payload FROM notification_records n JOIN routing_operations r USING(routing_id) WHERE r.case_id=%s AND r.source_case_revision=%s AND n.audience='target_unit'", (case, state[0])).fetchone()
                     if details:
                         response["operational_context"] = {"validated_fields": details[0], "department_id": details[1], "unit_id": details[2], "request_type_id": details[3], "document_summary": details[4], "draft_text": details[5]}
+                        response["behavior_signal"] = behavior_signals(details[6], source_language=details[7])
                     response["routing"] = None if not route else {"target_department_id": route[0], "target_unit_id": route[1]}
                     response["target_unit_notification"] = None if not unit_notice else unit_notice[0]
+                    assignment = db.execute(
+                        "SELECT a.assignment_status,a.unit_id,a.staff_id,a.display_name,a.role,"
+                        "(SELECT COUNT(*) FROM case_assignments open_a WHERE open_a.staff_id=a.staff_id AND open_a.assignment_status='assigned'),a.selection_reason "
+                        "FROM case_assignments a WHERE a.case_id=%s AND a.source_case_revision=%s",
+                        (case, state[0]),
+                    ).fetchone()
+                    response["assignment"] = None if not assignment else {
+                        "status": assignment[0], "unit_id": assignment[1], "staff_id": assignment[2],
+                        "display_name": assignment[3], "role": assignment[4], "open_assignment_count": assignment[5] or 0,
+                        "selection_reason": assignment[6] or {},
+                    }
+                    # The assignment policy has the authoritative bounded
+                    # history counts (same applicant/topic) used for F2. Keep
+                    # the visible behavior card consistent with that decision
+                    # instead of showing a fresh-text-only repeat count.
+                    if response.get("behavior_signal") and assignment and isinstance(assignment[6], dict):
+                        for key in ("repeat_count", "marker_count", "aggression_level", "aggression_score", "priority_mode"):
+                            if key in assignment[6]:
+                                response["behavior_signal"][key] = assignment[6][key]
+                    ticket = db.execute("SELECT ticket_reference,created_at FROM case_tickets WHERE case_id=%s", (case,)).fetchone()
+                    actions = db.execute("SELECT action_id,action_type,actor,facts,occurred_at FROM case_action_log WHERE case_id=%s ORDER BY action_id", (case,)).fetchall()
+                    # A pre-F0 case can have a ticket backfilled during schema
+                    # setup but no invented historical action rows.
+                    response["ticket"] = {"reference": ticket[0], "created_at": ticket[1].isoformat()} if ticket else None
+                    response["action_log"] = [action_log_item(row) for row in actions]
+                    feedback = db.execute("SELECT feedback_id,status,created_at FROM learning_feedback WHERE case_id=%s AND source_case_revision=%s", (case, state[0])).fetchone()
+                    response["learning_feedback"] = None if not feedback else {"feedback_id": str(feedback[0]), "status": feedback[1], "created_at": feedback[2].isoformat()}
         except psycopg.Error:
             return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
         return response
+
+    @app.post("/cases/{case_id}/learning-feedback")
+    async def create_learning_feedback(case_id: str, request: Request):
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        try:
+            case = uuid.UUID(case_id)
+        except ValueError:
+            return nested_error(400, "CASE_ID_INVALID", "case_id must be a UUID")
+        _key, revision, bad = _headers(request)
+        if bad:
+            return bad
+        if await request.body():
+            return nested_error(400, "REQUEST_BODY_INVALID", "Body must be empty")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                cur.execute("SELECT feedback_id,status,created_at FROM learning_feedback WHERE case_id=%s AND source_case_revision=%s", (case, revision))
+                existing = cur.fetchone()
+                if existing:
+                    return {"case_id": case_id, "case_revision": revision, "feedback_id": str(existing[0]), "status": existing[1], "created_at": existing[2].isoformat()}
+                cur.execute(
+                    "SELECT cs.state,s.revision,s.completion_status,s.accepted_fields,s.request_type_id,i.document_id,i.normalized_text "
+                    "FROM current_case_states cs JOIN current_validation_states s USING(case_id) JOIN intake_records i USING(document_id) "
+                    "WHERE cs.case_id=%s AND cs.revision=%s FOR UPDATE OF cs,s",
+                    (case, revision),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return nested_error(412, "CASE_REVISION_CONFLICT", "If-Match does not match current case revision")
+                if row[0] != "completed" or row[2] != "complete":
+                    return nested_error(409, "CASE_NOT_READY_FOR_LEARNING", "Only a completed case with complete validation can become a learning candidate")
+                policy = json.loads(Path(__file__).with_name("f04_pii_policy.json").read_text(encoding="utf-8"))
+                fields = row[3] or {}
+                known = {key: value["value"] for key, value in fields.items() if policy["fieldHandling"].get(key) == "redact" and isinstance(value, dict) and isinstance(value.get("value"), str)}
+                sanitized = sanitize_text(row[6], known_values=known, field_handling=policy["fieldHandling"])[:12000]
+                candidate_fields = sanitize_learning_fields(fields, field_handling=policy["fieldHandling"])
+                feedback_id = uuid.uuid4()
+                cur.execute(
+                    "INSERT INTO learning_feedback (feedback_id,case_id,source_case_revision,document_id,request_type_id,sanitized_text,validated_fields) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING created_at",
+                    (feedback_id, case, revision, row[5], row[4], sanitized, Jsonb(candidate_fields)),
+                )
+                created_at = cur.fetchone()[0]
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, "case_revision": revision, "feedback_id": str(feedback_id), "status": "candidate", "created_at": created_at.isoformat()}
 
     @app.post("/cases/{case_id}/review-completion")
     async def complete_review(case_id: str, request: Request):

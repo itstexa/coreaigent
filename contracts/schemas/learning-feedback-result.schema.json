@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "learning-feedback-result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "case_revision", "feedback_id", "status", "created_at"],
+  "properties": {
+    "case_id": {"type": "string", "minLength": 1},
+    "case_revision": {"type": "integer", "minimum": 1},
+    "feedback_id": {"type": "string", "minLength": 1},
+    "status": {"const": "candidate"},
+    "created_at": {"type": "string", "minLength": 1}
+  }
+}

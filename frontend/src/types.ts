@@ -90,6 +90,44 @@ export interface CaseStatus {
   };
   routing?: { target_department_id: string; target_unit_id: string } | null;
   target_unit_notification?: unknown;
+  /** ADMIN-only F2 first-assignment projection; omitted from USER responses. */
+  assignment?: {
+    status: "assigned" | "unassigned" | "completed";
+    unit_id: string;
+    staff_id: string | null;
+    display_name: string | null;
+    role: string | null;
+    open_assignment_count: number;
+    selection_reason?: {
+      policy?: "topic_resolution_rate" | "least_open_assignments" | string;
+      repeat_count?: number;
+      aggression_level?: "normal" | "elevated" | "high" | string;
+      aggression_score?: number;
+      marker_count?: number;
+      topic_request_type_id?: string | null;
+      staff_topic_cases?: number;
+      staff_topic_resolution_rate?: number;
+    };
+  } | null;
+  behavior_signal?: {
+    repeat_count: number;
+    aggression_score: number;
+    aggression_level: "normal" | "elevated" | "high" | string;
+    marker_count: number;
+    priority_mode: boolean;
+  };
+  ticket?: { reference: string; created_at: string } | null;
+  action_log?: Array<{
+    action_id: number;
+    type: "state_projected";
+    actor: "system";
+    state: string | null;
+    case_revision: number | null;
+    completed_steps: string[];
+    last_error_code: string | null;
+    occurred_at: string;
+  }>;
+  learning_feedback?: { feedback_id: string; status: "candidate"; created_at: string } | null;
 }
 
 export type CorrespondenceResult =
@@ -179,7 +217,7 @@ export interface CaseBundle {
 }
 
 export interface ServiceHealth {
-  name: "ocr" | "classification" | "validation" | "workflow";
+  name: "ocr" | "classification" | "validation" | "rag" | "llm" | "workflow";
   available: boolean;
   implementation: ImplementationMode;
   detail?: string;
@@ -192,6 +230,7 @@ export interface CaseListItem {
   state: string;
   completed_steps: string[];
   last_error_code: string | null;
+  priority: { level: "critical" | "high" | "normal"; score: 40 | 70 | 100; reason: string };
   updated_at: string;
   validation_status: ValidationResult["completionStatus"] | null;
   routing_status: "not_routed" | "routed";
@@ -218,4 +257,20 @@ export interface CaseListPage {
   limit: number;
   offset: number;
   cases: CaseListItem[];
+}
+
+/** `GET /cases/{case_id}/related-cases` — yalnız ADMIN için geçmiş başvuru özeti. */
+export interface RelatedCasesResult {
+  case_id: string;
+  history_scope: "same_validated_applicant" | "unavailable";
+  similar_count: number;
+  related_cases: Array<{
+    case_id: string;
+    document_id: string;
+    state: string;
+    resolved: boolean;
+    submitted_at: string;
+    similarity_score: number;
+    title: string | null;
+  }>;
 }

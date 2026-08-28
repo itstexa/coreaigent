@@ -36,6 +36,7 @@ draft is allowed to cite, with scores and source metadata.
 | What | Path |
 | --- | --- |
 | Retrieval function | `services/workflow/worker.py` (`retrieve`, `embedding_model`, `semantic_similarity`) |
+| Hybrid rank core | `services/workflow/hybrid_retrieval.py` (adapted from `feature/autonomous-core-integration`'s `mevzuat-rag`) |
 | Context building and thresholds | `services/workflow/correspondence.py` (`build_retrieval_context`) |
 | Corpus | `services/workflow/corpus.json` |
 | Contract mock | `mocks/server.py` |
@@ -47,7 +48,7 @@ Constants in `services/workflow/correspondence.py`:
 
 - `EMBEDDING_MODEL_ID` — `BAAI/bge-m3`, `EMBEDDING_DIMENSION` 1024
 - `TOP_K` — 5, `MIN_COSINE_SIMILARITY` — 0.60
-- `RETRIEVAL_CONFIG_VERSION` — `municipality-rag-v1`
+- `RETRIEVAL_CONFIG_VERSION` — `municipality-rag-v3-hybrid`
 - Citation bounds: `MAX_CITATIONS`, `MAX_CITATION_EXCERPT_CHARACTERS`,
   `MAX_TOTAL_CITATION_EXCERPT_CHARACTERS`
 
@@ -72,7 +73,10 @@ it is stored on every generation row.
    text and the semantic fields.
 2. The corpus is loaded and every chunk is embedded together with the query in
    a single normalized `encode()` call.
-3. Cosine score is the dot product of normalized vectors.
+3. Dense BGE-M3 ranks and local Turkish BM25 ranks are combined with reciprocal
+   rank fusion (RRF), adapted from the supplied `mevzuat-rag` branch. The
+   persisted citation `score` remains the BGE cosine score for contract
+   compatibility; `rank_score` only changes selection order.
 4. `build_retrieval_context` applies the threshold and top-K, and returns a
    source status plus the surviving chunks.
 5. The draft may only cite `chunk_id` values that came back here; a citation
@@ -80,7 +84,7 @@ it is stored on every generation row.
 
 ## Failure behaviour
 
-No network fallback and no remote embedding service: if the local artifact is
+No network fallback, Qdrant dependency, or remote embedding service: if the local artifact is
 missing, the worker raises and the leased job returns to `pending`. When
 nothing clears `MIN_COSINE_SIMILARITY`, retrieval reports that as a source
 status rather than inventing citations — the case ends up needing review
@@ -93,7 +97,8 @@ Names only: `BGE_MODEL_REVISION`, `HF_HOME` (both read by the workflow worker).
 ## Tests
 
 `tests/test_correspondence_service.py` covers retrieval context and citation
-rules; `tests/run_scenarios.py` exercises the mock `rag` contract boundary.
+rules; `tests/test_hybrid_retrieval.py` falsifies Turkish lexical scoring and
+RRF integration; `tests/run_scenarios.py` exercises the mock `rag` contract boundary.
 
 ## Related docs
 

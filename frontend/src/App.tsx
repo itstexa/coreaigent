@@ -32,10 +32,10 @@ import {
   Search,
   Send,
   Server,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   UserRoundCheck,
-  Users,
   X,
 } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
@@ -45,9 +45,11 @@ import {
   completeReview,
   getCaseBundle,
   getCaseDocument,
+  getRelatedCases,
   getCaseSummary,
   listCases,
   runIntake,
+  saveLearningFeedback,
   serviceHealth,
   startCorrespondence,
   supplementCase,
@@ -74,14 +76,16 @@ import type {
   CaseListItem,
   CaseListPage,
   CaseRecord,
+  CaseStatus,
   CorrespondenceResult,
   ImplementationMode,
   RoutingResult,
+  RelatedCasesResult,
   ServiceHealth,
   ValidationField,
 } from "./types";
 
-type View = "overview" | "new" | "case";
+type View = "overview" | "queue" | "new" | "case";
 type DetailTab = "summary" | "analysis" | "correspondence" | "history";
 
 const STATE_LABELS: Record<string, string> = {
@@ -134,7 +138,11 @@ function modeLabel(mode: ImplementationMode): string {
 }
 
 function modeFromHealth(health: ServiceHealth[]): ImplementationMode {
-  if (health.some((item) => item.implementation === "mock")) return "mock";
+  // The public RAG contract remains a deterministic mock boundary in the
+  // real overlay; retrieval itself runs inside workflow. Do not downgrade the
+  // whole product badge because that internal compatibility endpoint says
+  // "mock" while the user-facing pipeline is real.
+  if (health.some((item) => item.name !== "rag" && item.implementation === "mock")) return "mock";
   if (health.length && health.every((item) => item.available)) return "real";
   return "unknown";
 }
@@ -164,11 +172,11 @@ function EmptyState({ icon, title, description, action }: { icon: ReactNode; tit
 function RuntimeBadge({ mode, health }: { mode: ImplementationMode; health: ServiceHealth[] }) {
   const healthy = health.filter((item) => item.available).length;
   return (
-    <div className={`runtime-badge ${mode}`} title={`${healthy}/${health.length || 4} servis hazır`}>
+    <div className={`runtime-badge ${mode}`} title={`${healthy}/${health.length || 6} servis hazır`}>
       <span className="runtime-dot" />
       <div>
         <strong>{modeLabel(mode)}</strong>
-        <small>{healthy}/{health.length || 4} servis hazır</small>
+        <small>{healthy}/{health.length || 6} servis hazır</small>
       </div>
     </div>
   );
@@ -205,21 +213,21 @@ function Sidebar({
           <button className={view === "new" ? "active" : ""} onClick={() => onNavigate("new")}>
             <FilePlus2 size={19} /><span>Yeni Evrak</span>
           </button>
-          <button className={view === "case" ? "active" : ""} onClick={() => onNavigate("overview")}>
+          <button className={view === "queue" ? "active" : ""} onClick={() => onNavigate("queue")}>
             <Inbox size={19} /><span>Son Dosyalar</span>
           </button>
         </nav>
-        <div className="nav-section-label">Sistem sınırları</div>
+        <div className="nav-section-label">Aktif yetenekler</div>
         <div className="capability-list">
           <div><Building2 size={17} /><span>Birim yönlendirme</span><Check size={15} /></div>
           <div><MailCheck size={17} /><span>Bildirim kaydı</span><Check size={15} /></div>
-          <div className="muted"><Users size={17} /><span>Personel atama</span><small>API yok</small></div>
-          <div className="muted"><Gauge size={17} /><span>Öncelik</span><small>API yok</small></div>
+          <div><Gauge size={17} /><span>Önceliklendirme</span><Check size={15} /></div>
+          <div><History size={17} /><span>İşlem geçmişi</span><Check size={15} /></div>
         </div>
         <div className="nav-section-label">Portal</div>
         <nav className="main-nav" aria-label="Kamuya açık sayfalar">
           <button onClick={() => navigate(PATHS.landing)}><Landmark size={19} /><span>Tanıtım sayfası</span></button>
-          <button onClick={() => navigate(PATHS.petition)}><UserRoundCheck size={19} /><span>Vatandaş dilekçesi</span></button>
+          <button onClick={() => navigate(PATHS.petition)}><UserRoundCheck size={19} /><span>Dilekçe yaz</span></button>
         </nav>
         <div className="sidebar-bottom">
           <RuntimeBadge mode={mode} health={health} />
@@ -261,6 +269,7 @@ function Topbar({
  * görünmesinin tek yolu bu: yerel depolama yalnızca o tarayıcıyı bilir.
  */
 function Dashboard({
+  focused,
   page,
   counts,
   loading,
@@ -275,6 +284,7 @@ function Dashboard({
   onNew,
   onOpen,
 }: {
+  focused: boolean;
   page: CaseListPage | null;
   counts: QueueCounts | null;
   loading: boolean;
@@ -303,11 +313,11 @@ function Dashboard({
 
   return (
     <div className="page-content dashboard-page">
-      <section className="hero-panel">
+      {!focused && <section className="hero-panel">
         <div className="hero-copy">
           <span className="eyebrow"><Bot size={15} /> Kamu evrakı iş akışı</span>
           <h2>Gelen dilekçeleri tek kuyrukta yönetin.</h2>
-          <p>Vatandaş portalından ve operatör konsolundan gelen her dosya aynı projeksiyonda listelenir: sınıflandırma, bilgi doğrulama, resmî yazı taslağı ve birim yönlendirmesi.</p>
+          <p>Dilekçe ekranından ve operatör konsolundan gelen her dosya aynı projeksiyonda listelenir: sınıflandırma, bilgi doğrulama, resmî yazı taslağı ve birim yönlendirmesi.</p>
           <div className="hero-actions">
             <button className="primary-button" onClick={onNew}>Yeni evrak oluştur <ArrowRight size={18} /></button>
             <span><ShieldCheck size={16} /> Nihai idari karar kullanıcıdadır.</span>
@@ -320,11 +330,11 @@ function Dashboard({
           <div className="flow-chip chip-two"><FileSearch size={16} /> Analiz</div>
           <div className="flow-chip chip-three"><Route size={16} /> Yönlendirme</div>
         </div>
-      </section>
+      </section>}
 
       {/* Kartlar aynı zamanda filtredir: bir sayıyı görüp onu oluşturan
           dosyalara ulaşamamak, sayıyı süs hâline getirirdi. */}
-      <section className="stat-grid" aria-label="Kuyruk özeti">
+      {!focused && <section className="stat-grid" aria-label="Kuyruk özeti">
         <button type="button" className={stateFilter === "" ? "active" : ""} onClick={() => onStateFilter("")}>
           <div className="stat-icon blue"><Inbox size={20} /></div>
           <div><span>Toplam dosya</span><strong>{counts ? counts[""] ?? 0 : "—"}</strong><small>Sunucu projeksiyonu</small></div>
@@ -341,11 +351,11 @@ function Dashboard({
           <div className="stat-icon green"><CheckCircle2 size={20} /></div>
           <div><span>Tamamlanan</span><strong>{counts ? done : "—"}</strong><small>{automation === null ? "İş akışı tamamlandı" : `Kuyruğun %${automation}'i tamamlandı`}</small></div>
         </button>
-      </section>
+      </section>}
 
       <section className="panel recent-panel">
         <div className="panel-heading">
-          <div><span className="section-kicker">Çalışma alanı</span><h2>Dosya kuyruğu</h2></div>
+          <div><span className="section-kicker">{focused ? "Son Dosyalar" : "Çalışma alanı"}</span><h2>{focused ? "Tüm dosyalar" : "Dosya kuyruğu"}</h2></div>
           <div className="queue-tools">
             <label className="queue-search">
               <Search size={16} />
@@ -384,7 +394,7 @@ function Dashboard({
             title={filtered ? "Bu filtreye uyan dosya yok" : "Henüz dosya yok"}
             description={filtered
               ? "Arama veya durum filtresini temizleyerek kuyruğun tamamını görebilirsiniz."
-              : "Vatandaş portalından gelen ilk dilekçe ya da konsoldan oluşturacağınız ilk evrak burada listelenir."}
+              : "Dilekçe ekranından gelen ilk kayıt ya da konsoldan oluşturacağınız ilk evrak burada listelenir."}
             action={filtered
               ? <button className="secondary-button" onClick={() => { onSearch(""); onStateFilter(""); }}>Filtreleri temizle</button>
               : <button className="secondary-button" onClick={onNew}>Evrak oluştur</button>}
@@ -392,7 +402,7 @@ function Dashboard({
         ) : (
           <div className="case-table-wrap">
             <table className="case-table">
-              <thead><tr><th>Evrak</th><th>Talep türü</th><th>Başvuran</th><th>Birim</th><th>AI güveni</th><th>Yaş</th><th>Durum</th><th /></tr></thead>
+              <thead><tr><th>Evrak</th><th>Talep türü</th><th>Başvuran</th><th>Birim</th><th>AI güveni</th><th>Öncelik</th><th>Yaş</th><th>Durum</th><th /></tr></thead>
               <tbody>{rows.map((item) => {
                 const tone = confidenceTone(item.classification_confidence);
                 return (
@@ -407,7 +417,7 @@ function Dashboard({
                       </div>
                     </td>
                     <td>
-                      <span className="source-label">{item.request_type_label ?? item.title ?? "Sınıflandırılmadı"}</span>
+                      <span className={`source-label ${categoryTone(item)}`}>{item.request_type_label ?? item.title ?? "Sınıflandırılmadı"}</span>
                       {item.classification_reason && <small className="reason-line" title={item.classification_reason}>{item.classification_reason}</small>}
                     </td>
                     <td>
@@ -425,6 +435,7 @@ function Dashboard({
                         </div>
                       ) : <span className="score-cell none">Puan yok</span>}
                     </td>
+                    <td><span className={`priority-chip ${item.priority.level}`} title={item.priority.reason}>{item.priority.level === "critical" ? "Kritik" : item.priority.level === "high" ? "Yüksek" : "Normal"}</span></td>
                     <td><span className="age-cell" title={formatDate(item.created_at ?? item.updated_at)}><Clock3 size={13} /> {relativeAge(item.created_at ?? item.updated_at)}</span></td>
                     <td><StatusPill state={item.state} compact /></td>
                     <td><ChevronRight size={18} /></td>
@@ -534,8 +545,69 @@ function MetricCard({ label, value, detail, tone = "default" }: { label: string;
   return <article className={`metric-card ${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-function SummaryTab({ record, view, bundle }: { record?: CaseRecord; view: CaseView; bundle: CaseBundle }) {
+function assignmentLabel(status: CaseStatus["assignment"]): { value: string; detail: string; tone?: string } {
+  if (!status || status.status === "unassigned") return { value: "Bekliyor", detail: "Aktif personel bulunamadı", tone: "warning" };
+  const role = status.role === "moderator" ? "Moderatör" : status.role === "admin" ? "Yönetici" : "Operatör";
+  const reason = status.selection_reason;
+  const signals = [
+    reason?.repeat_count && reason.repeat_count >= 3 ? `${reason.repeat_count}. aynı konu` : "",
+    reason?.aggression_level && reason.aggression_level !== "normal"
+      ? `agresiflik: ${reason.aggression_level}${typeof reason.aggression_score === "number" ? ` (%${Math.round(reason.aggression_score * 100)})` : ""}`
+      : "",
+  ].filter(Boolean);
+  const strategy = reason?.policy === "topic_resolution_rate" && typeof reason.staff_topic_resolution_rate === "number"
+    ? `konu çözüm oranı %${Math.round(reason.staff_topic_resolution_rate * 100)}`
+    : "açık dosya yükü dengesi";
+  return {
+    value: status.display_name ?? "Atandı",
+    detail: `${role} · ${status.open_assignment_count} açık dosya · ${strategy}${signals.length ? ` · ${signals.join(" · ")}` : ""}`,
+    tone: status.status === "completed" ? "success" : "default",
+  };
+}
+
+function categoryTone(item: CaseListItem): string {
+  const tones: Record<string, string> = {
+    "vatandas-hizmetleri": "category-blue",
+    "bilgi-islem": "category-violet",
+    "mali-hizmetler": "category-amber",
+    "imar-sehircilik": "category-green",
+    zabita: "category-red",
+  };
+  return tones[item.department_id ?? ""] ?? "category-slate";
+}
+
+function behaviorSummary(status: CaseStatus): { level: string; score: number; repeat: number; detail: string } {
+  const reason = status.assignment?.selection_reason;
+  const signal = status.behavior_signal;
+  const score = typeof reason?.aggression_score === "number" ? Math.max(0, Math.min(1, reason.aggression_score)) : Math.max(0, Math.min(1, signal?.aggression_score ?? 0));
+  const level = reason?.aggression_level ?? signal?.aggression_level ?? "normal";
+  const repeat = typeof reason?.repeat_count === "number" ? reason.repeat_count : signal?.repeat_count ?? 0;
+  const detail = level === "high"
+    ? "Yüksek dil sinyali algılandı; atama uzman çözüm oranına göre önceliklendirildi."
+    : level === "elevated"
+      ? "Yükseltilmiş dil sinyali algılandı; atama uzman çözüm oranına göre desteklendi."
+      : repeat >= 3
+        ? `${repeat}. aynı konu sinyali algılandı; konu deneyimi yüksek personele öncelik verildi.`
+        : "Agresiflik sinyali normal düzeyde; atama açık dosya yüküne göre yapıldı.";
+  return { level, score, repeat, detail };
+}
+
+function routingConfidenceLabel(view: CaseView, routing: RoutingResult): { value: string; detail: string; tone?: string } {
+  if (routing.routing_status !== "routed") return { value: "Bekliyor", detail: "Hedef birim henüz kesinleşmedi", tone: "warning" };
+  if (routing.route_kind === "fallback") return { value: "%0", detail: "Fallback rota · insan incelemesi", tone: "warning" };
+  if (typeof view.confidence !== "number") return { value: "—", detail: "F-02 skoru yayımlanmadı", tone: "warning" };
+  return { value: `%${Math.round(view.confidence * 100)}`, detail: `F-02 skoru · ${routing.target_unit.label}`, tone: view.confidence > 0.8 ? "success" : "warning" };
+}
+
+function viewConfidencePercent(value: number | null): string {
+  return typeof value === "number" ? `%${Math.round(value * 100)}` : "—";
+}
+
+function SummaryTab({ record, view, bundle, row, related }: { record?: CaseRecord; view: CaseView; bundle: CaseBundle; row: CaseListItem | null; related: RelatedCasesResult | null }) {
   const { status, routing, correspondence } = bundle;
+  const assignment = assignmentLabel(status.assignment);
+  const routingConfidence = routingConfidenceLabel(view, routing);
+  const behavior = behaviorSummary(status);
   return (
     <div className="detail-grid">
       <div className="detail-main">
@@ -543,10 +615,15 @@ function SummaryTab({ record, view, bundle }: { record?: CaseRecord; view: CaseV
           <div className="panel-heading"><div><span className="section-kicker">Dosya durumu</span><h2>İş akışı özeti</h2></div><StatusPill state={status.state} /></div>
           <div className="metrics-row">
             <MetricCard label="Validation" value={status.validation_status ? stateLabel(status.validation_status) : "Bekleniyor"} detail={`Case revision ${status.case_revision}`} tone={status.validation_status === "complete" ? "success" : "warning"} />
-            <MetricCard label="Yönlendirme" value={status.routing_status === "routed" ? "Tamamlandı" : "Bekleniyor"} detail={routing.routing_status === "routed" ? routing.target_unit.label : "Backend sonucu yok"} tone={status.routing_status === "routed" ? "success" : "default"} />
-            <MetricCard label="Öncelik" value="Mevcut değil" detail="Backend contract alanı yok" />
-            <MetricCard label="Personel" value="Atanmamış" detail="Assignment API bulunmuyor" />
+            <MetricCard label="Yönlendirme güveni" value={routingConfidence.value} detail={routingConfidence.detail} tone={routingConfidence.tone} />
+            <MetricCard label="Öncelik" value={!row ? "Bekleniyor" : row.priority.level === "critical" ? "Kritik" : row.priority.level === "high" ? "Yüksek" : "Normal"} detail={row?.priority.reason ?? "Kuyruk kaydı bekleniyor"} tone={row?.priority.level === "critical" ? "danger" : row?.priority.level === "high" ? "warning" : "default"} />
+            <MetricCard label="Personel" value={assignment.value} detail={assignment.detail} tone={assignment.tone} />
           </div>
+        </section>
+        <section className={`panel behavior-card ${behavior.level}`}>
+          <div className="panel-heading"><div><span className="section-kicker">F2 · davranış sinyali</span><h2>Kullanıcı iletişim analizi</h2></div><span className={`behavior-badge ${behavior.level}`}><ShieldAlert size={15} />{behavior.level === "high" ? "Yüksek" : behavior.level === "elevated" ? "Yükseltilmiş" : "Normal"}</span></div>
+          <div className="behavior-content"><div className="behavior-score"><strong>%{Math.round(behavior.score * 100)}</strong><small>agresiflik skoru</small></div><div className="behavior-copy"><div className="behavior-meter"><i style={{ width: `${Math.round(behavior.score * 100)}%` }} /></div><p>{behavior.detail}</p><small>Metin kaydedilmez; yalnızca sınırlı sinyal ve atama gerekçesi tutulur.</small></div></div>
+          <div className="behavior-facts"><span><strong>{behavior.repeat}</strong> aynı konu sinyali</span><span><strong>{status.assignment?.selection_reason?.marker_count ?? status.behavior_signal?.marker_count ?? 0}</strong> dil işaretleyicisi</span><span><strong>{assignment.value}</strong> önerilen personel</span></div>
         </section>
         <section className="panel narrative-card">
           <div className="panel-heading"><div><span className="section-kicker">Karar desteği</span><h2>AI analiz görünümü</h2></div><span className="recommendation-label"><Sparkles size={14} /> Öneri niteliğinde</span></div>
@@ -557,6 +634,13 @@ function SummaryTab({ record, view, bundle }: { record?: CaseRecord; view: CaseV
             <div><span className="narrative-icon"><BookOpen size={19} /></span><div><small>Yazışma</small><strong>{correspondence.generation_status === "completed" ? "İncelenebilir taslak hazır" : stateLabel(correspondence.generation_status)}</strong><p>{correspondence.generation_status === "completed" ? correspondence.document_summary : "Taslak tamamlanana kadar eski içerik gösterilmez."}</p></div></div>
           </div>
         </section>
+        {related && <section className="panel related-cases-card">
+          <div className="panel-heading"><div><span className="section-kicker">F3 · geçmiş bağlam</span><h2>Benzer geçmiş başvurular</h2></div><span className="quiet-label">{related.similar_count} eşleşme</span></div>
+          {related.history_scope === "unavailable" ? <p className="muted-copy">Geçmiş eşleştirme için bu dosyada doğrulanmış başvuran bilgisi henüz yok.</p>
+            : related.related_cases.length ? <div className="related-case-list">{related.related_cases.map((item) => <div key={item.case_id}><div><strong>{item.title ?? item.document_id}</strong><small>{formatDate(item.submitted_at)} · Benzerlik %{item.similarity_score}</small></div><span className={item.resolved ? "related-state resolved" : "related-state"}>{item.resolved ? "Çözüldü" : stateLabel(item.state)}</span></div>)}</div>
+              : <p className="muted-copy">Aynı doğrulanmış başvuru sahibine ait yeterince benzer eski dilekçe bulunamadı.</p>}
+          <small className="related-boundary">Yalnızca mevcut durum ve tarih gösterilir; dilekçe metni, personel veya atama bilgisi gösterilmez.</small>
+        </section>}
         {view.text && <section className="panel source-document"><div className="panel-heading"><div><span className="section-kicker">{view.textOrigin === "server" ? "Özgün dilekçe" : "Yerel kayıt"}</span><h2>Vatandaşın yazdığı metin</h2></div><span className="quiet-label"><Info size={14} /> {view.textOrigin === "server" ? "Kurum kaydından okundu" : "Yalnızca bu tarayıcıda saklandı"}</span></div><pre>{view.text}</pre></section>}
       </div>
       <aside className="detail-aside">
@@ -580,10 +664,12 @@ function fieldsFromNotice(bundle: CaseBundle, record?: CaseRecord): ValidationFi
   return [];
 }
 
-function AnalysisTab({ record, view, bundle, onSupplement }: { record?: CaseRecord; view: CaseView; bundle: CaseBundle; onSupplement: (fields: Record<string, string>) => Promise<void> }) {
+function AnalysisTab({ record, view, bundle, onSupplement, onLearningFeedback }: { record?: CaseRecord; view: CaseView; bundle: CaseBundle; onSupplement: (fields: Record<string, string>) => Promise<void>; onLearningFeedback: () => Promise<void> }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const fields = fieldsFromNotice(bundle, record);
   const validated = record?.validation?.extractedFields ?? [];
   const operational = bundle.status.operational_context?.validated_fields ?? {};
@@ -615,11 +701,16 @@ function AnalysisTab({ record, view, bundle, onSupplement }: { record?: CaseReco
         {error && <div className="error-banner"><AlertCircle size={18} />{error}</div>}
         <button className="primary-button" disabled={busy || !Object.values(values).some((value) => value.trim())}>{busy ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}Bilgileri gönder</button>
       </form>}
+      <section className="panel learning-card">
+        <div className="panel-heading"><div><span className="section-kicker">Kontrollü öğrenme</span><h2>Doğrulanmış örnek olarak kaydet</h2></div><ShieldCheck size={21} /></div>
+        {bundle.status.learning_feedback ? <div className="learning-success"><CheckCircle2 size={20} /><div><strong>Eğitim adayı kaydedildi</strong><p>PII-minimized örnek veri seti dışa aktarımını bekliyor.</p></div></div>
+          : <><p className="muted-copy">Eksik alanları tamamlayıp incelemeyi kapattığınızda bu vakayı insan doğrulamalı eğitim havuzuna ekleyebilirsiniz. Otomatik fine-tuning yapılmaz.</p>{bundle.status.state === "completed" && bundle.status.validation_status === "complete" ? <button className="secondary-button" disabled={feedbackBusy} onClick={async () => { setFeedbackBusy(true); setFeedbackError(null); try { await onLearningFeedback(); } catch (caught) { setFeedbackError(apiErrorMessage(caught)); } finally { setFeedbackBusy(false); } }}>{feedbackBusy ? <LoaderCircle className="spin" size={17} /> : <ShieldCheck size={17} />}Eğitim örneğine ekle</button> : <small className="learning-pending">Vaka tamamlandıktan ve doğrulama eksikleri kapatıldıktan sonra kullanılabilir.</small>}{feedbackError && <div className="error-banner"><AlertCircle size={17} />{feedbackError}</div>}</>}
+      </section>
     </div>
   );
 }
 
-function CorrespondenceTab({ result, routing, onStart, busy }: { result: CorrespondenceResult; routing: RoutingResult; onStart: () => void; busy: boolean }) {
+function CorrespondenceTab({ result, routing, view, onStart, busy }: { result: CorrespondenceResult; routing: RoutingResult; view: CaseView; onStart: () => void; busy: boolean }) {
   if (result.generation_status === "not_requested") return <EmptyState icon={<BookOpen size={28} />} title="Yazışma henüz başlatılmadı" description="F-06 uygun case’lerde taslağı otomatik başlatır. Gerekirse contract’taki idempotent manuel başlatma işlemini kullanabilirsiniz." action={<button className="primary-button" onClick={onStart} disabled={busy}>{busy ? <LoaderCircle className="spin" size={18} /> : <Sparkles size={18} />}Taslağı başlat</button>} />;
   if (result.generation_status === "queued" || result.generation_status === "processing") return <EmptyState icon={<LoaderCircle className="spin" size={29} />} title="Taslak hazırlanıyor" description="Backend retrieval ve yapılandırılmış üretim adımlarını tamamlıyor. Bu görünüm otomatik yenilenir." />;
   if (result.generation_status === "failed") return <EmptyState icon={<AlertCircle size={29} />} title="Taslak üretilemedi" description={`Backend hata kodu: ${result.error_code}. Partial veya eski taslak gösterilmiyor.`} />;
@@ -634,7 +725,7 @@ function CorrespondenceTab({ result, routing, onStart, busy }: { result: Corresp
       </section>
       <aside className="correspondence-aside">
         <section className="panel references-card"><span className="section-kicker">Mevzuat / referans</span><h3>{result.source_status === "relevant_source_found" ? `${result.regulation_suggestions.length} kaynak eşleşti` : "İlgili kaynak bulunamadı"}</h3>{result.regulation_suggestions.map((source) => <div className="reference-item" key={source.chunk_id}><span><BookOpen size={17} /></span><div><strong>{source.title}</strong><p>{source.locator}</p><small>{source.source_id} · {source.corpus_version}</small></div></div>)}{!result.regulation_suggestions.length && <div className="boundary-note"><AlertCircle size={18} /><p>Mevzuat iddiası üretilmedi. Taslak insan incelemesi gerektirir.</p></div>}</section>
-        <section className="panel route-card"><span className="section-kicker">F-05 yönlendirme</span>{routing.routing_status === "routed" ? <><div className="route-path"><span><Building2 size={18} /></span><div><small>Departman</small><strong>{routing.target_department.label}</strong></div></div><div className="route-line" /><div className="route-path"><span><Route size={18} /></span><div><small>Hedef birim</small><strong>{routing.target_unit.label}</strong></div></div></> : <p className="muted-copy">Routing sonucu bekleniyor.</p>}</section>
+        <section className="panel route-card"><span className="section-kicker">F-05 yönlendirme</span>{routing.routing_status === "routed" ? <><div className="route-path"><span><Building2 size={18} /></span><div><small>Departman</small><strong>{routing.target_department.label}</strong></div></div><div className="route-line" /><div className="route-path"><span><Route size={18} /></span><div><small>Hedef birim</small><strong>{routing.target_unit.label}</strong></div></div><div className={`route-confidence ${routing.route_kind === "fallback" ? "fallback" : ""}`}><div><small>Yönlendirme güveni</small><strong>{routing.route_kind === "fallback" ? "%0" : viewConfidencePercent(view.confidence)}</strong></div><span>{routing.route_kind === "fallback" ? "Fallback rota · insan incelemesi" : "F-02 sınıflandırma skorundan türetildi"}</span></div></> : <p className="muted-copy">Routing sonucu bekleniyor.</p>}</section>
       </aside>
     </div>
   );
@@ -642,10 +733,12 @@ function CorrespondenceTab({ result, routing, onStart, busy }: { result: Corresp
 
 function HistoryTab({ bundle }: { bundle: CaseBundle }) {
   const allSteps = ["F-01", "F-02", "F-03", "F-04", "F-05"];
+  const actions = bundle.status.action_log ?? [];
   return (
     <section className="panel history-card">
-      <div className="panel-heading"><div><span className="section-kicker">Lifecycle projection</span><h2>İşlem geçmişi</h2></div><span className="quiet-label"><Info size={14} /> Public audit event listesi değildir</span></div>
-      <div className="history-notice"><History size={18} /><p>Backend yalnız güncel state, tamamlanan feature adımları, notice kayıtları ve son güncelleme zamanını yayımlar. Aşağıdaki zaman çizelgesi bu authoritative projection’dan oluşturulur; ayrı actor/timestamp event’leri uydurulmaz.</p></div>
+      <div className="panel-heading"><div><span className="section-kicker">F0 · aksiyon kaydı</span><h2>İşlem geçmişi</h2></div>{bundle.status.ticket && <span className="quiet-label"><History size={14} /> {bundle.status.ticket.reference}</span>}</div>
+      <div className="history-notice"><History size={18} /><p>Bu biletteki sistem durum değişimleri kalıcı olarak kaydedilir. Kayıtlar dilekçe metni, kişi bilgileri veya taslak içerik taşımaz.</p></div>
+      {actions.length > 0 && <div className="action-trace"><h3>Kalıcı aksiyonlar</h3>{actions.map((action) => <div key={action.action_id}><span><Check size={15} /></span><p><strong>{action.state ? stateLabel(action.state) : "Durum güncellendi"}</strong><small>Sistem · Revizyon {action.case_revision ?? "—"} · {formatDate(action.occurred_at)}</small></p></div>)}</div>}
       <div className="timeline">{allSteps.map((step) => { const complete = bundle.status.completed_steps.includes(step); const current = !complete && ((step === "F-03" && ["extracting", "waiting_for_user"].includes(bundle.status.state)) || (step === "F-04" && ["ready_for_processing", "draft_prepared"].includes(bundle.status.state)) || (step === "F-05" && ["routed", "notification_pending"].includes(bundle.status.state))); return <div className={`timeline-item ${complete ? "complete" : current ? "current" : "pending"}`} key={step}><span>{complete ? <Check size={16} /> : current ? <LoaderCircle className="spin" size={16} /> : <CircleDashed size={16} />}</span><div><small>{step}</small><strong>{STEP_LABELS[step]}</strong><p>{complete ? "Backend completed_steps içinde" : current ? `Güncel state: ${stateLabel(bundle.status.state)}` : "Henüz tamamlanmadı"}</p></div></div>; })}</div>
       {bundle.status.applicant_notifications.length > 0 && <div className="notice-list"><h3>Başvuru sahibi kayıtları</h3>{bundle.status.applicant_notifications.map((notice, index) => <div key={`${notice.created_at}-${index}`}><Bell size={17} /><div><strong>{stateLabel(notice.kind)}</strong><p>{JSON.stringify(notice.payload)}</p><small>{formatDate(notice.created_at)}</small></div></div>)}</div>}
     </section>
@@ -666,6 +759,7 @@ function CaseDetail({
   const [bundle, setBundle] = useState<CaseBundle | null>(null);
   const [row, setRow] = useState<CaseListItem | null>(null);
   const [original, setOriginal] = useState<CaseDocument | null>(null);
+  const [related, setRelated] = useState<RelatedCasesResult | null>(null);
   const [tab, setTab] = useState<DetailTab>("summary");
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -686,9 +780,10 @@ function CaseDetail({
   // hangi tarayıcıdan gönderildiğinden bağımsızdır.  Biri gelmezse sayfa
   // durmaz: bundle tek başına iş akışı görünümünü taşır.
   const reload = useCallback(async () => {
-    const [summary, doc] = await Promise.allSettled([getCaseSummary(caseId), getCaseDocument(caseId)]);
+    const [summary, doc, history] = await Promise.allSettled([getCaseSummary(caseId), getCaseDocument(caseId), getRelatedCases(caseId)]);
     if (summary.status === "fulfilled") setRow(summary.value);
     if (doc.status === "fulfilled") setOriginal(doc.value);
+    if (history.status === "fulfilled") setRelated(history.value);
   }, [caseId]);
 
   useEffect(() => { void refresh(); void reload(); }, [caseId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -709,6 +804,7 @@ function CaseDetail({
   };
   const start = async () => { if (!bundle) return; setActionBusy(true); try { await startCorrespondence(caseId, bundle.status.case_revision); await refresh(); } catch (caught) { setError(apiErrorMessage(caught)); } finally { setActionBusy(false); } };
   const review = async () => { if (!bundle) return; setActionBusy(true); try { await completeReview(caseId, bundle.status.case_revision); await refresh(); } catch (caught) { setError(apiErrorMessage(caught)); } finally { setActionBusy(false); } };
+  const learningFeedback = async () => { if (!bundle) return; await saveLearningFeedback(caseId, bundle.status.case_revision); await refresh(); };
 
   return (
     <div className="page-content case-detail-page">
@@ -718,7 +814,7 @@ function CaseDetail({
         <div className="detail-tabs"><button className={tab === "summary" ? "active" : ""} onClick={() => setTab("summary")}>Genel Bakış</button><button className={tab === "analysis" ? "active" : ""} onClick={() => setTab("analysis")}>AI Analizi</button><button className={tab === "correspondence" ? "active" : ""} onClick={() => setTab("correspondence")}>Yazışma</button><button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>İşlem Geçmişi</button></div>
       </div>
       {error && <div className="error-banner page-error"><AlertCircle size={18} /><span>{error}</span><button onClick={() => void refresh()}>Yeniden dene</button></div>}
-      {!bundle ? <div className="panel loading-panel"><LoaderCircle className="spin" size={28} /><h3>Case durumu yükleniyor</h3><p>Workflow projection henüz oluşmadıysa birkaç saniye içinde yeniden deneyin.</p></div> : <>{tab === "summary" && <SummaryTab record={record} view={view} bundle={bundle} />}{tab === "analysis" && <AnalysisTab record={record} view={view} bundle={bundle} onSupplement={supplement} />}{tab === "correspondence" && <CorrespondenceTab result={bundle.correspondence} routing={bundle.routing} onStart={start} busy={actionBusy} />}{tab === "history" && <HistoryTab bundle={bundle} />}</>}
+      {!bundle ? <div className="panel loading-panel"><LoaderCircle className="spin" size={28} /><h3>Case durumu yükleniyor</h3><p>Workflow projection henüz oluşmadıysa birkaç saniye içinde yeniden deneyin.</p></div> : <>{tab === "summary" && <SummaryTab record={record} view={view} bundle={bundle} row={row} related={related} />}{tab === "analysis" && <AnalysisTab record={record} view={view} bundle={bundle} onSupplement={supplement} onLearningFeedback={learningFeedback} />}{tab === "correspondence" && <CorrespondenceTab result={bundle.correspondence} routing={bundle.routing} view={view} onStart={start} busy={actionBusy} />}{tab === "history" && <HistoryTab bundle={bundle} />}</>}
     </div>
   );
 }
@@ -765,7 +861,7 @@ export function App({ view, caseId }: { view: View; caseId: string | null }) {
   // Yazarken her tuşta sorgu atılmasın diye ilk çağrı kısa bir gecikmeyle
   // yapılır; sonrasında kuyruk beş saniyede bir kendini yeniler.
   useEffect(() => {
-    if (view !== "overview") return;
+    if (view !== "overview" && view !== "queue") return;
     let cancelled = false;
     const run = () => { if (!cancelled) void loadQueue(); };
     const first = window.setTimeout(run, 300);
@@ -775,7 +871,7 @@ export function App({ view, caseId }: { view: View; caseId: string | null }) {
 
   const goTo = (next: View) => {
     setSidebarOpen(false);
-    navigate(next === "new" ? PATHS.panelIntake : PATHS.panel);
+    navigate(next === "new" ? PATHS.panelIntake : next === "queue" ? PATHS.panelQueue : PATHS.panel);
   };
   const openCase = (id: string) => { setSidebarOpen(false); navigate(casePath(id)); };
   const created = (record: CaseRecord) => { setCases(saveCase(record)); navigate(casePath(record.caseId)); };
@@ -786,6 +882,8 @@ export function App({ view, caseId }: { view: View; caseId: string | null }) {
   const selectedRecord = cases.find((item) => item.caseId === caseId);
   const headings = view === "overview"
     ? ["Genel Bakış", "Sistem durumu ve bekleyen işlemler"]
+    : view === "queue"
+      ? ["Son Dosyalar", "Tüm evrakların güncel işlem kuyruğu"]
     : view === "new"
       ? ["Yeni Evrak", "Gerçek API contract’ı üzerinden yeni case oluşturun"]
       : ["Dosya Detayı", "Backend kaynaklı analiz ve süreç görünümü"];
@@ -795,8 +893,9 @@ export function App({ view, caseId }: { view: View; caseId: string | null }) {
       <Sidebar view={view} onNavigate={goTo} mode={mode} health={health} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-shell">
         <Topbar title={headings[0]} subtitle={headings[1]} onMenu={() => setSidebarOpen(true)} onNew={() => goTo("new")} />
-        {view === "overview" && (
+        {(view === "overview" || view === "queue") && (
           <Dashboard
+            focused={view === "queue"}
             page={page}
             counts={counts}
             loading={queueLoading}
@@ -814,10 +913,9 @@ export function App({ view, caseId }: { view: View; caseId: string | null }) {
         )}
         {view === "new" && <IntakePage mode={mode} onCreated={created} onCancel={() => goTo("overview")} />}
         {view === "case" && caseId && (
-          <CaseDetail caseId={caseId} record={selectedRecord} onBack={() => goTo("overview")} onRecordUpdate={updateRecord} />
+          <CaseDetail caseId={caseId} record={selectedRecord} onBack={() => goTo("queue")} onRecordUpdate={updateRecord} />
         )}
       </main>
     </div>
   );
 }
-

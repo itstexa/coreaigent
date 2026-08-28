@@ -12,8 +12,10 @@ from pathlib import Path
 import psycopg
 from psycopg.types.json import Jsonb
 
-from correspondence import build_retrieval_context, parse_generated_draft, sanitize_text
+from correspondence import build_retrieval_context, parse_generated_draft, retrieval_query, sanitize_text
 from app import ensure_schema
+from hybrid_retrieval import fuse_chunks
+from translation import TranslationUnavailable, translate
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 LLM_URL = os.environ.get("JAMBA_URL", "http://llm:8080/generate")
@@ -44,15 +46,14 @@ def embedding_model():
 
 
 def retrieve(query):
-    """Run the approved local-only BGE-M3 dense retrieval; no network fallback."""
+    """Run offline BGE-M3 + Turkish lexical RRF retrieval over the pinned corpus."""
     corpus = _load_json("corpus.json")
     model = embedding_model()
     chunks = [{**chunk, "source_id": source["source_id"], "title": source["title"], "source_type": source["source_type"], "official_source_url": source.get("official_source_url"), "corpus_version": corpus["corpus_version"]} for source in corpus["sources"] for chunk in source["chunks"]]
     vectors = model.encode([query] + [chunk["content"] for chunk in chunks], normalize_embeddings=True)
     query_vector = vectors[0]
-    for chunk, vector in zip(chunks, vectors[1:]):
-        chunk["score"] = float(query_vector @ vector)
-    return build_retrieval_context(chunks)
+    dense_scores = [float(query_vector @ vector) for vector in vectors[1:]]
+    return build_retrieval_context(fuse_chunks(chunks, dense_scores, query))
 
 
 def semantic_similarity(left, right):
@@ -77,6 +78,28 @@ def _semantic_fields(fields, policy):
         for field_id, entry in fields.items()
         if policy["fieldHandling"].get(field_id) == "task_required" and isinstance(entry, dict) and isinstance(entry.get("value"), str)
     }
+
+
+def _english_generation_values(row, fields, sanitized_document, chunks, language):
+    """Translate only natural-language values before the English Jamba prompt."""
+    if language != "tr":
+        return row, fields, sanitized_document, chunks
+    translated_row = list(row)
+    for index in (3, 4):
+        translated_row[index] = translate(str(row[index] or ""), "tr", "en")
+    translated_fields = {key: translate(value, "tr", "en") for key, value in fields.items()}
+    translated_chunks = [{**chunk, "content": translate(chunk["content"], "tr", "en")} for chunk in chunks]
+    return tuple(translated_row), translated_fields, translate(sanitized_document, "tr", "en"), translated_chunks
+
+
+def _applicant_language_output(output, language):
+    if language != "tr":
+        return output
+    translated = dict(output)
+    for key in ("document_summary", "draft_text", "correspondence_type_detail"):
+        if isinstance(translated.get(key), str):
+            translated[key] = translate(translated[key], "en", "tr")
+    return translated
 
 
 # The draft is written to be read by the applicant, so it has to be in the
@@ -180,8 +203,19 @@ def run_once():
         fields = row[6] or {}
         known = {key: value["value"] for key, value in fields.items() if policy["fieldHandling"].get(key) == "redact" and isinstance(value, dict) and isinstance(value.get("value"), str)}
         sanitized = sanitize_text(row[5], known_values=known, field_handling=policy["fieldHandling"])
-        source_status, chunks = retrieve(f"{row[2]} {row[3]} {row[4]} {_semantic_fields(fields, policy)}")
+        source_status, chunks = retrieve(retrieval_query(
+            request_type_id=row[2],
+            unit_label=row[4],
+            semantic_fields=_semantic_fields(fields, policy),
+            sanitized_document=sanitized,
+        ))
     except Exception:
+        _mark_pending(job[0])
+        return True
+
+    try:
+        prompt_row, prompt_fields, prompt_document, prompt_chunks = _english_generation_values(row, _semantic_fields(fields, policy), sanitized, chunks, row[7])
+    except TranslationUnavailable:
         _mark_pending(job[0])
         return True
 
@@ -189,13 +223,14 @@ def run_once():
     repair_error = None
     for attempts in (1, 2):
         try:
-            model = _invoke(_prompt(row=row, semantic_fields=_semantic_fields(fields, policy), sanitized_document=sanitized, chunks=chunks, repair_error=repair_error, language=row[7]))
+            model = _invoke(_prompt(row=prompt_row, semantic_fields=prompt_fields, sanitized_document=prompt_document, chunks=prompt_chunks, repair_error=repair_error, language="en" if row[7] == "tr" else row[7]))
             output = parse_generated_draft(
                 model["response"],
                 retrieved_refs=refs,
                 source_status=source_status,
                 similarity=semantic_similarity,
             )
+            output = _applicant_language_output(output, row[7])
             _mark_completed(job, source_status, output, chunks, model, attempts)
             return True
         except Exception as exc:

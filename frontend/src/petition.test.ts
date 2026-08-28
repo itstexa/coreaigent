@@ -174,8 +174,13 @@ describe("referans ve yönlendirme", () => {
     expect(parseRoute("/")).toEqual({ kind: "landing" });
     expect(parseRoute("/dilekce")).toEqual({ kind: "petition" });
     expect(parseRoute("/panel")).toEqual({ kind: "panel-overview" });
+    expect(parseRoute("/panel/dosyalar")).toEqual({ kind: "panel-queue" });
     expect(parseRoute("/panel/yeni")).toEqual({ kind: "panel-intake" });
     expect(parseRoute("/panel/dosya/abc-123")).toEqual({ kind: "panel-case", caseId: "abc-123" });
+  });
+
+  it("dosya kuyruğunun sahte alt adresini gerçek kuyruk sayfası sanmaz", () => {
+    expect(parseRoute("/panel/dosyalar/eski")).toEqual({ kind: "panel-overview" });
   });
 
   it("tanınmayan adres tanıtım sayfasına düşer", () => {

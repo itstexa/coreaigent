@@ -15,6 +15,15 @@ grows too large; every such file must be listed below.
 | [DESIGN_c207e52_f06.md](DESIGN_c207e52_f06.md) | US-111 F-06 orchestration and observable case state | `c207e52` | Active |
 | [DESIGN_f38fa41_f08.md](DESIGN_f38fa41_f08.md) | US-112 F-08 Compose developer-mode dependency closure | `f38fa41` | Active |
 | [DESIGN_a18aacd_f09.md](DESIGN_a18aacd_f09.md) | US-113 F-09 contract atlas stabilization for implemented case APIs | `a18aacd` | Active |
+| [DESIGN_bd84424_f11.md](DESIGN_bd84424_f11.md) | US-114 local Turkish/English translation bridge and US-115 truthful competition UI | `bd84424` | Active |
+| [DESIGN_bd84424_f00.md](DESIGN_bd84424_f00.md) | US-116 F0 case ticket and immutable system action trace | `bd84424` | Active |
+| [DESIGN_bd84424_f08.md](DESIGN_bd84424_f08.md) | US-117 F8 explainable petition priority | `bd84424` | Active |
+| [DESIGN_bd84424_f03a.md](DESIGN_bd84424_f03a.md) | US-118 same-applicant similar petition history | `bd84424` | Active |
+| [DESIGN_bd84424_rag.md](DESIGN_bd84424_rag.md) | US-119 local hybrid legislation retrieval | `bd84424` | Active |
+| [DESIGN_bd84424_f02a.md](DESIGN_bd84424_f02a.md) | US-120 F2 birim içi otomatik personel ataması | `bd84424` | Active |
+| [DESIGN_bd84424_f02b.md](DESIGN_bd84424_f02b.md) | US-122 F2 tekrar/agresiflik sinyaline göre çözüm oranı odaklı atama | `bd84424` | Active — open decisions |
+| [DESIGN_bd84424_learning_feedback.md](DESIGN_bd84424_learning_feedback.md) | US-123 admin-onaylı PII-minimized öğrenme adayı | `bd84424` | Active — OQ-184 open |
+| [DESIGN_bd84424_f09.md](DESIGN_bd84424_f09.md) | US-121 F9 açıklanabilir yönlendirme güveni | `bd84424` | Active |
 
 ## Analysis Context
 
