@@ -316,9 +316,17 @@ if __name__ == "__main__":
         default=0,
         help="N dokümanda bir metrik kayıtlarını diske yazıp bellekten temizle (büyük PDF koşularında >0 önerilir, ör. 2000)",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Embedding batch boyutu (verilmezse config'teki embedding.batch_size / RAG_EMBEDDING_BATCH_SIZE kullanılır)",
+    )
     parsed = parser.parse_args()
 
     engine = RAGEngine(RAGConfig.from_env())
+    if parsed.batch_size:
+        engine.config.embedding.batch_size = parsed.batch_size
 
     if parsed.source == "pdf":
         if not parsed.pdf_dir:

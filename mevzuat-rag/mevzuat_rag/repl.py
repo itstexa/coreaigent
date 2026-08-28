@@ -6,19 +6,32 @@ from the terminal" equivalent.
 """
 from __future__ import annotations
 
+import argparse
+import getpass
+
 from mevzuat_rag.config import RAGConfig
 from mevzuat_rag.engine import RAGEngine
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="mevzuat-rag REPL — stdin'den soru oku, cevap yazdır."
+    )
+    parser.add_argument(
+        "--top-k", type=int, default=None,
+        help="Kaç mevzuat parçası getirilsin (verilmezse config'teki retrieval_top_k kullanılır)",
+    )
+    args = parser.parse_args()
+
     engine = RAGEngine(RAGConfig.from_env())
+    actor = f"cli:{getpass.getuser()}"
     print(f"mevzuat-rag REPL (profil: {engine.config.profile}) — çıkmak için Ctrl+C veya boş satır.\n")
     try:
         while True:
             query = input("Soru> ").strip()
             if not query:
                 break
-            result = engine.ask(query)
+            result = engine.ask(query, top_k=args.top_k, actor=actor)
             print(f"\nCevap:\n{result['answer']}\n")
             for source in result.get("sources", []):
                 print(f"  [{source['score']:.3f}] {source['citation']}")
