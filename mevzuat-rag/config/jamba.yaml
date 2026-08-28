@@ -1,0 +1,54 @@
+# Yerel Jamba profili — default.yaml'ın üstüne override.
+#
+# Jamba'nın OpenAI-uyumlu chat-completions API'si sunan bir sunucu (vLLM,
+# TGI, vb.) arkasında ayrı bir process olarak zaten çalıştığı varsayılır —
+# bu profil onu mevzuat-rag'e bağlar, mevzuat-rag Jamba'yı kendi başlatmaz.
+# JAMBA_API_KEY/JAMBA_BASE_URL/JAMBA_MODEL .env'de tanımlanmalı (bkz.
+# .env.example) — burada yalnızca hangi stage'lerin hangi model adını
+# kullanacağı ve structured-output desteği override ediliyor.
+#
+# Kullanım: RAG_PROFILE=jamba python -m mevzuat_rag.ask "..."
+#
+# MODEL SEÇİMİ (Faz 0 Adım 1, 2026-08-28, HuggingFace Hub API'sinden gerçek
+# veriyle doğrulandı — huggingface.co/api/models?search=jamba): iki gerçek
+# resmi AI21 3B adayı vardı, ikisi de 6.40GB (bf16, 2 safetensors parçası),
+# ikisi de 256K native context, Apache 2.0:
+#   - ai21labs/AI21-Jamba-Reasoning-3B (2025-10-08) — DeepSeek-R1 tarzı
+#     chain-of-thought reasoning modeli, vLLM'de --reasoning-parser
+#     deepseek_r1 gerektiriyor. ELENDİ: <think> izleri router/multi_query/
+#     crag/post_hoc_verify'ın düz json.loads tabanlı parser'larını kırar.
+#   - ai21labs/AI21-Jamba2-3B (2026-02-02, daha yeni) — SEÇİLDİ. Kendi model
+#     kartı açıkça "RAG workflows", "grounding", "FACTS benchmark'ında
+#     liderlik" diye pazarlanıyor; reasoning-trace komplikasyonu yok;
+#     --enable-auto-tool-choice --tool-call-parser hermes ile
+#     structured-output zaten destekleniyor.
+
+generation:
+  provider: jamba
+  # Yukarıdaki gerekçeyle seçildi (JAMBA_MODEL env var'ı tanımlıysa o
+  # önceliklidir — bkz. config.py:_PROVIDER_ENV).
+  model: ai21labs/AI21-Jamba2-3B
+  # ÖNEMLİ: default.yaml zaten generation.base_url'i açıkça set ediyor
+  # (DeepSeek'e), _deep_merge yalnızca override'da GERÇEKTEN VAR olan
+  # anahtarları değiştiriyor (config.py:_deep_merge) — bu satır olmadan
+  # config.py'deki provider bazlı varsayılan (JAMBA_BASE_URL yoksa
+  # http://localhost:8000/v1) hiç devreye girmez, sessizce DeepSeek'in
+  # URL'i miras kalır. JAMBA_BASE_URL env var'ı tanımlıysa o önceliklidir.
+  base_url: http://localhost:8000/v1
+  # vLLM guided-decoding (outlines/lm-format-enforcer) ile response_format
+  # destekliyorsa true bırakın; sunucunuz bilinmeyen parametrede hata
+  # veriyorsa false yapın — JSON bekleyen stage'ler (router/multi_query/
+  # crag/post_hoc_verify) o zaman yalnızca prompt talimatına güvenir,
+  # kendi ```` ``` ```` temizlemeli parser'ları (ör. router.py:_parse_decision)
+  # zaten bunu tolere edecek şekilde yazılmıştı.
+  json_mode: true
+
+# Router/Post-Hoc-Verify kendi ayrı `model` alanlarını taşıyor (generation.model
+# ile otomatik senkron değil) — jamba'ya geçerken bunları da açıkça vermek
+# gerekiyor, aksi halde "deepseek-chat" adında var olmayan bir modele
+# çağrı gider.
+router:
+  model: ai21labs/AI21-Jamba2-3B
+
+post_hoc_verify:
+  model: ai21labs/AI21-Jamba2-3B

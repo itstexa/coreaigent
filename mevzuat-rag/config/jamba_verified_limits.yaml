@@ -1,0 +1,111 @@
+# Jamba2-3B — 4090 üzerinde DOĞRULANMIŞ sınırlar.
+#
+# Bu dosyadaki HER sayı gerçek ölçümden gelir — hiçbiri model kartından/
+# spec sayfasından alınmadı, hiçbiri tahmin değildir. Ölçüm script'i:
+# ~/coreaigent/mevzuat-rag/../scratchpad/context_ladder_test.py (bu
+# konuşmanın scratchpad'inde arşivlendi), ham log: /ladder.log (kiralık
+# makinede, bkz. test_kosullari).
+#
+# ÖNEMLİ SINIRLAMA: context merdiveni yalnızca 64.000 token'a kadar test
+# edildi (2K/8K/16K/32K/64K adımları) — HER İKİ senaryoda da (Jamba yalnız
+# VE embedding+reranker yüklüyken) 64.000 token'da bile HİÇ hata/OOM
+# alınmadı. Yani "verified_max_context_tokens: 64000" bir TAVAN değil,
+# test edilen ARALIĞIN ÜST SINIRI — gerçek kapasite muhtemelen daha
+# yüksek ama ölçülmedi (60.000+GB VRAM boşluğu ve 103x concurrency payı
+# kaldığını vLLM'in kendisi rapor etti — bkz. test_kosullari altındaki
+# ham not). mevzuat-rag'in bugünkü context_window_tokens=8000 ayarına göre
+# (bkz. config/default.yaml, config.py:ParentDocConfig) bu zaten
+# fazlasıyla yeterli headroom — daha ileri test edilmedi çünkü pratik
+# ihtiyacı çoktan aştı.
+
+model_variant: ai21labs/AI21-Jamba2-3B
+architecture: JambaForCausalLM (hybrid Mamba-Transformer, dense — num_experts=1, MoE değil)
+parameters: 3B (hidden_size=2560, 28 katman)
+quantization: none — bfloat16 (kuantizasyon gerekmedi, 4090'a bfloat16 halde rahat sığdı)
+license: apache-2.0
+huggingface_last_modified: "2026-02-02T11:38:31Z"
+selection_reason: >
+  İki gerçek 3B AI21 adayı arasından seçildi (ai21labs/AI21-Jamba-Reasoning-3B
+  vs ai21labs/AI21-Jamba2-3B, ikisi de HuggingFace Hub API'sinden
+  doğrulandı — huggingface.co/api/models?search=jamba). Reasoning-3B
+  DeepSeek-R1 tarzı chain-of-thought reasoning modeli (--reasoning-parser
+  deepseek_r1 gerektiriyor) — mevzuat-rag'in router/multi_query/crag/
+  post_hoc_verify aşamaları düz json.loads bekliyor, reasoning izleri bu
+  parser'ları kırardı. Jamba2-3B'nin kendi model kartı açıkça "RAG
+  workflows", "grounding", "FACTS benchmark liderliği" diye pazarlanıyor —
+  doğrudan bizim use-case'imiz, reasoning-trace komplikasyonu yok.
+
+hardware:
+  gpu: NVIDIA GeForce RTX 4090 (kiralık, doğrulandı: nvidia-smi)
+  vram_total_gb_nvidia_smi: 24.564
+  vram_total_gb_torch_mem_get_info: 25.253
+  driver_version: 595.45.04
+  serving_engine: vLLM 0.28.0 (pip install vllm>=0.10.2 ile kuruldu)
+
+# --- Adım 2: Yükleme ayak izi (gerçek ölçüm, spec'ten DEĞİL) ---
+load_footprint:
+  # vLLM'in kendi iç profilleme çıktısından ("Actual usage is X GiB for
+  # consumed memory (weights + non-torch)") — iki ayrı yüklemede 5.99-6.29
+  # GiB arası ölçüldü, aralık raporlanıyor (tek bir "doğru" sayı yerine).
+  pure_weights_gb_range: [5.99, 6.29]
+  # torch.cuda.mem_get_info() ile ölçülen TOPLAM before/after fark —
+  # launch config'e (gpu_memory_utilization) bağlı, çünkü vLLM KV cache'i
+  # eagerly kendi payına göre önceden ayırıyor. İlk izole testte
+  # gpu_memory_utilization=0.5 ile ölçüldü:
+  total_footprint_at_util_0.5_gb: 12.559
+  load_time_s_first_run_cold: 172.5   # model indirme (HF Hub, ~6.4GB) + engine init dahil
+  load_time_s_warm_cache: 24.5        # ikinci yüklemede (HF cache /dev/shm'de sıcak) yalnızca engine init
+
+embedding_reranker_footprint:
+  bge_m3_vram_gb: 2.292               # gerçek ölçüm, sentence-transformers, device=cuda
+  bge_reranker_v2_m3_vram_gb: 2.271   # gerçek ölçüm, CrossEncoder, device=cuda
+  combined_gb: 4.563
+
+# --- Adım 3-4: Context penceresi merdiveni ---
+context_ladder:
+  test_steps_tokens: [2000, 8000, 16000, 32000, 64000]
+  jamba_alone:
+    last_tested_ok_tokens: 64000
+    ceiling_reached: false            # 64000'de bile hata yok — gerçek tavan bilinmiyor, test aralığı bu kadardı
+    stable_max_tokens_80pct_of_tested: 51200
+    kv_cache_tokens_at_util_0.85: 7240000
+    max_concurrency_at_70k_per_request: "103.43x (vLLM'in kendi raporu)"
+  jamba_with_embedding_and_reranker_loaded:
+    gpu_memory_utilization_used: 0.682   # (kalan_bos_vram * 0.85) / toplam_vram formülüyle hesaplandı
+    last_tested_ok_tokens: 64000
+    ceiling_reached: false
+    stable_max_tokens_80pct_of_tested: 51200
+    kv_cache_gb_available: 8.75
+    conclusion: >
+      Embedding+reranker aynı anda YÜKLÜYKEN bile context kapasitesinde
+      GÖZLEMLENEBİLİR bir düşüş yok — 64000 token'a kadar her iki senaryo
+      da aynı üst sınırda (test aralığının kendisi yetersiz kaldığı için,
+      gerçek fark varsa 64000'in ÜSTÜNDE ortaya çıkabilir, ölçülmedi).
+
+# --- Adım 6: Reserved VRAM hesabı (ölçüm, tahmin DEĞİL) ---
+reserved_vram_calculation:
+  formula: "toplam_vram - jamba_pure_weights - embedding_footprint - reranker_footprint, sonra %10 güvenlik payı"
+  total_vram_gb: 24.564
+  jamba_pure_weights_gb: 6.29         # aralığın üst ucu, muhafazakar
+  embedding_gb: 2.292
+  reranker_gb: 2.271
+  baseline_footprint_gb: 10.853       # 6.29 + 2.292 + 2.271
+  remaining_before_safety_margin_gb: 13.711   # 24.564 - 10.853
+  safety_margin_pct: 10
+  RESERVED_VRAM_GB: 12.34             # 13.711 * 0.90 — KV cache + aktivasyon + CUDA graph için kalan gerçek bütçe
+
+test_kosullari:
+  makine: "Kiralık RTX 4090 sunucusu (188.36.196.107, Jupyter Terminal API üzerinden erişildi)"
+  disk_kisiti: >
+    Konteynerin kök diski yalnızca 16GB (overlay) — vLLM kurulumu 7.3GB'tan
+    11GB'a çıkardı, 3.7GB kaldı; 6.4GB'lık model bu diske SIĞMADI. Çözüm:
+    HF_HOME=/dev/shm/hf_cache (503GB RAM'in tmpfs'i, disk değil) kullanıldı.
+    Bu KALICI bir çözüm DEĞİL — konteyner yeniden başlarsa model cache'i
+    kaybolur, her seferinde yeniden inmesi gerekir (ama /dev/shm sıcakken
+    yükleme 172s'den 24.5s'e düştü, bkz. load_footprint).
+  torchaudio_cakismasi: >
+    vLLM kurulumu torch'u 2.13.0'a (CUDA 13.0) yükseltti, önceden kurulu
+    torchaudio CUDA 12.8 ile derlenmişti — import hatası verdi. torchaudio
+    kaldırılarak çözüldü (metin-only LLM için gereksiz).
+  script_konumu: "context_ladder_test.py, mevzuat-rag deposunun dışında (oturum scratchpad'i) — repoya eklenmedi, istenirse scripts/ altına taşınabilir."
+  tarih: "2026-08-28"

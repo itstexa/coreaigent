@@ -1,0 +1,69 @@
+# RTX 4090 (24GB VRAM) profili — default.yaml'ın üstüne override.
+#
+# GERÇEK 4090'DA ÖLÇÜLDÜ (2026-08-28, kiralık bir 4090 örneğinde — 24564 MiB
+# VRAM, sürücü 595.45.04 — nvidia-smi ile doğrulandı; BAAI/bge-m3, CUDA).
+# İki ayrı ölçüm koşuldu, çünkü tek bir "doğru" batch_size yok — corpus
+# BÜYÜKLÜĞÜNE göre optimum değişiyor:
+#
+# 1) Büyük/toplu ingest ölçeği (256 örnek, ``--batch-sizes 8,16,32,64,128,256,512``):
+#      batch=8:298.5  16:541.6  32:573.4(en iyi)  64:491.7  128:381.0  256:262.4  512:273.2 chunk/s
+#    Öneri: batch_size=32 — script'in kendi önerisi, config/default.yaml'ın
+#    zaten kullandığı değerle birebir örtüşüyor.
+#
+# 2) Küçük/tekil-doküman ölçeği (24 örnek — ~10 sayfalık bir PDF'in üreteceği
+#    chunk sayısına yakın, ``--batch-sizes 4,8,16,32,64``):
+#      batch=4:57.2  8:361.0(en iyi)  16:307.0  32:248.1  64:266.6 chunk/s
+#    Öneri: batch_size=8. SEBEP: 24 chunk'lık bir korpus batch_size=32 ile
+#    TEK, YARIM DOLU bir batch olarak işleniyor — GPU'yu doldurmuyor, kernel
+#    başlatma/senkronizasyon payı orantısız büyüyor. batch_size=8 ile aynı
+#    24 chunk 3 dolu batch'e bölünüyor ve daha verimli çalışıyor.
+#
+# PRATİK SONUÇ (senin "10 sayfalık PDF için 50 kez cevap döndürmek saçma"
+# endişene doğrudan cevap): fark GERÇEK ama MUTLAK olarak ÖNEMSİZ — 24
+# chunk'lık tek bir PDF'i embed etmek batch_size=32'de ~0.10s, batch_size=8'de
+# ~0.07s sürüyor (yukarıdaki "toplam" sütunu). Tek seferlik bir PDF ingest'i
+# için 30 milisaniyelik fark hiç hissedilmez; asıl fark BÜYÜK/TOPLU
+# ingestion'da (1000'lerce chunk) ortaya çıkar, orada batch_size=32,
+# batch_size=8'e göre ~%60 daha yüksek verim veriyor (573 vs muhtemelen çok
+# daha düşük bir 8'lik-batch verimi büyük ölçekte). Bu yüzden VARSAYILAN
+# olarak batch_size=32 tutuluyor — büyük ingest'te asıl kazancı o sağlıyor,
+# küçük PDF'te kaybı ölçülemeyecek kadar küçük. Gerçekten çok sayıda küçük/
+# tekil PDF art arda (her biri ayrı process/CLI çağrısı) işleniyorsa
+# ``--batch-size 8`` ile override edilebilir:
+#
+#     python -m mevzuat_rag.ingest_pipeline --source pdf --pdf-dir ... --batch-size 8
+
+device: cuda
+
+embedding:
+  batch_size: 32           # gerçek 4090'da ölçüldü — büyük/toplu ingest için optimum, bkz. yukarıdaki not
+  oom_retry: true           # güvenlik ağı: OOM'da otomatik yarıya iner (bu ölçümde hiç tetiklenmedi, 512'de bile OOM yok)
+
+# rerank zaten default.yaml'da enabled:true (golden set'te doğrulandı) —
+# dev_gpu.yaml'ın aksine burada KAPATMIYORUZ: o profildeki kapalılık VRAM
+# kısıtı değil, "checkpoint 2'de açılacak" sıralama notuydu (bkz.
+# config/dev_gpu.yaml). 24GB'lık bir kartta reranker (bge-reranker-v2-m3,
+# ~1-2GB) embedding'in yanında önemsiz bir ek yük.
+
+# --- Aynı 4090'da yerel Jamba da çalıştırıyorsanız (config/jamba.yaml) ---
+# mevzuat-rag'in KENDİSİ GPU'ya yalnızca 2 küçük model yükler: embedding
+# (BGE-M3) ve reranker (bge-reranker-v2-m3) — ikisi birlikte tipik olarak
+# birkaç GB VRAM. DeepSeek/Jamba ÜRETİM tarafı mevzuat-rag'in İÇİNDE hiç GPU
+# kullanmıyor: DeepSeek uzak API, Jamba ise ayrı bir process (vLLM/TGI) —
+# bu profil O SÜRECİN VRAM'ini yönetmez/sınırlamaz, tamamen bağımsız bir OS
+# process'idir.
+#
+# Aynı fiziksel karttaki iki bağımsız process (mevzuat-rag + Jamba sunucusu)
+# VRAM'i BİRBİRİNDEN HABERSİZ paylaşır — kim önce doldurursa OOM'u genelde
+# SONRA başlayan process alır. Pratik öneri:
+#   1. Jamba'yı serve eden vLLM/TGI process'ini SABİT bir üst sınırla başlatın
+#      (ör. vLLM: --gpu-memory-utilization 0.85) — geri kalan ~3-4GB'lık payı
+#      mevzuat-rag'in embedding+reranker'ına bilerek bırakın.
+#   2. Jamba'yı önce, mevzuat-rag'i (ingest_pipeline/ask/repl) ondan sonra
+#      başlatın — mevzuat-rag'in kendi OOM-retry mekanizması (embedding.py,
+#      batch_size'ı otomatik yarıya indirir) VRAM daralmasına toleranslı,
+#      ama Jamba'nın vLLM süreci aynı toleransa sahip olmayabilir.
+#   3. VRAM gerçekten dar geliyorsa (büyük bir Jamba varyantı + reranker +
+#      embedding aynı anda sığmıyorsa): embedding/reranker'ı bu profilde
+#      `device: cpu` yaparak CPU'ya alın — BGE-M3/reranker CPU'da da çalışır
+#      (yalnızca yavaşlar), Jamba'nın tüm VRAM'i kendine kalır.
