@@ -10,6 +10,8 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from app import CORPUS_VERSION, PROMPT_SCHEMA_VERSION, ensure_schema
+from action_log import append_action_log
+from abuse import analyze_submission
 from orchestrator import MAX_F04_START_ATTEMPTS, derive_case_state, next_start_action
 
 
@@ -38,8 +40,35 @@ def _upsert_state(cur, case_id, revision, state, steps, error=None):
         f"OR current_case_states.last_error_code IS DISTINCT FROM ({projected_error})",
         (case_id, revision, state, Jsonb(steps), error),
     )
+    # Reconciliation runs repeatedly; a deterministic event ID makes the
+    # append-only state history idempotent without adding another state table.
+    append_action_log(
+        cur,
+        case_id,
+        "state_change",
+        "orchestrator-worker",
+        {"state": state, "revision": revision, "error": error},
+        event_id=uuid.uuid5(uuid.NAMESPACE_URL, f"coreaigent:case:{case_id}:revision:{revision}:state:{state}"),
+    )
 
 
+def _assess_abuse(cur, case_id):
+    """Refresh the current deterministic review projection without changing state."""
+    current = cur.execute("SELECT normalized_text FROM intake_records WHERE case_id=%s", (case_id,)).fetchone()
+    if not current:
+        return
+    previous = cur.execute(
+        "SELECT normalized_text FROM intake_records WHERE case_id<>%s AND created_at >= now() - interval '24 hours'",
+        (case_id,),
+    ).fetchall()
+    recent = cur.execute("SELECT count(*) FROM intake_records WHERE created_at >= now() - interval '10 minutes'").fetchone()[0]
+    result = analyze_submission(current[0], [row[0] for row in previous], recent_count=recent)
+    cur.execute(
+        "INSERT INTO case_abuse_assessments (case_id,label,confidence,risk_score,flagged,detected_signals) "
+        "VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (case_id) DO UPDATE SET label=EXCLUDED.label,confidence=EXCLUDED.confidence,"
+        "risk_score=EXCLUDED.risk_score,flagged=EXCLUDED.flagged,detected_signals=EXCLUDED.detected_signals,analyzed_at=now()",
+        (case_id, result["label"], result["confidence"], result["risk_score"], result["flagged"], Jsonb(result["detected_signals"])),
+    )
 def reconcile_once():
     """Project current source rows and enqueue exactly one F-04 start per revision."""
     try:
@@ -67,6 +96,7 @@ def reconcile_once():
                     state = "ready_for_processing"
                 steps = ["F-01", "F-02"] + (["F-03"] if completion == "complete" else []) + (["F-04"] if generation == "completed" else []) + (["F-05"] if route == "routed" else [])
                 _upsert_state(cur, case_id, revision, state, steps, "F04_TERMINAL_FAILURE" if terminal else None)
+                _assess_abuse(cur, case_id)
                 if completion in {"missing_information", "invalid_information"}:
                     kind, fields = completion, missing if completion == "missing_information" else invalid
                     cur.execute("INSERT INTO case_notifications (notification_id,case_id,source_case_revision,audience,kind,payload) VALUES (%s,%s,%s,'applicant',%s,%s) ON CONFLICT (case_id,source_case_revision,audience,kind) DO NOTHING", (uuid.uuid4(), case_id, revision, kind, Jsonb({"kind": kind, "fields": fields, "email_placeholder": None})))

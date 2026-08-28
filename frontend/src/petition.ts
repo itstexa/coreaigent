@@ -13,6 +13,7 @@
  */
 
 import content from "./petition-content.json";
+import type { ValidationResult } from "./types";
 
 export type PetitionFieldKind = "text" | "textarea" | "date" | "tckn" | "phone" | "attachment";
 
@@ -56,6 +57,18 @@ export function fieldDef(fieldId: string, label?: string): PetitionFieldDef {
   const known = FIELD_CATALOG.find((field) => field.id === fieldId);
   if (known) return label && label !== fieldId ? { ...known, label } : known;
   return { id: fieldId, label: label && label !== fieldId ? label : fieldId, kind: "text" };
+}
+
+export function validationPreview(validation: ValidationResult | null): {
+  availability: "available" | "unavailable";
+  fields: PetitionFieldDef[];
+} {
+  if (!validation) return { availability: "unavailable", fields: [] };
+  const fields = new Map<string, PetitionFieldDef>();
+  for (const field of [...validation.missingRequiredFields, ...validation.invalidFields]) {
+    if (!fields.has(field.id)) fields.set(field.id, fieldDef(field.id, field.label));
+  }
+  return { availability: "available", fields: [...fields.values()] };
 }
 
 /** `2026-08-27` -> `27.08.2026`; doğrulama servisi her iki biçimi de kabul eder. */

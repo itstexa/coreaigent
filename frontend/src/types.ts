@@ -128,6 +128,7 @@ export type RoutingResult =
       route_kind: "classified" | "fallback";
       target_department: NodeReference;
       target_unit: NodeReference;
+      assignee: { id: string; name: string } | null;
       notifications: Array<{
         audience: "applicant" | "target_unit";
         generation_status: "queued" | "processing" | "completed" | "failed";
@@ -170,6 +171,44 @@ export interface CaseDocument {
   channel: string | null;
   created_at: string;
   text: string;
+}
+
+export type CaseActionType = "state_change" | "assignment" | "petition_edit" | "attachment_change" | "spam_decision" | "view" | "download";
+
+export interface CaseActionEvent {
+  event_id: string;
+  action_type: CaseActionType;
+  actor: string;
+  occurred_at: string;
+  details: Record<string, unknown>;
+}
+
+export interface CaseActionLog {
+  case_id: string;
+  events: CaseActionEvent[];
+}
+
+export interface CaseHistory {
+  case_id: string;
+  resolved: boolean;
+  resolved_by: string[];
+  similar_cases: Array<{
+    case_id: string;
+    created_at: string;
+    state: string;
+    classification: string;
+    resolved: boolean;
+    resolved_by: string[];
+    viewers: string[];
+    signals: Array<"text" | "classification" | "location" | "time">;
+  }>;
+}
+
+export interface CaseTrainingExport {
+  case_id: string;
+  document_id: string;
+  text: string;
+  redactions: Array<{ field: "name" | "tckn"; placeholder: "<ANON_NAME>" | "<ANON_TCKN>"; count: number }>;
 }
 
 export interface CaseBundle {

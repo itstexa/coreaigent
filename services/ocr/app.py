@@ -11,6 +11,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from psycopg.types.json import Jsonb
 
+from extraction import ExtractionError, extract_text
+
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 SCHEMA_LOCK = threading.Lock()
@@ -284,3 +286,22 @@ async def intake(request: Request):
         return error(request_id, document_id, 503, "dependency", "PostgreSQL is unavailable", True)
 
     return result(request_id, record)
+
+
+@app.post("/v1/extract-text")
+async def extract_uploaded_text(request: Request):
+    """Convert one PDF/DOCX without creating intake or corpus state."""
+    try:
+        form = await request.form(max_files=1, max_fields=4)
+        request_id, purpose = form.get("requestId"), form.get("purpose")
+        upload = form.get("file")
+        if not isinstance(request_id, str) or not request_id or purpose not in {"rag_source", "case_attachment"} or upload is None:
+            return error(request_id if isinstance(request_id, str) else None, None, 400, "validation", "requestId, purpose, and file are required", False)
+        content = await upload.read(10 * 1024 * 1024 + 1)
+        text = normalize(extract_text(upload.filename, upload.content_type, content))
+        if len(text) < 40:
+            return error(request_id, None, 422, "validation", "EXTRACTED_TEXT_TOO_SHORT", False)
+    except ExtractionError as exc:
+        status = 503 if exc.code in {"OCR_MODEL_UNAVAILABLE", "OCR_BUSY"} else 422
+        return error(None, None, status, "dependency" if status == 503 else "validation", exc.code, status == 503)
+    return {"schemaVersion": "2.0", "requestId": request_id, "filename": upload.filename, "contentType": upload.content_type, "purpose": purpose, "text": text}

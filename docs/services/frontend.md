@@ -95,6 +95,8 @@ Names only: the `upstream_*` variables and demo token names in
 `npm test` (Vitest) in `frontend/`: `frontend/src/api.test.ts`,
 `frontend/src/petition.test.ts`, `frontend/src/queue.test.ts`. Server-side
 counterparts: `tests/test_citizen_portal_samples.py`, `tests/test_mock_case_ui.py`.
+Browser uçtan uca senaryoları [`frontend/e2e/core.spec.ts`](../../frontend/e2e/core.spec.ts)
+dosyasındadır; mock Compose stack ayaktayken `npm run e2e` ile çalıştırılır.
 
 ## Related docs
 

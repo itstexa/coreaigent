@@ -13,7 +13,14 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from services.llm.app import MODEL_ID, RuntimeConfig, create_app
+from services.llm.app import (
+    MODEL_ID,
+    PROMPT_CONTRACT_HASH,
+    PROMPT_CONTRACT_VERSION,
+    RuntimeConfig,
+    build_prose_admin_prompt,
+    create_app,
+)
 
 GGUF_FILE = "ai21labs_AI21-Jamba2-3B-Q8_0.gguf"
 
@@ -26,6 +33,7 @@ class FakeLoader:
         self.delay = delay
         self.load_call_count = 0
         self.generate_call_count = 0
+        self.prompts = []
         self.active_generations = 0
         self.max_active_generations = 0
         self._active_lock = threading.Lock()
@@ -40,6 +48,7 @@ class FakeLoader:
         return len(prompt.split())
 
     def generate(self, prompt, config):
+        self.prompts.append(prompt)
         with self._active_lock:
             self.active_generations += 1
             self.max_active_generations = max(self.max_active_generations, self.active_generations)
@@ -69,6 +78,54 @@ def client_for(loader, *, gpu_available=True, **config_overrides):
 
 
 class JambaServiceAcceptanceTests(unittest.TestCase):
+    def test_prose_admin_prompt_carries_task_policy_without_answer_leak(self):
+        prompt = build_prose_admin_prompt(
+            "draft_reply",
+            "Yıllık izin talebimi arz ederim.",
+            ["Başvuru personel işlemleri kapsamındadır."],
+        )
+
+        self.assertIn(f"Prompt contract: {PROMPT_CONTRACT_VERSION}", prompt)
+        self.assertIn(PROMPT_CONTRACT_HASH, prompt)
+        self.assertIn("Task type: draft_reply", prompt)
+        self.assertIn("Yıllık izin talebimi arz ederim.", prompt)
+        self.assertIn("Başvuru personel işlemleri kapsamındadır.", prompt)
+        self.assertIn("uygun idari işlemi", prompt)
+        self.assertNotIn("record, route, review", prompt)
+        self.assertIn("Source text'i yalnızca tekrar etme", prompt)
+        self.assertIn("gereksiz ek bilgi isteme", prompt)
+        self.assertIn("meşru idari görevleri reddetme", prompt.casefold())
+        self.assertNotIn("İnsan Kaynakları birimine ilet", prompt)
+
+    def test_contract_generate_passes_task_aware_prompt_to_model_and_preserves_response_contract(self):
+        loader = FakeLoader(output="Başvurunuz kayda alınmıştır.")
+        request = {
+            "schemaVersion": "2.0",
+            "requestId": "req-prompt-1",
+            "documentId": "doc-prompt-1",
+            "workflowId": "wf-prompt-1",
+            "task": "draft_reply",
+            "prompt": "Kayıt talebimdir.",
+            "context": ["Kaynak bağlamı"],
+        }
+        with client_for(loader) as client:
+            response = client.post("/v1/generate", json=request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["output"]["draft"], "Başvurunuz kayda alınmıştır.")
+        self.assertEqual(len(loader.prompts), 1)
+        self.assertIn("Task type: draft_reply", loader.prompts[0])
+        self.assertIn("Kayıt talebimdir.", loader.prompts[0])
+        self.assertIn("Kaynak bağlamı", loader.prompts[0])
+
+    def test_raw_generate_does_not_receive_prose_admin_contract(self):
+        loader = FakeLoader(output="Yapılandırılmış JSON")
+        with client_for(loader) as client:
+            response = client.post("/generate", json={"prompt": "Sadece JSON üret."})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(loader.prompts, ["Sadece JSON üret."])
+
     def test_health_reports_loaded_model_without_generating(self):
         loader = FakeLoader()
         with client_for(loader) as client:

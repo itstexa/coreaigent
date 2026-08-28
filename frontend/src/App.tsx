@@ -14,6 +14,7 @@ import {
   CircleDashed,
   ClipboardCheck,
   Clock3,
+  Download,
   FileCheck2,
   FilePlus2,
   FileSearch,
@@ -43,6 +44,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   apiErrorMessage,
   completeReview,
+  getCaseActionLog,
+  getCaseHistory,
+  markCaseResolved,
+  getCaseTrainingExport,
   getCaseBundle,
   getCaseDocument,
   getCaseSummary,
@@ -70,6 +75,9 @@ import { loadCases, saveCase, updateStoredCase } from "./storage";
 import { PATHS, casePath, navigate } from "./router";
 import type {
   CaseBundle,
+  CaseActionLog,
+  CaseHistory,
+  CaseTrainingExport,
   CaseDocument,
   CaseListItem,
   CaseListPage,
@@ -213,7 +221,7 @@ function Sidebar({
         <div className="capability-list">
           <div><Building2 size={17} /><span>Birim yönlendirme</span><Check size={15} /></div>
           <div><MailCheck size={17} /><span>Bildirim kaydı</span><Check size={15} /></div>
-          <div className="muted"><Users size={17} /><span>Personel atama</span><small>API yok</small></div>
+          <div className="muted"><Users size={17} /><span>Personel atama</span><small>Birim yük kuralı</small></div>
           <div className="muted"><Gauge size={17} /><span>Öncelik</span><small>API yok</small></div>
         </div>
         <div className="nav-section-label">Portal</div>
@@ -545,7 +553,7 @@ function SummaryTab({ record, view, bundle }: { record?: CaseRecord; view: CaseV
             <MetricCard label="Validation" value={status.validation_status ? stateLabel(status.validation_status) : "Bekleniyor"} detail={`Case revision ${status.case_revision}`} tone={status.validation_status === "complete" ? "success" : "warning"} />
             <MetricCard label="Yönlendirme" value={status.routing_status === "routed" ? "Tamamlandı" : "Bekleniyor"} detail={routing.routing_status === "routed" ? routing.target_unit.label : "Backend sonucu yok"} tone={status.routing_status === "routed" ? "success" : "default"} />
             <MetricCard label="Öncelik" value="Mevcut değil" detail="Backend contract alanı yok" />
-            <MetricCard label="Personel" value="Atanmamış" detail="Assignment API bulunmuyor" />
+            <MetricCard label="Personel" value={routing.routing_status === "routed" && routing.assignee ? routing.assignee.name : "Atanmamış"} detail={routing.routing_status === "routed" && routing.assignee ? "En az açık case kuralı" : "Birimde uygun personel yok"} />
           </div>
         </section>
         <section className="panel narrative-card">
@@ -640,14 +648,16 @@ function CorrespondenceTab({ result, routing, onStart, busy }: { result: Corresp
   );
 }
 
-function HistoryTab({ bundle }: { bundle: CaseBundle }) {
+function HistoryTab({ bundle, actionLog, history, onExport, onResolve, busy }: { bundle: CaseBundle; actionLog: CaseActionLog | null; history: CaseHistory | null; onExport: () => Promise<void>; onResolve: () => Promise<void>; busy: boolean }) {
   const allSteps = ["F-01", "F-02", "F-03", "F-04", "F-05"];
   return (
     <section className="panel history-card">
       <div className="panel-heading"><div><span className="section-kicker">Lifecycle projection</span><h2>İşlem geçmişi</h2></div><span className="quiet-label"><Info size={14} /> Public audit event listesi değildir</span></div>
-      <div className="history-notice"><History size={18} /><p>Backend yalnız güncel state, tamamlanan feature adımları, notice kayıtları ve son güncelleme zamanını yayımlar. Aşağıdaki zaman çizelgesi bu authoritative projection’dan oluşturulur; ayrı actor/timestamp event’leri uydurulmaz.</p></div>
+      <div className="history-notice"><History size={18} /><p>İşlem geçmişi workflow’un SQL action-log kaydından okunur. Kayıtlar değiştirilemez; erişim case erişimiyle aynıdır.</p><button className="secondary-button" onClick={() => void onExport()}><Download size={16} />Anonim export</button></div>
+      {history && <div className="notice-list"><h3>Benzer dilekçeler</h3><p className="muted-copy">Aynı sınıflandırmada son 30 gün: {history.similar_cases.length}. Bu case {history.resolved ? `çözüldü (${history.resolved_by.join(", ")})` : "çözülmedi"}.</p>{!history.resolved && <button className="secondary-button" onClick={() => void onResolve()} disabled={busy}><CheckCircle2 size={16} />Çözüldü olarak işaretle</button>}{history.similar_cases.map((item) => <div key={item.case_id}><FileSearch size={17} /><div><strong>{shortId(item.case_id)} · {stateLabel(item.state)}</strong><p>{item.resolved ? `Çözüldü: ${item.resolved_by.join(", ")}` : "Çözülmedi"} · Görüntüleyenler: {item.viewers.join(", ") || "—"}</p><small>{formatDate(item.created_at)} · {item.signals.join(", ")}</small></div></div>)}</div>}
       <div className="timeline">{allSteps.map((step) => { const complete = bundle.status.completed_steps.includes(step); const current = !complete && ((step === "F-03" && ["extracting", "waiting_for_user"].includes(bundle.status.state)) || (step === "F-04" && ["ready_for_processing", "draft_prepared"].includes(bundle.status.state)) || (step === "F-05" && ["routed", "notification_pending"].includes(bundle.status.state))); return <div className={`timeline-item ${complete ? "complete" : current ? "current" : "pending"}`} key={step}><span>{complete ? <Check size={16} /> : current ? <LoaderCircle className="spin" size={16} /> : <CircleDashed size={16} />}</span><div><small>{step}</small><strong>{STEP_LABELS[step]}</strong><p>{complete ? "Backend completed_steps içinde" : current ? `Güncel state: ${stateLabel(bundle.status.state)}` : "Henüz tamamlanmadı"}</p></div></div>; })}</div>
       {bundle.status.applicant_notifications.length > 0 && <div className="notice-list"><h3>Başvuru sahibi kayıtları</h3>{bundle.status.applicant_notifications.map((notice, index) => <div key={`${notice.created_at}-${index}`}><Bell size={17} /><div><strong>{stateLabel(notice.kind)}</strong><p>{JSON.stringify(notice.payload)}</p><small>{formatDate(notice.created_at)}</small></div></div>)}</div>}
+      {actionLog && <div className="notice-list"><h3>Audit olayları</h3>{actionLog.events.length === 0 ? <p className="muted-copy">Henüz kayıtlı olay yok.</p> : actionLog.events.map((event) => <div key={event.event_id}><Activity size={17} /><div><strong>{event.action_type}</strong><p>{event.actor}</p><small>{formatDate(event.occurred_at)}</small></div></div>)}</div>}
     </section>
   );
 }
@@ -666,6 +676,8 @@ function CaseDetail({
   const [bundle, setBundle] = useState<CaseBundle | null>(null);
   const [row, setRow] = useState<CaseListItem | null>(null);
   const [original, setOriginal] = useState<CaseDocument | null>(null);
+  const [actionLog, setActionLog] = useState<CaseActionLog | null>(null);
+  const [history, setHistory] = useState<CaseHistory | null>(null);
   const [tab, setTab] = useState<DetailTab>("summary");
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -686,9 +698,11 @@ function CaseDetail({
   // hangi tarayıcıdan gönderildiğinden bağımsızdır.  Biri gelmezse sayfa
   // durmaz: bundle tek başına iş akışı görünümünü taşır.
   const reload = useCallback(async () => {
-    const [summary, doc] = await Promise.allSettled([getCaseSummary(caseId), getCaseDocument(caseId)]);
+    const [summary, doc, log, past] = await Promise.allSettled([getCaseSummary(caseId), getCaseDocument(caseId), getCaseActionLog(caseId), getCaseHistory(caseId)]);
     if (summary.status === "fulfilled") setRow(summary.value);
     if (doc.status === "fulfilled") setOriginal(doc.value);
+    if (log.status === "fulfilled") setActionLog(log.value);
+    if (past.status === "fulfilled") setHistory(past.value);
   }, [caseId]);
 
   useEffect(() => { void refresh(); void reload(); }, [caseId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -709,6 +723,19 @@ function CaseDetail({
   };
   const start = async () => { if (!bundle) return; setActionBusy(true); try { await startCorrespondence(caseId, bundle.status.case_revision); await refresh(); } catch (caught) { setError(apiErrorMessage(caught)); } finally { setActionBusy(false); } };
   const review = async () => { if (!bundle) return; setActionBusy(true); try { await completeReview(caseId, bundle.status.case_revision); await refresh(); } catch (caught) { setError(apiErrorMessage(caught)); } finally { setActionBusy(false); } };
+  const exportTraining = async () => {
+    try {
+      const payload: CaseTrainingExport = await getCaseTrainingExport(caseId);
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${caseId}-training-export.json`; anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (caught) { setError(apiErrorMessage(caught)); }
+  };
+  const resolveCase = async () => {
+    setActionBusy(true);
+    try { await markCaseResolved(caseId); await reload(); } catch (caught) { setError(apiErrorMessage(caught)); } finally { setActionBusy(false); }
+  };
 
   return (
     <div className="page-content case-detail-page">
@@ -718,7 +745,7 @@ function CaseDetail({
         <div className="detail-tabs"><button className={tab === "summary" ? "active" : ""} onClick={() => setTab("summary")}>Genel Bakış</button><button className={tab === "analysis" ? "active" : ""} onClick={() => setTab("analysis")}>AI Analizi</button><button className={tab === "correspondence" ? "active" : ""} onClick={() => setTab("correspondence")}>Yazışma</button><button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>İşlem Geçmişi</button></div>
       </div>
       {error && <div className="error-banner page-error"><AlertCircle size={18} /><span>{error}</span><button onClick={() => void refresh()}>Yeniden dene</button></div>}
-      {!bundle ? <div className="panel loading-panel"><LoaderCircle className="spin" size={28} /><h3>Case durumu yükleniyor</h3><p>Workflow projection henüz oluşmadıysa birkaç saniye içinde yeniden deneyin.</p></div> : <>{tab === "summary" && <SummaryTab record={record} view={view} bundle={bundle} />}{tab === "analysis" && <AnalysisTab record={record} view={view} bundle={bundle} onSupplement={supplement} />}{tab === "correspondence" && <CorrespondenceTab result={bundle.correspondence} routing={bundle.routing} onStart={start} busy={actionBusy} />}{tab === "history" && <HistoryTab bundle={bundle} />}</>}
+      {!bundle ? <div className="panel loading-panel"><LoaderCircle className="spin" size={28} /><h3>Case durumu yükleniyor</h3><p>Workflow projection henüz oluşmadıysa birkaç saniye içinde yeniden deneyin.</p></div> : <>{tab === "summary" && <SummaryTab record={record} view={view} bundle={bundle} />}{tab === "analysis" && <AnalysisTab record={record} view={view} bundle={bundle} onSupplement={supplement} />}{tab === "correspondence" && <CorrespondenceTab result={bundle.correspondence} routing={bundle.routing} onStart={start} busy={actionBusy} />}{tab === "history" && <HistoryTab bundle={bundle} actionLog={actionLog} history={history} onExport={exportTraining} onResolve={resolveCase} busy={actionBusy} />}</>}
     </div>
   );
 }
@@ -820,4 +847,3 @@ export function App({ view, caseId }: { view: View; caseId: string | null }) {
     </div>
   );
 }
-

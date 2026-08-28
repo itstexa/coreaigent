@@ -1,5 +1,8 @@
 import type {
   CaseBundle,
+  CaseActionLog,
+  CaseHistory,
+  CaseTrainingExport,
   CaseDocument,
   CaseListItem,
   CaseListPage,
@@ -309,6 +312,7 @@ function realBundle(result: RealWorkflowResult): CaseBundle {
           route_kind: "classified",
           target_department: department,
           target_unit: department,
+          assignee: null,
           notifications: [],
         },
   };
@@ -540,6 +544,43 @@ export async function getCaseBundle(caseId: string): Promise<CaseBundle> {
 export async function getCaseDocument(caseId: string): Promise<CaseDocument> {
   const response = await request<CaseDocument>(
     `${BASES.workflowAdmin}/cases/${encodeURIComponent(caseId)}/document`,
+    {},
+    15_000,
+  );
+  return response.data;
+}
+
+export async function getCaseActionLog(caseId: string): Promise<CaseActionLog> {
+  const response = await request<CaseActionLog>(
+    `${BASES.workflowAdmin}/cases/${encodeURIComponent(caseId)}/action-log`,
+    {},
+    8_000,
+  );
+  return response.data;
+}
+
+export async function getCaseHistory(caseId: string): Promise<CaseHistory> {
+  const response = await request<CaseHistory>(
+    `${BASES.workflowAdmin}/cases/${encodeURIComponent(caseId)}/history`,
+    {},
+    8_000,
+  );
+  return response.data;
+}
+
+export async function markCaseResolved(caseId: string): Promise<CaseHistory["resolved_by"]> {
+  await request<{ case_id: string; resolved: true; actor: string; marked_at: string }>(
+    `${BASES.workflowAdmin}/cases/${encodeURIComponent(caseId)}/resolution-mark`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+    8_000,
+  );
+  const history = await getCaseHistory(caseId);
+  return history.resolved_by;
+}
+
+export async function getCaseTrainingExport(caseId: string): Promise<CaseTrainingExport> {
+  const response = await request<CaseTrainingExport>(
+    `${BASES.workflowAdmin}/cases/${encodeURIComponent(caseId)}/training-export`,
     {},
     15_000,
   );

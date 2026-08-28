@@ -32,6 +32,7 @@ import {
   petitionTitle,
   supplementIssue,
   supplementValue,
+  validationPreview,
   type PetitionFieldDef,
   type PetitionSample,
 } from "./petition";
@@ -214,20 +215,11 @@ export function PetitionForm() {
    * o alan ayrı bir not olarak gösterilir.
    */
   const asked = useMemo<PetitionFieldDef[]>(() => {
-    if (!validation) return [];
-    const seen = new Map<string, PetitionFieldDef>();
-    for (const field of [...validation.missingRequiredFields, ...validation.invalidFields]) {
-      const definition = fieldDef(field.id, field.label);
-      if (definition.kind !== "attachment" && !seen.has(field.id)) seen.set(field.id, definition);
-    }
-    return [...seen.values()].slice(0, 8);
+    return validationPreview(validation).fields.filter((field) => field.kind !== "attachment");
   }, [validation]);
 
   const attachmentAsked = useMemo(() => {
-    if (!validation) return [] as PetitionFieldDef[];
-    return validation.missingRequiredFields
-      .map((field) => fieldDef(field.id, field.label))
-      .filter((field) => field.kind === "attachment");
+    return validationPreview(validation).fields.filter((field) => field.kind === "attachment");
   }, [validation]);
 
   const receiptOf = (created: CaseRecord, state: ValidationResult | null): PetitionReceipt => ({

@@ -5,6 +5,203 @@ traceable history of completed and paused implementation work.
 
 ---
 
+## Pass: 2026-08-28 — BX-12 managed RAG corpus (paused)
+
+**Branch:** `feature/managed-rag-corpus` (no commit requested).
+**Traces to:** `docs/design/DESIGN_bd84424_rag_corpus.md` (BX-12) and
+`docs/architecture/ARCHITECTURE_bd84424_rag_corpus.md`.
+**Approval basis:** BX-12 requirements and its architecture were approved by
+the human operator on 2026-08-28 before the new artifact-pin question arose.
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Source byte/type limits and deterministic chunks | In progress | `tests/test_rag_sources.py` tests 0 B, 10 MiB - 1, 10 MiB, 10 MiB + 1, MIME/suffix mismatch, empty text, and exact 3,000-character chunk boundaries. |
+| Synchronous PDF/DOCX extraction and publication | Blocked | AQ-116: an offline, pinned PaddleOCR artifact is required before scanned-PDF extraction can be implemented. |
+
+### Predicates / Invariants Matched
+
+- The source byte boundary is exactly 1..10 MiB before OCR/storage work.
+- Chunking is an ordered, lossless partition with a 3,000-character maximum.
+- Candidate BGE vectors must be finite, exactly 1,024-dimensional, and L2-normalized within 0.001.
+
+### Open Questions Raised This Pass
+
+| ID | Question | Status | Resolution |
+|---|---|---|---|
+| AQ-116 | Which exact CPU-compatible PaddleOCR artifact and offline cache location are approved? | Open | — |
+
+### Deviations From Approved DESIGN/ARCHITECTURE
+
+None. No unpinned OCR model or network fallback was added.
+
+### Meaningful-Test Review
+
+- Tests exercise stated limits at the boundary and on each adjacent side.
+- Expected values come from BX-12/BX-14, not from implementation output.
+- Negative MIME, empty, malformed-vector, and zero-norm paths have specific assertions.
+
+### Version Control Actions
+
+- Created approved branch `feature/managed-rag-corpus`; no commit, push, or PR action requested.
+
+
+## Pass: 2026-08-28 — BX-02 least-open-case unit assignment
+
+**Branch:** `feature/case-action-log` (no commit requested).
+**Traces to:** `docs/design/DESIGN_bd84424_extensions.md` (BX-02) and
+`docs/architecture/ARCHITECTURE_bd84424_bx02.md`.
+**Approval basis:** Requirement Analysis, Solution Architecture, and
+Implementation approved by human operator on 2026-08-28.
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Unit member with lowest open-case count is selected | ✅ Pass | `tests/test_assignment.py` compares unequal loads. |
+| Equal minimums are random-selected | ✅ Pass | Injected chooser test proves only tied minimum candidates are offered. |
+| Non-unit/invalid personnel are excluded | ✅ Pass | Unit filter and invalid-ID tests. |
+| No unit member produces no invented assignment | ✅ Pass | Explicit `None` result test; routing response exposes nullable `assignee`. |
+| Assignment persists once per case revision | ✅ Pass | `case_assignments` unique `(case_id,source_case_revision)` constraint and route-worker insert. |
+
+### Verification
+
+- `python3 -m unittest tests/test_assignment.py tests/test_case_contracts.py tests/test_action_log.py tests/test_dlp.py` — 24 passed.
+- `npm test` — 55 passed; `npm run build` — passed.
+- Docker mock contract suite — `contracts and 58 golden scenarios are valid`; `58 mock scenario(s) passed`.
+
+### Scope Boundary
+
+No active/online signal, role/skill filter, rebalancing, or new personnel
+service was added. No-person, manual override, and reassignment behavior stays
+open as OQ-160.
+
+---
+
+## Pass: 2026-08-28 — BX-01 irreversible DLP training export
+
+**Branch:** `feature/case-action-log` (no commit requested).
+**Traces to:** `docs/design/DESIGN_bd84424_extensions.md` (BX-01) and
+`docs/architecture/ARCHITECTURE_bd84424_bx01.md`.
+**Approval basis:** all three pipeline stages approved by human operator on
+2026-08-28.
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Name and T.C. Kimlik No are irreversibly redacted | ✅ Pass | `tests/test_dlp.py` checks document labels, dynamic validation names, placeholders, and source-value absence. |
+| Original operational text is excluded | ✅ Pass | `case-training-export` strict schema has only redacted `text`; workflow projection never returns `original_text`. |
+| Case access controls export | ✅ Pass | Workflow endpoint reuses `_role`; unknown/malformed cases use existing guards. |
+| Export is auditable | ✅ Pass | Successful projection appends BX-00 `download` with `export_type=training_dataset`. |
+| DLP cannot prove safe redaction | ✅ Pass | Non-text and missing dynamic-name spans fail closed with `DLP_REDACTION_FAILED`. |
+
+### Verification
+
+- `python3 -m unittest tests/test_dlp.py tests/test_action_log.py tests/test_case_contracts.py` — 19 passed.
+- `npm test` — 55 passed; `npm run build` — passed.
+- Docker mock contract suite — `contracts and 58 golden scenarios are valid`; `58 mock scenario(s) passed`.
+- Compose config and `git diff --check` — passed.
+
+### Scope Boundary
+
+No legal basis, retention, external destination, bulk training pipeline, or
+additional identifier class was invented. The endpoint is a case-scoped JSON
+projection; source data remains operational-only.
+
+---
+
+## Pass: 2026-08-28 — BX-00 case action log
+
+**Branch:** `feature/case-action-log` (no commit requested).
+**Traces to:** `docs/design/DESIGN_bd84424_extensions.md` (BX-00) and
+`docs/architecture/ARCHITECTURE_bd84424_bx00.md`.
+**Approval basis:** Requirement Analysis, Solution Architecture, and
+Implementation approved by human operator on 2026-08-28.
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Allowed action is recorded in immutable SQL shape | ✅ Pass | `tests/test_action_log.py` checks all seven enum values and `ON CONFLICT DO NOTHING` insert. |
+| Unknown or empty action data is rejected | ✅ Pass | `tests/test_action_log.py` negative assertions. |
+| Case reader can retrieve chronological log | ✅ Pass | `GET /cases/{case_id}/action-log`, strict contract schema, and mock projection. |
+| Unknown/malformed case and unauthorized access remain rejected | ✅ Pass | Workflow route reuses `_case_uuid` and `_role` guards; boundary documented in architecture. |
+
+### Predicates / Invariants Matched
+
+- SQL rows are append-only; no update/delete endpoint is exposed.
+- Duplicate deterministic worker event IDs are idempotent; concurrent events remain separate.
+- Workflow owns persistence; routing/orchestration producers use the shared helper.
+- USER and ADMIN retain existing case-reader visibility.
+
+### Verification
+
+- `python3 -m unittest tests/test_action_log.py tests/test_case_contracts.py` — 13 passed.
+- `npm test` — 55 passed.
+- `npm run build` — passed.
+- `python3 -m py_compile ...` and `git diff --check` — passed.
+- Full contract validator requires the repository test image's `jsonschema` dependency; host environment lacks it.
+
+### Open Questions / Deviations
+
+None for BX-00. Cross-service producers beyond workflow remain a future
+contract event integration, as specified by the approved architecture.
+
+---
+
+## Pass: 2026-08-28 — BX-06 F-03 validation preview
+
+**Branch:** Existing worktree; no branch, commit, push, or PR action. The
+worktree contains unrelated operator-owned changes and no Git action was
+requested or approved.
+**Traces to:** `docs/design/DESIGN_bd84424_extensions.md` (BX-06) and
+`docs/architecture/ARCHITECTURE_bd84424_bx06.md`
+(`ValidationPreviewProjection`, D-BX06-01).
+**Approval basis:** Requirement Analysis and Solution Architecture approved by
+human operator on 2026-08-28 (see `docs/APPROVAL_LOG.md`).
+
+### Acceptance Criteria Coverage
+
+| Scenario | Status | Test / Verification |
+|---|---|---|
+| Current validation gaps appear in preview | ✅ Pass | `frontend/src/petition.test.ts` asserts the F-03 labels are preserved, including an invalid `invoice-attachment`; `PetitionForm` now projects both missing and invalid attachment fields. |
+| Validation has no current result | ✅ Pass | `frontend/src/petition.test.ts` asserts `validationPreview(null)` returns `unavailable` with no fields. |
+
+### Predicates / Invariants Matched
+
+| Entity/Predicate | Invariant / Boundary / Concurrency Rule | Verified By |
+|---|---|---|
+| `ValidationPreviewProjection` | All labels come from F-03 `ValidationResultV3`; the browser does not infer a field. | Independent literal labels in the BX-06 test. |
+| `ValidationPreviewProjection` | Null validation produces no preview entries. | Explicit null-result assertion. |
+| Read-only projection | No preview write, retry, endpoint, persistence, or state-revision behavior is introduced. | `validationPreview` is a pure mapper; `PetitionForm` consumes its output only. |
+
+### Open Questions Raised This Pass
+
+| ID | Question | Status | Resolution |
+|---|---|---|---|
+| — | None. | — | Approved BX-06 scope fully specifies the in-flow preview. |
+
+### Deviations From Approved DESIGN/ARCHITECTURE
+
+None. The smallest fix extracts the already-existing client projection and
+extends it to invalid attachment fields, which were previously omitted.
+
+### Meaningful-Test Review
+
+- Happy and negative paths: supplied current result and `null` result.
+- Assertions are literal F-03 labels/status, not output copied from code.
+- The mapping itself is exercised; no internal logic is mocked.
+- No new numeric threshold exists; F-03 owns field cardinality limits.
+
+### Version Control Actions
+
+- No state-changing Git action. Existing unrelated worktree changes are
+  preserved.
+
+---
+
 ## Pass: 2026-08-25 — US-113 F-09 case API contract atlas
 
 **Branch:** `feature/jamba-inference`.
@@ -464,3 +661,167 @@ None.
   - `6b8a3a9 feat(llm): add pinned Jamba inference service`
   - Documentation and shared pipeline-log update (this pass)
 - PR: Not opened; pending human approval after final verification.
+
+---
+
+## Pass: 2026-08-27 — US-102 prose `/v1/generate` prompt contract fix
+
+**Traces to:** `services/llm/app.py`, `tests/test_jamba_service.py`,
+`docs/analysis/JAMBA_PROMPT_FIX_REEVALUATION.md`
+**Scope:** Existing LinguAI Jamba snapshot only; no model change, training,
+dataset download, Golden Dataset change, or reference-model comparison.
+
+### Implementation
+
+- Added centralized `build_prose_admin_prompt()` with version
+  `prose-admin-v2` and hash `f14a9079caccde36fb4410d6f0080ceae41705e6e89079569f0db001d590cf64`.
+- Integrated validated `task` and context into `/v1/generate`.
+- Kept raw `/generate` and F-03/F-04 structured workflows unchanged.
+- Added tests proving task/context propagation, no expected-answer leakage, and
+  raw structured prompt isolation.
+
+### Verification
+
+- Jamba service tests: `17/17 PASS`.
+- CPU contract/service suite: `70/70 PASS`.
+- Docker image build, `/ready`, and 58-case development contract runner:
+  `PASS`.
+- F-03 real Jamba extraction: `PASS`.
+- F-04 real correspondence intake with structured guards: `PASS`.
+- Golden re-evaluation: `58/58` schema-valid and non-empty; full metrics and
+  raw artifact paths are recorded in the linked analysis report.
+
+### Deviations / Open Questions
+
+None. Action enum values were intentionally not inserted into the model-facing
+prose prompt because a live trial showed enum echo; the evaluator-side action
+taxonomy remains explicit in the report.
+
+### Version Control Actions
+
+- Branch/commit/PR: none; not requested by the operator.
+
+## Pass: 2026-08-28 — BX-03 case history and similar cases
+
+**Traces to:** approved BX-03 requirement and architecture sessions,
+`services/workflow/app.py`, `services/workflow/similarity.py`, history/resolution
+contracts, mock projection, and frontend history tab.
+
+### Implementation
+
+- Added deterministic same-classification, inclusive 30-day history projection
+  with text/location/time signal labels.
+- Persisted immutable per-reader resolution marks in workflow PostgreSQL and
+  exposed idempotent reader marking; existing BX-00 view events provide viewers.
+- Added strict history and resolution contracts, manifest routes, mock behavior,
+  API client types, and a minimal panel view/action.
+
+### Verification
+
+- Pure Python checks: `30/30 PASS` (similarity, contracts, action log,
+  assignment, DLP).
+- Frontend: `55/55 PASS`; TypeScript/Vite build passed.
+- Docker mock contract suite: `contracts and 58 golden scenarios are valid`;
+  `58 mock scenario(s) passed`.
+
+## Pass: 2026-08-28 — BX-04 abuse review signals
+
+**Traces to:** approved BX-04 requirement/architecture, `services/workflow/abuse.py`,
+the orchestrator assessment, moderation contracts, and workflow routes.
+
+### Implementation
+
+- Added configurable deterministic duplicate, burst, term, and bot-repeat
+  signals with bounded 0.0–1.0 score and review threshold.
+- Persisted case assessment in PostgreSQL; moderator/admin override requires a
+  reason and emits `spam_decision`; citizens do not receive the judgement.
+
+### Verification
+
+- Abuse policy, strict contracts, and mock projection tests pass.
+- Python compilation and Docker mock suite pass (`58/58` golden scenarios).
+
+## Pass: 2026-08-28 — BX-04A abuse trends
+
+- Added privacy-bounded daily flagged-rate aggregation with 7/30/90-day
+  periods, unit/system scopes, user `no_data` behavior, and five-user minimum.
+- Added `GET /moderation-trends`, strict contract, mock projection, and pure
+  aggregation tests. No realtime analytics or notification channel added.
+
+Verification: trend/policy/contract tests pass; Python compilation and
+`git diff --check` pass.
+
+## Pass: 2026-08-28 — BX-08 deterministic priority
+
+- Added deterministic priority policy (`low`, `normal`, `high`, `urgent`) with
+  default `normal`, configured deadline/waiting/request-type signals, and
+  protection against sensitive-data-only escalation.
+- Added case priority read and ADMIN override routes with mandatory reason;
+  override is auditable and does not alter routing.
+- Added strict contracts, mock behavior, and boundary tests.
+
+## Pass: 2026-08-28 — BX-09 routing confidence feedback
+
+- Added pure routing evaluation projection separating classifier confidence from
+  correctness; configurable threshold marks low-confidence cases for review.
+- Final accepted unit is treated as ground truth; evaluation remains separate
+  from BX-01 training eligibility.
+- Routing assignee projection and strict result contract preserve destination
+  semantics while exposing the selected unit/person.
+
+## Pass: 2026-08-28 — BX-11 Turkish text improvement
+
+- Added deterministic Turkish whitespace/punctuation/readability suggestions
+  with protected-span preservation and explicit unsupported-language handling.
+- Added `/v1/normalize` contract/mock endpoint; original text is always returned
+  unchanged and post-submit persistence remains BX-05's revision boundary.
+
+### Deviations / Open Questions
+
+No deviations for the approved slice.
+
+## Pass: 2026-08-28 — BX-03A related attachments
+
+**Traces to:** approved BX-03A requirement and architecture sessions,
+`services/workflow/attachments.py`, attachment contracts, and workflow routes.
+
+### Implementation
+
+- Added deterministic request-type required-attachment rules and metadata-only
+  object-storage registration.
+- Enforced PDF/DOCX/JPG/JPEG/PNG, MIME/extension agreement, 10 MiB per file,
+  and 10 files per case.
+- Added manual/rule relations and non-authoritative similarity suggestions;
+  submitted-state edits return `CASE_REVISION_REQUIRED` for BX-05.
+- Persisted SQL metadata/relations and `attachment_change` action events.
+
+### Verification
+
+- Attachment policy and contract tests passed; Python compilation and
+  `git diff --check` passed.
+- Docker mock contract suite: `contracts and 58 golden scenarios are valid`;
+  `58 mock scenario(s) passed`.
+
+## Pass: 2026-08-28 — BX-05 case revision edit
+
+- Added strict edit validation for text, structured fields, and attachment IDs;
+  classification mutation is rejected.
+- Added append-only PostgreSQL `case_revisions`, optimistic `If-Match` checks,
+  terminal-state rejection, `petition_edit` action logging, and authorized
+  revision reads.
+- Existing assignment/SLA/correspondence records are not rewritten; revision
+  payload provenance is retained for later eligibility filtering.
+
+Verification: revision policy, contract, compilation, and mock-suite checks
+pass; Docker mock suite remains the final integration gate.
+
+## Pass: 2026-08-28 — BX-07 citizen document draft
+
+- Added local deterministic templates for petition/request, complaint, and
+  information-request documents.
+- Added editable temporary draft endpoint `POST /v1/drafts` with mandatory
+  field reporting and strict unsupported-type/size rejection.
+- Deliberately excluded signing, dispatch, and PDF/DOCX generation.
+
+Verification: focused draft/contract tests and Python compilation pass; Docker
+mock suite is the integration gate.

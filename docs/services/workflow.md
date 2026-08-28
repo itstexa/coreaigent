@@ -51,8 +51,25 @@ Declared in `contracts/http/manifest.json` under `additionalEndpoints`.
 | `GET /cases/{case_id}` | access | Case detail with derived state |
 | `POST /cases/{case_id}/correspondence` | access | `Idempotency-Key` + `If-Match`; body must be empty or `{}` |
 | `GET /cases/{case_id}/correspondence` | access | Generation result or status |
-| `GET /cases/{case_id}/routing` | access | F-05 result |
+| `GET /cases/{case_id}/routing` | access | F-05 result plus nullable least-load assignee |
 | `GET /cases/{case_id}/document` | access | Stored document view |
+| `GET /cases/{case_id}/action-log` | access | Immutable SQL action history; empty list is valid |
+| `GET /cases/{case_id}/abuse` | ADMIN/moderator | Review-only abuse score/signals; no citizen-facing judgment |
+| `POST /cases/{case_id}/abuse-override` | ADMIN/moderator | Boolean decision plus mandatory reason; appends `spam_decision` |
+| `GET /moderation-trends` | ADMIN for unit/system; USER self scope | Daily flagged-rate aggregates; `no_data` until BX-04 signals exist |
+| `GET /cases/{case_id}/training-export` | access | Case-scoped redacted projection; original text is excluded |
+| `GET /cases/{case_id}/history` | access | Same-classification cases in the inclusive preceding 30-day window; resolution marks and viewers |
+| `POST /cases/{case_id}/resolution-mark` | access | Idempotent reader resolution mark; body empty or `{}` |
+| `GET /cases/{case_id}/attachments` | access | Attachment metadata, request-type requirements, relations, and non-authoritative suggestions |
+| `POST /cases/{case_id}/attachments` | access | Register object-storage metadata; draft/waiting states only; submitted changes require BX-05 |
+| `PATCH /cases/{case_id}/edit` | access | Edit permitted content with `If-Match`; creates immutable BX-05 revision and `petition_edit` log |
+| `GET /cases/{case_id}/revisions` | access | Read prior authorized revision metadata and payload snapshots |
+| `GET /cases/{case_id}/priority` | access | Read deterministic priority and visible policy reason |
+| `POST /cases/{case_id}/priority-override` | ADMIN | Override priority with mandatory reason; routing is unchanged |
+| `GET /cases/{case_id}/routing-evaluation` | access | Read case routing confidence/correctness feedback |
+| `POST /cases/{case_id}/routing-feedback` | ADMIN | Record final accepted unit as ground truth; stays outside training export |
+| `GET /routing-evaluation` | ADMIN | Unit/system routing accuracy aggregates |
+| `POST /v1/normalize` | access | Optional Turkish spelling/readability suggestion; original text is preserved |
 | `POST /cases/{case_id}/review-completion` | ADMIN | `Idempotency-Key` + `If-Match`; only `needs_review` cases |
 
 Client generation input is refused on purpose: `POST .../correspondence`
@@ -103,7 +120,9 @@ Names only — values live in `compose.workflow.yaml` and the environment.
 `DATABASE_URL`, `TAXONOMY_PATH`, `JAMBA_URL`, `JAMBA_TIMEOUT_SECONDS`,
 `BGE_MODEL_REVISION`, `HF_HOME`, `WORKER_POLL_SECONDS`,
 `WORKER_LEASE_SECONDS`, `F04_RETRY_COOLDOWN_SECONDS`,
-`CASE_ACCESS_TOKEN`, `CASE_ADMIN_TOKEN`.
+`CASE_ACCESS_TOKEN`, `CASE_ADMIN_TOKEN`, and optional abuse rule configuration.
+The abuse projection uses a `0.70` score threshold; duplicate/burst/bot and
+term-list rules are deterministic and review-only.
 
 The two tokens are fixed demo credentials, not authentication — see
 [`../development.md`](../development.md).
@@ -113,7 +132,7 @@ The two tokens are fixed demo credentials, not authentication — see
 `tests/test_correspondence_service.py`, `tests/test_routing_service.py`,
 `tests/test_orchestrator.py`, `tests/test_case_contracts.py`,
 `tests/test_case_list_projection.py`, `tests/run_orchestration_intake.py`,
-`tests/run_correspondence_intake.py`.
+`tests/run_correspondence_intake.py`, `tests/test_abuse.py`.
 
 ## Related docs
 

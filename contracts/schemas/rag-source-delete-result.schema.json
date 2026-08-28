@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"rag-source-delete-result","type":"object","additionalProperties":false,"required":["source_id","deleted","corpus_version"],"properties":{"source_id":{"type":"string","minLength":1},"deleted":{"const":true},"corpus_version":{"type":"string","minLength":1}}}

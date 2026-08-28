@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"citizen-draft-request","type":"object","required":["document_type"],"properties":{"document_type":{"type":"string"},"fields":{"type":"object","additionalProperties":{"type":"string"}},"text":{"type":"string","maxLength":20000}},"additionalProperties":false}

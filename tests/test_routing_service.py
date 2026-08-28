@@ -9,7 +9,7 @@ from pathlib import Path
 WORKFLOW = Path(__file__).parents[1] / "services" / "workflow"
 sys.path.insert(0, str(WORKFLOW))
 
-from routing import RoutingRejected, normalize_notification_output, notification_payload, select_route  # noqa: E402
+from routing import RoutingRejected, normalize_notification_output, notification_payload, select_route, evaluate_routing  # noqa: E402
 
 
 TAXONOMY = {
@@ -26,6 +26,15 @@ TAXONOMY = {
 
 
 class RoutingSelectionTests(unittest.TestCase):
+    def test_low_confidence_needs_review_without_changing_prediction(self):
+        result = evaluate_routing("u1", confidence=0.79, threshold=0.80)
+        self.assertTrue(result["needs_review"])
+        self.assertEqual(result["predicted_unit_id"], "u1")
+
+    def test_final_accepted_unit_is_ground_truth(self):
+        self.assertTrue(evaluate_routing("u1", "u1", 0.9)["routing_correct"])
+        self.assertFalse(evaluate_routing("u1", "u2", 0.9)["routing_correct"])
+
     def test_complete_draft_routes_to_active_classified_chain(self):
         route = select_route(TAXONOMY, classification_status="classified", completion_status="complete", result_status="draft_ready", department_id="imar", unit_id="ruhsat")
         self.assertEqual(route, {"route_kind": "classified", "department_id": "imar", "unit_id": "ruhsat", "taxonomy_version": "test-v1"})

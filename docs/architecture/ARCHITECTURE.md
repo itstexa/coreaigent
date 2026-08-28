@@ -17,6 +17,22 @@ consumes the human-approved Jamba and feature-pack requirements in
 | [ARCHITECTURE_5a9d17f_f06.md](ARCHITECTURE_5a9d17f_f06.md) | US-111 F-06 orchestration, current state, demo access, and recovery | 5a9d17f | Active |
 | [ARCHITECTURE_1b8477b_f08.md](ARCHITECTURE_1b8477b_f08.md) | US-112 F-08 truthful local Compose dependency closure and real local verification | 1b8477b | Active |
 | [ARCHITECTURE_a18aacd_f09.md](ARCHITECTURE_a18aacd_f09.md) | US-113 F-09 public case API manifest and strict result schemas | a18aacd | Active |
+| [ARCHITECTURE_bd84424_bx06.md](ARCHITECTURE_bd84424_bx06.md) | BX-06 F-03 validation preview in citizen petition flow | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx00.md](ARCHITECTURE_bd84424_bx00.md) | BX-00 immutable case action log | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx01.md](ARCHITECTURE_bd84424_bx01.md) | BX-01 case-scoped irreversible DLP export | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx02.md](ARCHITECTURE_bd84424_bx02.md) | BX-02 least-open-case unit assignment | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx03.md](ARCHITECTURE_bd84424_bx03.md) | BX-03 case history and 30-day similar cases | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx03a.md](ARCHITECTURE_bd84424_bx03a.md) | BX-03A attachment metadata, requirements, and relations | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx03a.md](ARCHITECTURE_bd84424_bx03a.md) | BX-03A related attachments and required documents | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx04.md](ARCHITECTURE_bd84424_bx04.md) | BX-04 abuse and aggression review signals | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx04a.md](ARCHITECTURE_bd84424_bx04a.md) | BX-04A aggregate abuse trends | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx05.md](ARCHITECTURE_bd84424_bx05.md) | BX-05 case revision edit | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx07.md](ARCHITECTURE_bd84424_bx07.md) | BX-07 citizen document draft | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx08.md](ARCHITECTURE_bd84424_bx08.md) | BX-08 deterministic priority | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx09.md](ARCHITECTURE_bd84424_bx09.md) | BX-09 routing confidence feedback | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx10.md](ARCHITECTURE_bd84424_bx10.md) | BX-10 personnel dashboard | bd84424 | Active |
+| [ARCHITECTURE_bd84424_bx11.md](ARCHITECTURE_bd84424_bx11.md) | BX-11 Turkish text improvement | bd84424 | Active |
+| [ARCHITECTURE_bd84424_rag_corpus.md](ARCHITECTURE_bd84424_rag_corpus.md) | BX-12–BX-14 managed RAG corpus, binary documents, CPU retrieval | bd84424 | Active |
 
 ## Scope and Component Boundary
 

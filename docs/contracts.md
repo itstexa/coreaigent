@@ -33,6 +33,15 @@ processing begins.
 | `GET /cases` | workflow | — | `case-list-result` |
 | `GET /cases/{case_id}` | workflow | — | `case-status-result` |
 | `GET /cases/{case_id}/document` | workflow | — | `case-document` |
+| `GET /cases/{case_id}/action-log` | workflow | — | `case-action-log-result` |
+| `GET /cases/{case_id}/training-export` | workflow | — | `case-training-export` |
+| `GET /cases/{case_id}/history` | workflow | — | `case-history-result` |
+| `POST /cases/{case_id}/resolution-mark` | workflow | `empty-object` | `case-resolution-mark-result` |
+| `GET /cases/{case_id}/attachments` | workflow | — | `case-attachments-result` |
+| `POST /cases/{case_id}/attachments` | workflow | `case-attachment-add-request` | `case-attachment-add-result` |
+| `GET /cases/{case_id}/abuse` | workflow | — | `case-abuse-result` |
+| `POST /cases/{case_id}/abuse-override` | workflow | `case-abuse-override-request` | `case-abuse-override-result` |
+| `GET /moderation-trends` | workflow | — | `case-abuse-trend-result` |
 | `POST /cases/{case_id}/correspondence` | workflow | `empty-object` | `correspondence-start-result` |
 | `GET /cases/{case_id}/correspondence` | workflow | — | `case-correspondence-result` |
 | `GET /cases/{case_id}/routing` | workflow | — | `case-routing-result` |
@@ -62,6 +71,17 @@ and review completion, and a quoted `ETag` revision on the responses.
 | `case-status-result` | workflow | frontend, runners | Role-projected current case state. |
 | `case-list-result` | workflow | frontend (ADMIN) | Paged operator queue with filters. |
 | `case-document` | workflow | frontend (ADMIN) | Source document text and metadata for one case. |
+| `case-action-log-result` | workflow | frontend, runners | Immutable case action history. |
+| `case-training-export` | workflow | authorized case readers | Irreversibly redacted, case-scoped training projection. |
+| `case-history-result` | workflow | authorized case readers | Current resolution and permitted 30-day similar-case summaries. |
+| `case-resolution-mark-result` | workflow | authorized case readers | Idempotent reader resolution mark. |
+| `case-attachments-result` | workflow | authorized case readers | Attachment metadata, required-type gaps, relations, and suggestions. |
+| `case-attachment-add-request` | authorized caller | workflow | Object-storage metadata and optional relation. |
+| `case-attachment-add-result` | workflow | authorized case readers | Newly registered attachment metadata. |
+| `case-abuse-result` | workflow | authorized case readers | Bounded review flag, score, and detected signals. |
+| `case-abuse-override-request` | authorized ADMIN | workflow | Required reason for moderation override. |
+| `case-abuse-override-result` | workflow | authorized ADMIN | Persisted override actor and decision. |
+| `case-abuse-trend-result` | workflow | authorized trend readers | Privacy-bounded daily flagged-rate trend. |
 | `correspondence-start-result` | workflow | frontend, runners | Accepted F-04 start against a case revision. |
 | `case-correspondence-result` | workflow | frontend, runners | Current draft, summary, type, and regulation suggestions. |
 | `case-routing-result` | workflow | frontend, runners | Target unit decision and notification status. |

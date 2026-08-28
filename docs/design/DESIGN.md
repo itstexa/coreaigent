@@ -15,6 +15,8 @@ grows too large; every such file must be listed below.
 | [DESIGN_c207e52_f06.md](DESIGN_c207e52_f06.md) | US-111 F-06 orchestration and observable case state | `c207e52` | Active |
 | [DESIGN_f38fa41_f08.md](DESIGN_f38fa41_f08.md) | US-112 F-08 Compose developer-mode dependency closure | `f38fa41` | Active |
 | [DESIGN_a18aacd_f09.md](DESIGN_a18aacd_f09.md) | US-113 F-09 contract atlas stabilization for implemented case APIs | `a18aacd` | Active |
+| [DESIGN_bd84424_extensions.md](DESIGN_bd84424_extensions.md) | BX-00…BX-11 operational extensions: discovery, minimal slices, and open decisions | `bd84424` | Active — clarification required |
+| [DESIGN_bd84424_rag_corpus.md](DESIGN_bd84424_rag_corpus.md) | BX-12 RAG corpus governance and operator document management analysis | `bd84424` | Active — clarification required |
 
 ## Analysis Context
 

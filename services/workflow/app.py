@@ -13,6 +13,47 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from psycopg.types.json import Jsonb
 
+try:  # script entrypoint in the image; package import in unit tests
+    from action_log import append_action_log
+except ImportError:  # pragma: no cover - depends on the launch mode
+    from services.workflow.action_log import append_action_log
+try:
+    from dlp import DlpError, redact_text
+except ImportError:  # pragma: no cover - depends on the launch mode
+    from services.workflow.dlp import DlpError, redact_text
+try:
+    from similarity import similar_case
+except ImportError:  # pragma: no cover - depends on the launch mode
+    from services.workflow.similarity import similar_case
+try:
+    from abuse import analyze_submission
+except ImportError:  # pragma: no cover
+    from services.workflow.abuse import analyze_submission
+try:
+    from attachments import AttachmentError, load_required_rules, missing_required_types, relation, similarity_suggestion, validate_metadata
+except ImportError:  # pragma: no cover - depends on the launch mode
+    from services.workflow.attachments import AttachmentError, load_required_rules, missing_required_types, relation, similarity_suggestion, validate_metadata
+try:
+    from priority import apply_override, calculate_priority
+except ImportError:  # pragma: no cover
+    from services.workflow.priority import apply_override, calculate_priority
+try:
+    from normalizer import suggest
+except ImportError:  # pragma: no cover
+    from services.workflow.normalizer import suggest
+try:
+    from revisions import edit_decision, next_revision, validate_edit
+except ImportError:
+    from services.workflow.revisions import edit_decision, next_revision, validate_edit
+try:
+    from draft import make_draft
+except ImportError:
+    from services.workflow.draft import make_draft
+try:
+    from routing import evaluate_routing, ROUTING_CONFIDENCE_THRESHOLD
+except ImportError:  # pragma: no cover
+    from services.workflow.routing import evaluate_routing, ROUTING_CONFIDENCE_THRESHOLD
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 AUTH_TOKEN = os.environ.get("CASE_ACCESS_TOKEN", "")
 ADMIN_TOKEN = os.environ.get("CASE_ADMIN_TOKEN", "")
@@ -65,6 +106,14 @@ CREATE TABLE IF NOT EXISTS routing_jobs (
  claimed_until timestamptz NULL, rejection_code text NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE (case_id, source_case_revision)
 );
+CREATE TABLE IF NOT EXISTS routing_feedback (
+ feedback_id uuid PRIMARY KEY, case_id uuid NOT NULL REFERENCES current_case_states(case_id),
+ source_case_revision bigint NOT NULL CHECK (source_case_revision > 0), predicted_unit_id text NOT NULL,
+ accepted_unit_id text NOT NULL, confidence numeric NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
+ routing_correct boolean NOT NULL, actor text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE (case_id, source_case_revision)
+);
+CREATE INDEX IF NOT EXISTS routing_feedback_unit_idx ON routing_feedback (accepted_unit_id, created_at);
 CREATE TABLE IF NOT EXISTS notification_records (
  notification_id uuid PRIMARY KEY, routing_id uuid NOT NULL REFERENCES routing_operations(routing_id),
  audience text NOT NULL CHECK (audience IN ('applicant','target_unit')),
@@ -83,6 +132,64 @@ CREATE TABLE IF NOT EXISTS current_case_states (
  state text NOT NULL CHECK (state IN ('received','normalized','classified','needs_review','extracting','waiting_for_user','ready_for_processing','draft_prepared','routed','notification_pending','completed','failed')),
  completed_steps jsonb NOT NULL DEFAULT '[]'::jsonb, last_error_code text NULL,
  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS case_revisions (
+ case_id uuid NOT NULL REFERENCES current_case_states(case_id), revision bigint NOT NULL CHECK (revision > 0), parent_revision bigint NULL,
+ document_id text NOT NULL, actor_id text NOT NULL CHECK (length(trim(actor_id)) > 0), payload jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now(),
+ change_kind text NOT NULL CHECK (change_kind IN ('initial','petition_edit')), PRIMARY KEY (case_id, revision), UNIQUE (document_id)
+);
+CREATE TABLE IF NOT EXISTS case_action_logs (
+ event_id uuid PRIMARY KEY, case_id uuid NOT NULL REFERENCES current_case_states(case_id),
+ action_type text NOT NULL CHECK (action_type IN ('state_change','assignment','petition_edit','attachment_change','spam_decision','view','download')),
+ actor text NOT NULL CHECK (length(trim(actor)) > 0), occurred_at timestamptz NOT NULL DEFAULT now(),
+ details jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS case_action_logs_case_time_idx ON case_action_logs (case_id, occurred_at, event_id);
+CREATE TABLE IF NOT EXISTS case_abuse_assessments (
+ case_id uuid PRIMARY KEY REFERENCES current_case_states(case_id),
+ label text NOT NULL CHECK (label IN ('clear','review')),
+ confidence numeric NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
+ risk_score numeric NOT NULL CHECK (risk_score >= 0 AND risk_score <= 1),
+ flagged boolean NOT NULL,
+ detected_signals jsonb NOT NULL DEFAULT '[]'::jsonb,
+ override_flagged boolean NULL,
+ override_reason text NULL,
+ analyzed_at timestamptz NOT NULL DEFAULT now(),
+ override_at timestamptz NULL,
+ CHECK (override_flagged IS NULL OR (override_reason IS NOT NULL AND length(trim(override_reason)) > 0))
+);
+CREATE TABLE IF NOT EXISTS case_priorities (
+ case_id uuid PRIMARY KEY REFERENCES current_case_states(case_id), level text NOT NULL CHECK (level IN ('low','normal','high','urgent')),
+ policy_version text NOT NULL, reason text NOT NULL, override_reason text NULL, updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS unit_personnel (
+ person_id text PRIMARY KEY, unit_id text NOT NULL, display_name text NOT NULL CHECK (length(trim(display_name)) > 0)
+);
+CREATE TABLE IF NOT EXISTS case_assignments (
+ assignment_id uuid PRIMARY KEY, case_id uuid NOT NULL REFERENCES current_case_states(case_id),
+ source_case_revision bigint NOT NULL CHECK (source_case_revision > 0), person_id text NOT NULL REFERENCES unit_personnel(person_id),
+ assigned_at timestamptz NOT NULL DEFAULT now(), UNIQUE (case_id, source_case_revision)
+);
+CREATE TABLE IF NOT EXISTS case_resolution_marks (
+ case_id uuid NOT NULL REFERENCES current_case_states(case_id), actor text NOT NULL,
+ marked_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (case_id, actor)
+);
+CREATE TABLE IF NOT EXISTS case_attachments (
+ attachment_id uuid PRIMARY KEY, case_id uuid NOT NULL REFERENCES current_case_states(case_id),
+ attachment_type text NOT NULL CHECK (length(trim(attachment_type)) > 0), filename text NOT NULL,
+ content_type text NOT NULL, size_bytes bigint NOT NULL CHECK (size_bytes >= 0), storage_key text NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS case_attachments_case_idx ON case_attachments (case_id, created_at, attachment_id);
+CREATE TABLE IF NOT EXISTS case_attachment_relations (
+ relation_id uuid PRIMARY KEY, case_id uuid NOT NULL REFERENCES current_case_states(case_id),
+ source_attachment_id uuid NOT NULL REFERENCES case_attachments(attachment_id),
+ target_attachment_id uuid NOT NULL REFERENCES case_attachments(attachment_id),
+ method text NOT NULL CHECK (method IN ('manual','rule','similarity_suggestion')),
+ authoritative boolean NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ CHECK ((method='similarity_suggestion' AND authoritative=false) OR (method IN ('manual','rule') AND authoritative=true)),
+ UNIQUE (source_attachment_id,target_attachment_id,method)
 );
 CREATE TABLE IF NOT EXISTS correspondence_start_jobs (
  job_id uuid PRIMARY KEY, case_id uuid NOT NULL, source_case_revision bigint NOT NULL CHECK (source_case_revision > 0),
@@ -252,6 +359,19 @@ def case_document_item(case_id, record):
     }
 
 
+def attachment_item(row):
+    """Project attachment metadata without exposing the object-store key."""
+    attachment_id, attachment_type, filename, content_type, size_bytes, created_at = row
+    return {
+        "attachment_id": str(attachment_id),
+        "attachment_type": attachment_type,
+        "filename": filename,
+        "content_type": content_type,
+        "size_bytes": int(size_bytes),
+        "created_at": created_at.isoformat(),
+    }
+
+
 def case_list_bounds(limit, offset):
     """Clamp paging input instead of trusting or rejecting it.
 
@@ -284,6 +404,25 @@ CASE_LIST_SQL = (
 
 def create_app():
     app = FastAPI(title="CoreAIgent workflow", docs_url=None, redoc_url=None)
+
+    @app.post("/v1/normalize")
+    async def normalize_text(request: Request):
+        try:
+            body = await request.json()
+            if not isinstance(body, dict): raise ValueError
+            return suggest(body.get("text"), body.get("language", "tr"))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return JSONResponse(status_code=422, content={"error": "invalid_text"})
+
+    @app.post("/v1/drafts")
+    async def citizen_draft(request: Request):
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError("invalid_request")
+            return make_draft(payload.get("document_type"), payload.get("fields"), payload.get("text", ""))
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            return JSONResponse(status_code=422, content={"error": str(exc) or "invalid_request"})
 
     @app.on_event("startup")
     def initialize_persistence():
@@ -342,6 +481,89 @@ def create_app():
             return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
         return {"total": total, "limit": size, "offset": start, "cases": [case_list_item(row) for row in rows]}
 
+    @app.get("/personnel-dashboard")
+    def personnel_dashboard(request: Request):
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        scope = request.query_params.get("scope", "system")
+        try: period = int(request.query_params.get("period_days", "30"))
+        except ValueError: period = -1
+        unit_id = request.query_params.get("unit_id")
+        if scope not in {"unit", "system"} or period not in {7, 30, 90} or (scope == "unit" and not unit_id):
+            return nested_error(400, "QUERY_INVALID", "scope must be unit or system, period_days must be 7, 30, or 90, and unit_id is required for unit scope")
+        filt = " AND p.unit_id=%s" if scope == "unit" else ""
+        args = [unit_id] if scope == "unit" else []
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                active = db.execute("SELECT count(*) FROM unit_personnel p WHERE 1=1" + filt, args).fetchone()[0]
+                open_count = db.execute("SELECT count(*) FROM case_assignments a JOIN unit_personnel p USING(person_id) JOIN current_case_states s USING(case_id) WHERE s.state NOT IN ('completed','failed')" + filt, args).fetchone()[0]
+                completed = db.execute("SELECT count(*) FROM case_revisions r JOIN current_case_states s USING(case_id) JOIN case_assignments a USING(case_id) JOIN unit_personnel p USING(person_id) WHERE s.state='completed' AND r.created_at >= now()-(%s || ' days')::interval" + filt, [period] + args).fetchone()[0]
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"scope": scope, "unit_id": unit_id if scope == "unit" else None, "period_days": period, "metrics": {"active_personnel": active, "open_assignments": open_count, "completed_cases": completed, "throughput": completed / period, "average_resolution_hours": None}}
+
+    @app.get("/moderation-trends")
+    def moderation_trends(request: Request):
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        scope = request.query_params.get("scope", "system")
+        try:
+            period_days = int(request.query_params.get("period_days", "30"))
+        except ValueError:
+            period_days = -1
+        if scope not in {"user", "unit", "system"} or period_days not in {7, 30, 90}:
+            return nested_error(400, "QUERY_INVALID", "scope must be user, unit, or system and period_days must be 7, 30, or 90")
+        if scope in {"unit", "system"} and role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        if scope == "user":
+            return {"status": "no_data", "scope": scope, "period_days": period_days, "points": []}
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                if scope == "unit":
+                    rows = db.execute("SELECT date_trunc('day',a.analyzed_at)::date,c.unit_id,count(*),count(*) FILTER (WHERE a.flagged) FROM case_abuse_assessments a JOIN current_classifications c USING(case_id) WHERE a.analyzed_at >= now() - (%s || ' days')::interval GROUP BY 1,c.unit_id HAVING count(*) >= 5 ORDER BY 1,c.unit_id", (period_days,)).fetchall()
+                else:
+                    rows = db.execute("SELECT date_trunc('day',analyzed_at)::date,'system',count(*),count(*) FILTER (WHERE flagged) FROM case_abuse_assessments WHERE analyzed_at >= now() - (%s || ' days')::interval GROUP BY 1 HAVING count(*) >= 5 ORDER BY 1", (period_days,)).fetchall()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        points = [{"bucket": row[0].isoformat(), "key": row[1], "total": row[2], "flagged": row[3], "rate": row[3] / row[2]} for row in rows]
+        return {"status": "data" if points else "no_data", "scope": scope, "period_days": period_days, "points": points}
+
+    @app.get("/cases/{case_id}/priority")
+    def case_priority(case_id: str, request: Request):
+        if not _role(request): return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad: return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                row = db.execute("SELECT level,policy_version,reason,override_reason,updated_at FROM case_priorities WHERE case_id=%s", (case,)).fetchone()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        if not row: return {"case_id": case_id, "level": "normal", "policy_version": "priority-policy-v1", "reason": "no qualifying urgency signal; default priority", "override_reason": None, "updated_at": None}
+        return {"case_id": case_id, "level": row[0], "policy_version": row[1], "reason": row[2], "override_reason": row[3], "updated_at": row[4].isoformat()}
+
+    @app.post("/cases/{case_id}/priority-override")
+    async def priority_override(case_id: str, request: Request):
+        if _role(request) != "ADMIN": return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad: return bad
+        try:
+            body = await request.json()
+            if not isinstance(body, dict) or set(body) != {"level", "reason"}: raise ValueError
+            result = apply_override({"level": body["level"]}, body["level"], body["reason"])
+        except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+            return nested_error(422, "PRIORITY_OVERRIDE_INVALID", "level and non-empty reason are required")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                if not cur.execute("SELECT 1 FROM current_case_states WHERE case_id=%s", (case,)).fetchone(): return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                cur.execute("INSERT INTO case_priorities(case_id,level,policy_version,reason,override_reason) VALUES (%s,%s,'priority-policy-v1','human override',%s) ON CONFLICT (case_id) DO UPDATE SET level=EXCLUDED.level,override_reason=EXCLUDED.override_reason,reason=EXCLUDED.reason,updated_at=now()", (case, result["level"], result["override_reason"]))
+                append_action_log(cur, case, "state_change", "ADMIN", {"priority": result["level"], "reason": result["override_reason"]})
+        except psycopg.Error: return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, "level": result["level"], "reason": result["override_reason"], "actor": "ADMIN"}
+
     @app.post("/cases/{case_id}/correspondence")
     async def start(case_id: str, request: Request):
         if not _authorized(request):
@@ -385,6 +607,7 @@ def create_app():
                 cur.execute("UPDATE current_validation_states SET current_correspondence_generation_id=%s WHERE case_id=%s AND revision=%s", (generation, case, expected_revision))
                 response = {"case_id": case_id, "job_id": str(job), "case_revision": expected_revision, "generation_status": "queued"}
                 cur.execute("INSERT INTO correspondence_replays (principal_id,case_id,idempotency_key,source_case_revision,request_fingerprint,generation_id,job_id,response_status,response_body) VALUES (%s,%s,%s,%s,%s,%s,%s,202,%s)", (principal, case, key, expected_revision, fingerprint, generation, job, Jsonb(response)))
+                append_action_log(cur, case, "state_change", "USER", {"state": "correspondence_queued", "case_revision": expected_revision, "job_id": str(job)})
         except psycopg.Error:
             return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
         return JSONResponse(status_code=202, content=response)
@@ -430,13 +653,375 @@ def create_app():
                 if not route:
                     return {"case_id": case_id, "case_revision": state[0], "routing_status": "not_routed", "result": None}
                 notifications = db.execute("SELECT audience,generation_status,error_code FROM notification_records WHERE routing_id=%s ORDER BY audience", (route[0],)).fetchall()
+                assignee = db.execute("SELECT a.person_id,p.display_name FROM case_assignments a JOIN unit_personnel p USING(person_id) WHERE a.case_id=%s AND a.source_case_revision=%s", (case, state[0])).fetchone()
         except psycopg.Error:
             return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
         return {
             "case_id": case_id, "case_revision": state[0], "routing_id": str(route[0]), "routing_status": route[1], "route_kind": route[2],
             "target_department": {"id": route[3], "label": route[4]}, "target_unit": {"id": route[5], "label": route[6]},
+            "assignee": None if not assignee else {"id": assignee[0], "name": assignee[1]},
             "notifications": [{"audience": item[0], "generation_status": item[1], "error_code": item[2]} for item in notifications],
         }
+
+    @app.get("/cases/{case_id}/routing-evaluation")
+    def routing_evaluation(case_id: str, request: Request):
+        if not _role(request): return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad: return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                row = db.execute("SELECT predicted_unit_id,accepted_unit_id,confidence,routing_correct,source_case_revision,created_at FROM routing_feedback WHERE case_id=%s ORDER BY created_at DESC LIMIT 1", (case,)).fetchone()
+        except psycopg.Error: return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        if not row: return {"case_id": case_id, "feedback": None}
+        return {"case_id": case_id, "feedback": {"predicted_unit_id": row[0], "accepted_unit_id": row[1], "confidence": float(row[2]), "routing_correct": row[3], "case_revision": row[4], "created_at": row[5].isoformat()}}
+
+    @app.get("/routing-evaluation")
+    def routing_evaluation_aggregate(request: Request):
+        if _role(request) != "ADMIN": return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                rows = db.execute("SELECT COALESCE(accepted_unit_id,'system'),count(*),count(*) FILTER (WHERE routing_correct) FROM routing_feedback GROUP BY 1 ORDER BY 1").fetchall()
+        except psycopg.Error: return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"aggregates": [{"unit_id": r[0], "total": r[1], "correct": r[2], "accuracy": r[2] / r[1] if r[1] else 0.0} for r in rows]}
+
+    @app.post("/cases/{case_id}/routing-feedback")
+    async def routing_feedback(case_id: str, request: Request):
+        if _role(request) != "ADMIN": return nested_error(403, "FORBIDDEN", "ADMIN authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad: return bad
+        try:
+            body = await request.json()
+            accepted = body["accepted_unit_id"]
+            if not isinstance(accepted, str) or not accepted.strip(): raise ValueError
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return nested_error(400, "FEEDBACK_INVALID", "accepted_unit_id is required")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                row = cur.execute("SELECT r.target_unit_id,r.source_case_revision,c.confidence FROM routing_operations r JOIN current_classifications c USING(case_id) WHERE r.case_id=%s ORDER BY r.source_case_revision DESC LIMIT 1", (case,)).fetchone()
+                if not row: return nested_error(404, "ROUTING_NOT_FOUND", "Routing was not found")
+                result = evaluate_routing(row[0], accepted, float(row[2]))
+                cur.execute("INSERT INTO routing_feedback(feedback_id,case_id,source_case_revision,predicted_unit_id,accepted_unit_id,confidence,routing_correct,actor) VALUES (%s,%s,%s,%s,%s,%s,%s,'ADMIN') ON CONFLICT (case_id,source_case_revision) DO UPDATE SET accepted_unit_id=EXCLUDED.accepted_unit_id, routing_correct=EXCLUDED.routing_correct", (uuid.uuid4(), case, row[1], row[0], accepted, row[2], result["routing_correct"]))
+        except psycopg.Error: return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, **result, "training_eligible": False}
+
+    @app.get("/cases/{case_id}/action-log")
+    def action_log(case_id: str, request: Request):
+        """Return immutable actions for a case to any existing case reader."""
+        if not _role(request):
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                if not db.execute("SELECT 1 FROM current_case_states WHERE case_id=%s", (case,)).fetchone():
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                rows = db.execute(
+                    "SELECT event_id,action_type,actor,occurred_at,details FROM case_action_logs "
+                    "WHERE case_id=%s ORDER BY occurred_at,event_id", (case,)
+                ).fetchall()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, "events": [
+            {"event_id": str(row[0]), "action_type": row[1], "actor": row[2],
+             "occurred_at": row[3].isoformat(), "details": row[4] or {}}
+            for row in rows
+        ]}
+
+    @app.get("/cases/{case_id}/abuse")
+    def abuse_assessment(case_id: str, request: Request):
+        """Return review-only abuse metadata to an authorized moderator."""
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "Moderator authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                if not db.execute("SELECT 1 FROM current_case_states WHERE case_id=%s", (case,)).fetchone():
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                row = db.execute(
+                    "SELECT label,confidence,risk_score,flagged,detected_signals,override_flagged,override_reason,analyzed_at,override_at "
+                    "FROM case_abuse_assessments WHERE case_id=%s", (case,)
+                ).fetchone()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        if not row:
+            return nested_error(404, "ABUSE_ASSESSMENT_NOT_FOUND", "Abuse assessment was not found")
+        effective = row[5] if row[5] is not None else row[3]
+        return {
+            "case_id": case_id, "label": "review" if effective else "clear",
+            "confidence": float(row[1]), "risk_score": float(row[2]), "flagged": bool(row[3]),
+            "detected_signals": row[4] or [], "override_flagged": row[5],
+            "override_reason": row[6], "effective_flagged": bool(effective),
+            "analyzed_at": row[7].isoformat(), "override_at": row[8].isoformat() if row[8] else None,
+        }
+
+    @app.post("/cases/{case_id}/abuse-override")
+    async def abuse_override(case_id: str, request: Request):
+        """Persist a moderator decision and append the BX-00 spam event."""
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        if role != "ADMIN":
+            return nested_error(403, "FORBIDDEN", "Moderator authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            body = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return nested_error(400, "REQUEST_BODY_INVALID", "Body must contain flagged and reason")
+        if not isinstance(body, dict) or set(body) != {"flagged", "reason"} or not isinstance(body["flagged"], bool):
+            return nested_error(400, "REQUEST_BODY_INVALID", "Body must contain boolean flagged and reason")
+        reason = body["reason"]
+        if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
+            return nested_error(422, "OVERRIDE_REASON_REQUIRED", "A non-empty override reason is required")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                cur.execute("SELECT 1 FROM current_case_states WHERE case_id=%s", (case,))
+                if not cur.fetchone():
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                cur.execute("SELECT analyzed_at FROM case_abuse_assessments WHERE case_id=%s FOR UPDATE", (case,))
+                row = cur.fetchone()
+                if not row:
+                    return nested_error(404, "ABUSE_ASSESSMENT_NOT_FOUND", "Abuse assessment was not found")
+                cur.execute(
+                    "UPDATE case_abuse_assessments SET override_flagged=%s,override_reason=%s,override_at=now() WHERE case_id=%s "
+                    "RETURNING override_at", (body["flagged"], reason.strip(), case)
+                )
+                marked_at = cur.fetchone()[0]
+                append_action_log(cur, case, "spam_decision", role, {
+                    "override_flagged": body["flagged"], "reason": reason.strip(),
+                })
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, "override_flagged": body["flagged"], "reason": reason.strip(), "actor": role, "overridden_at": marked_at.isoformat()}
+
+    @app.get("/cases/{case_id}/training-export")
+    def training_export(case_id: str, request: Request):
+        """Return one irreversibly redacted training-data projection."""
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                cur.execute(
+                    "SELECT i.document_id,i.normalized_text,COALESCE(s.accepted_fields,'{}'::jsonb) "
+                    "FROM current_case_states cs JOIN intake_records i USING(case_id) "
+                    "LEFT JOIN current_validation_states s USING(case_id) WHERE cs.case_id=%s",
+                    (case,),
+                )
+                record = cur.fetchone()
+                if not record:
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                accepted = record[2] or {}
+                names = []
+                for field_id, value in accepted.items() if isinstance(accepted, dict) else ():
+                    if not isinstance(field_id, str) or not field_id.endswith("-name"):
+                        continue
+                    value = value.get("value") if isinstance(value, dict) else value
+                    if isinstance(value, str) and value.strip():
+                        names.append(value)
+                projection = redact_text(record[1] or "", names)
+                response = {"case_id": case_id, "document_id": record[0], **projection}
+                append_action_log(cur, case, "download", role, {
+                    "export_type": "training_dataset", "redactions": projection["redactions"],
+                })
+        except DlpError:
+            return nested_error(422, "DLP_REDACTION_FAILED", "Training export could not prove safe redaction")
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return response
+
+    @app.get("/cases/{case_id}/history")
+    def case_history(case_id: str, request: Request):
+        """Return same-classification cases from the preceding 30 days."""
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                cur.execute(
+                    "SELECT cs.state,c.request_type_id,i.created_at,i.normalized_text,i.source_metadata "
+                    "FROM current_case_states cs JOIN intake_records i USING(case_id) "
+                    "JOIN current_classifications c USING(case_id) WHERE cs.case_id=%s",
+                    (case,),
+                )
+                current = cur.fetchone()
+                if not current:
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                cur.execute("SELECT actor,marked_at FROM case_resolution_marks WHERE case_id=%s ORDER BY marked_at,actor", (case,))
+                current_marks = cur.fetchall()
+                current_metadata = current[4] if isinstance(current[4], dict) else {}
+                cur.execute(
+                    "SELECT cs.case_id,cs.state,c.request_type_id,i.created_at,i.normalized_text,i.source_metadata "
+                    "FROM current_case_states cs JOIN intake_records i USING(case_id) "
+                    "JOIN current_classifications c USING(case_id) "
+                    "WHERE c.request_type_id=%s AND i.created_at >= %s - interval '30 days' "
+                    "AND i.created_at <= %s AND cs.case_id<>%s ORDER BY i.created_at DESC",
+                    (current[1], current[2], current[2], case),
+                )
+                similar_rows = cur.fetchall()
+                similar = []
+                for row in similar_rows:
+                    metadata = row[5] if isinstance(row[5], dict) else {}
+                    decision = similar_case(
+                        {"created_at": current[2], "classification": current[1], "text": current[3], "location": current_metadata.get("location")},
+                        {"created_at": row[3], "classification": row[2], "text": row[4], "location": metadata.get("location")},
+                    )
+                    cur.execute("SELECT actor,marked_at FROM case_resolution_marks WHERE case_id=%s ORDER BY marked_at,actor", (row[0],))
+                    marks = cur.fetchall()
+                    viewers = cur.execute("SELECT DISTINCT actor FROM case_action_logs WHERE case_id=%s AND action_type='view' ORDER BY actor", (row[0],)).fetchall()
+                    similar.append({
+                        "case_id": str(row[0]), "created_at": row[3].isoformat(), "state": row[1],
+                        "classification": row[2], "resolved": bool(marks), "resolved_by": [item[0] for item in marks],
+                        "viewers": [item[0] for item in viewers], "signals": decision["signals"],
+                    })
+                append_action_log(cur, case, "view", role, {"view": "history"})
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {
+            "case_id": case_id, "resolved": bool(current_marks),
+            "resolved_by": [item[0] for item in current_marks], "similar_cases": similar,
+        }
+
+    @app.post("/cases/{case_id}/resolution-mark")
+    async def resolution_mark(case_id: str, request: Request):
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        raw = await request.body()
+        if raw:
+            try:
+                if json.loads(raw) != {}:
+                    return nested_error(400, "REQUEST_BODY_INVALID", "Body must be empty or {}")
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return nested_error(400, "REQUEST_BODY_INVALID", "Body must be empty or {}")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                cur.execute("SELECT 1 FROM current_case_states WHERE case_id=%s", (case,))
+                if not cur.fetchone():
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                cur.execute("INSERT INTO case_resolution_marks (case_id,actor) VALUES (%s,%s) ON CONFLICT (case_id,actor) DO NOTHING RETURNING marked_at", (case, role))
+                marked = cur.fetchone()
+                if not marked:
+                    cur.execute("SELECT marked_at FROM case_resolution_marks WHERE case_id=%s AND actor=%s", (case, role))
+                    marked = cur.fetchone()
+                append_action_log(cur, case, "state_change", role, {"resolution": "marked"}, event_id=uuid.uuid5(uuid.NAMESPACE_URL, f"coreaigent:case:{case}:resolved:{role}"))
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, "resolved": True, "actor": role, "marked_at": marked[0].isoformat()}
+
+    @app.get("/cases/{case_id}/attachments")
+    def case_attachments(case_id: str, request: Request):
+        """Return metadata, required types, and non-authoritative suggestions."""
+        if not _role(request):
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                state = db.execute(
+                    "SELECT cs.state,COALESCE(s.request_type_id,c.request_type_id) "
+                    "FROM current_case_states cs LEFT JOIN current_validation_states s USING(case_id) "
+                    "LEFT JOIN current_classifications c USING(case_id) WHERE cs.case_id=%s", (case,)
+                ).fetchone()
+                if not state:
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                rows = db.execute(
+                    "SELECT attachment_id,attachment_type,filename,content_type,size_bytes,created_at "
+                    "FROM case_attachments WHERE case_id=%s ORDER BY created_at,attachment_id", (case,)
+                ).fetchall()
+                relation_rows = db.execute(
+                    "SELECT source_attachment_id,target_attachment_id,method,authoritative "
+                    "FROM case_attachment_relations WHERE case_id=%s ORDER BY created_at,relation_id", (case,)
+                ).fetchall()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        attachments = [attachment_item(row) for row in rows]
+        rules = load_required_rules()
+        missing = missing_required_types(state[1], [row[1] for row in rows], rules)
+        suggestions = []
+        # The endpoint only suggests pairs; it never inserts them as relations.
+        for item in attachments:
+            suggestions.extend({"source_attachment_id": item["attachment_id"], **suggestion} for suggestion in similarity_suggestion(item["filename"], [other for other in attachments if other["attachment_id"] != item["attachment_id"]]))
+        return {
+            "case_id": case_id, "state": state[0], "request_type_id": state[1],
+            "missing_required_types": missing, "attachments": attachments,
+            "relations": [{"source_attachment_id": str(row[0]), "target_attachment_id": str(row[1]), "method": row[2], "authoritative": row[3]} for row in relation_rows],
+            "suggestions": suggestions,
+        }
+
+    @app.post("/cases/{case_id}/attachments")
+    async def add_case_attachment(case_id: str, request: Request):
+        """Register an object-store object and its DB metadata."""
+        role = _role(request)
+        if not role:
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            body = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return nested_error(400, "REQUEST_BODY_INVALID", "Body must be a JSON object")
+        required = {"attachment_type", "filename", "content_type", "size_bytes", "storage_key"}
+        optional = {"related_attachment_id", "relation_method"}
+        if not isinstance(body, dict) or set(body) - required - optional or not required <= set(body):
+            return nested_error(400, "REQUEST_BODY_INVALID", "attachment_type, filename, content_type, size_bytes and storage_key are required")
+        if not isinstance(body["attachment_type"], str) or not body["attachment_type"].strip() or len(body["attachment_type"]) > 128:
+            return nested_error(422, "ATTACHMENT_TYPE_INVALID", "attachment_type must be a non-empty string of at most 128 characters")
+        try:
+            metadata = validate_metadata(body["filename"], body["content_type"], body["size_bytes"], body["storage_key"])
+        except AttachmentError as exc:
+            return nested_error(422, exc.code, str(exc))
+        attachment_id = uuid.uuid4()
+        related_id = body.get("related_attachment_id")
+        method = body.get("relation_method", "manual")
+        relation_data = None
+        related_uuid = None
+        if related_id is not None:
+            try:
+                related_uuid = uuid.UUID(related_id)
+                relation_data = relation(method, str(attachment_id), str(related_uuid))
+            except (ValueError, TypeError, AttributeError, AttachmentError) as exc:
+                return nested_error(422, getattr(exc, "code", "RELATION_INVALID"), str(exc) or "invalid attachment relation")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                cur.execute("SELECT state,COALESCE(s.request_type_id,c.request_type_id) FROM current_case_states cs LEFT JOIN current_validation_states s USING(case_id) LEFT JOIN current_classifications c USING(case_id) WHERE cs.case_id=%s FOR UPDATE", (case,))
+                state = cur.fetchone()
+                if not state:
+                    return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                if state[0] not in {"draft", "draft_prepared", "waiting_for_information", "waiting_for_user"}:
+                    return nested_error(409, "CASE_REVISION_REQUIRED", "Submitted case attachment changes require a BX-05 revision")
+                count = cur.execute("SELECT count(*) FROM case_attachments WHERE case_id=%s", (case,)).fetchone()[0]
+                if count >= 10:
+                    return nested_error(422, "CASE_FILE_LIMIT", "A case may contain at most 10 files")
+                if related_uuid is not None:
+                    cur.execute("SELECT 1 FROM case_attachments WHERE attachment_id=%s AND case_id=%s", (related_uuid,case))
+                    if not cur.fetchone():
+                        return nested_error(422, "RELATION_INVALID", "related attachment belongs to another case")
+                cur.execute("INSERT INTO case_attachments (attachment_id,case_id,attachment_type,filename,content_type,size_bytes,storage_key) VALUES (%s,%s,%s,%s,%s,%s,%s)", (attachment_id,case,body["attachment_type"],metadata["filename"],metadata["content_type"],metadata["size_bytes"],metadata["storage_key"]))
+                if related_uuid is not None:
+                    cur.execute("INSERT INTO case_attachment_relations (relation_id,case_id,source_attachment_id,target_attachment_id,method,authoritative) VALUES (%s,%s,%s,%s,%s,%s)", (uuid.uuid4(),case,attachment_id,related_uuid,relation_data["method"],relation_data["authoritative"]))
+                append_action_log(cur, case, "attachment_change", role, {"attachment_id": str(attachment_id), "operation": "attach"})
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, "attachment": {"attachment_id": str(attachment_id), "attachment_type": body["attachment_type"], "filename": metadata["filename"], "content_type": metadata["content_type"], "size_bytes": metadata["size_bytes"]}}
 
     @app.get("/cases/{case_id}/document")
     def case_document(case_id: str, request: Request):
@@ -501,6 +1086,43 @@ def create_app():
             return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
         return response
 
+    @app.get("/cases/{case_id}/revisions")
+    def case_revisions(case_id: str, request: Request):
+        if not _role(request):
+            return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad:
+            return bad
+        try:
+            with psycopg.connect(DATABASE_URL) as db:
+                rows = db.execute("SELECT revision,parent_revision,document_id,actor_id,created_at,change_kind,payload FROM case_revisions WHERE case_id=%s ORDER BY revision", (case,)).fetchall()
+        except psycopg.Error:
+            return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+        return {"case_id": case_id, "revisions": [{"revision": row[0], "parent_revision": row[1], "document_id": row[2], "actor": row[3], "created_at": row[4].isoformat(), "change_kind": row[5], "payload": row[6]} for row in rows]}
+
+    @app.patch("/cases/{case_id}/edit")
+    async def edit_case(case_id: str, request: Request):
+        role = _role(request)
+        if not role: return nested_error(401, "UNAUTHORIZED", "Bearer authorization is required")
+        case, bad = _case_uuid(case_id)
+        if bad: return bad
+        _key, expected, bad = _headers(request)
+        if bad: return bad
+        try: payload = validate_edit(await request.json())
+        except (ValueError, json.JSONDecodeError): return nested_error(400, "REQUEST_BODY_INVALID", "Invalid edit payload")
+        try:
+            with psycopg.connect(DATABASE_URL) as db, db.transaction(), db.cursor() as cur:
+                row = cur.execute("SELECT revision,state FROM current_case_states WHERE case_id=%s FOR UPDATE", (case,)).fetchone()
+                if not row: return nested_error(404, "CASE_NOT_FOUND", "Case state was not found")
+                if row[0] != expected: return nested_error(412, "CASE_REVISION_CONFLICT", "If-Match does not match current case revision")
+                if edit_decision(row[1]) == "terminal": return nested_error(409, "CASE_NOT_EDITABLE", "Case cannot be edited in its current state")
+                revision = next_revision(row[0]); document_id = f"{case_id}-revision-{revision}"
+                cur.execute("INSERT INTO case_revisions(case_id,revision,parent_revision,document_id,actor_id,payload,change_kind) VALUES (%s,%s,%s,%s,%s,%s,'petition_edit')", (case, revision, row[0], document_id, role, Jsonb(payload)))
+                cur.execute("UPDATE current_case_states SET revision=%s,updated_at=now() WHERE case_id=%s", (revision, case))
+                append_action_log(cur, case, "petition_edit", role, {"case_revision": revision, "parent_revision": row[0]})
+                return {"case_id": case_id, "case_revision": revision, "parent_revision": row[0], "document_id": document_id, "state": row[1], "change_kind": "petition_edit"}
+        except psycopg.Error: return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")
+
     @app.post("/cases/{case_id}/review-completion")
     async def complete_review(case_id: str, request: Request):
         role = _role(request)
@@ -533,6 +1155,7 @@ def create_app():
                     return nested_error(409, "CASE_NOT_REVIEWABLE", "Only needs_review cases can be completed")
                 response = {"case_id": case_id, "case_revision": revision, "state": "completed"}
                 cur.execute("UPDATE current_case_states SET state='completed',last_error_code=NULL,updated_at=now() WHERE case_id=%s", (case,))
+                append_action_log(cur, case, "state_change", "ADMIN", {"state": "completed", "case_revision": revision})
                 cur.execute("INSERT INTO review_completion_replays (case_id,idempotency_key,source_case_revision,response_body) VALUES (%s,%s,%s,%s)", (case, key, revision, Jsonb(response)))
         except psycopg.Error:
             return nested_error(503, "POSTGRES_UNAVAILABLE", "PostgreSQL is unavailable")

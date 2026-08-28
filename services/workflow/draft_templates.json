@@ -1,0 +1,8 @@
+{
+  "version": "bx07-local-templates-v1",
+  "templates": {
+    "petition/request": {"required": ["subject", "body", "full_name", "contact"]},
+    "complaint": {"required": ["subject", "body", "full_name", "contact"]},
+    "information_request": {"required": ["subject", "body", "full_name", "contact"]}
+  }
+}

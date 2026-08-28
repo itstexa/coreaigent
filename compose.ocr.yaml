@@ -21,9 +21,14 @@ services:
     environment:
       MOCK_SERVICE: null
       DATABASE_URL: postgresql://coreaigent:coreaigent@postgres:5432/coreaigent
+      HF_HUB_OFFLINE: "1"
+      PADDLE_DET_MODEL_DIR: /var/cache/paddleocr/hub/models--PaddlePaddle--PP-OCRv5_mobile_det/snapshots/0d63e78e2b680928f6b1747d76a08db6e645efb7
+      PADDLE_REC_MODEL_DIR: /var/cache/paddleocr/hub/models--PaddlePaddle--latin_PP-OCRv5_mobile_rec/snapshots/ab2cd5cc5fa6309be2e5acdfe66eca2c2c127d57
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ocr-model-cache:/var/cache/paddleocr:ro
 
   contract-tests:
     environment:
@@ -31,3 +36,4 @@ services:
 
 volumes:
   ocr-postgres-data:
+  ocr-model-cache:

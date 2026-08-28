@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"case-priority-override-request","type":"object","additionalProperties":false,"required":["level","reason"],"properties":{"level":{"enum":["low","normal","high","urgent"]},"reason":{"type":"string","minLength":1,"maxLength":1000}}}

@@ -13,6 +13,11 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from app import ensure_schema
+from action_log import append_action_log
+try:  # script entrypoint in the image; package import in tests
+    from assignment import select_assignee
+except ImportError:  # pragma: no cover
+    from services.workflow.assignment import select_assignee
 from correspondence import extract_json_object
 from routing import RoutingRejected, normalize_notification_output, notification_payload, select_route
 
@@ -58,6 +63,30 @@ def _notification_job():
     return _claim("notification_jobs", "job_id,notification_id")
 
 
+def _assign_case(cur, case_id, source_case_revision, unit_id):
+    cur.execute(
+        "SELECT p.person_id,p.display_name,p.unit_id,COUNT(a.case_id) "
+        "FILTER (WHERE s.state IS NULL OR s.state NOT IN ('completed','failed')) "
+        "FROM unit_personnel p LEFT JOIN case_assignments a ON a.person_id=p.person_id "
+        "LEFT JOIN current_case_states s ON s.case_id=a.case_id "
+        "WHERE p.unit_id=%s GROUP BY p.person_id,p.display_name,p.unit_id",
+        (unit_id,),
+    )
+    rows = cur.fetchall()
+    people = [{"person_id": row[0], "display_name": row[1], "unit_id": row[2]} for row in rows]
+    counts = {row[0]: int(row[3]) for row in rows}
+    chosen = select_assignee(people, counts, unit_id)
+    if not chosen:
+        return None
+    assignment_id = uuid.uuid4()
+    cur.execute(
+        "INSERT INTO case_assignments (assignment_id,case_id,source_case_revision,person_id) "
+        "VALUES (%s,%s,%s,%s) ON CONFLICT (case_id,source_case_revision) DO NOTHING",
+        (assignment_id, case_id, source_case_revision, chosen["person_id"]),
+    )
+    return {"id": chosen["person_id"], "name": chosen["display_name"]}
+
+
 def _route_state(cur, job):
     cur.execute(
         "SELECT s.revision,s.completion_status,s.request_type_id,c.status,c.department_id,c.unit_id,"
@@ -93,6 +122,12 @@ def _create_route(job):
             notification_id, notification_job_id = uuid.uuid4(), uuid.uuid4()
             cur.execute("INSERT INTO notification_records (notification_id,routing_id,audience,generation_status) VALUES (%s,%s,%s,'queued')", (notification_id, routing_id, audience))
             cur.execute("INSERT INTO notification_jobs (job_id,notification_id,state) VALUES (%s,%s,'pending')", (notification_job_id, notification_id))
+        assignee = _assign_case(cur, job[1], job[2], route["unit_id"])
+        append_action_log(cur, job[1], "assignment", "routing-worker", {
+            "routing_id": str(routing_id), "target_department_id": route["department_id"],
+            "target_unit_id": route["unit_id"], "source_case_revision": job[2],
+            "assignee_id": None if not assignee else assignee["id"],
+        })
         return routing_id
 
 

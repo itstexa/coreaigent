@@ -3,6 +3,7 @@ import json
 import os
 import re
 import urllib.request
+import urllib.parse
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,7 +22,7 @@ def scenario(payload):
 
 
 def case_parts(path):
-    match = re.fullmatch(r"/cases/([^/]+)(?:/(correspondence|routing|review-completion|supplemental-information|document))?", path)
+    match = re.fullmatch(r"/cases/([^/]+)(?:/(correspondence|routing|review-completion|supplemental-information|document|action-log|training-export|history|resolution-mark|attachments|abuse|abuse-override|edit|revisions|priority|priority-override|routing-evaluation|routing-feedback))?", path)
     if not match:
         return None, None, None
     case_id, action = match.groups()
@@ -118,11 +119,50 @@ def mock_routing_response(case_id, item):
         "routing_status": "routed", "route_kind": "classified",
         "target_department": {"id": item["department"], "label": item["department"]},
         "target_unit": {"id": "demo-unit-" + item["department"], "label": "Demo Birim"},
+        "assignee": None,
         "notifications": [
             {"audience": "applicant", "generation_status": "completed", "error_code": None},
             {"audience": "target_unit", "generation_status": "completed", "error_code": None},
         ],
     }
+
+
+def mock_action_log_response(case_id, item):
+    return {
+        "case_id": case_id,
+        "events": [{
+            "event_id": "00000000-0000-4000-8000-000000000001",
+            "action_type": "state_change",
+            "actor": "mock-workflow",
+            "occurred_at": "2026-01-01T00:00:00Z",
+            "details": {"state": "received"},
+        }],
+    }
+
+
+def mock_training_export_response(case_id, item):
+    return {
+        "case_id": case_id,
+        "document_id": "doc-" + item["id"],
+        "text": "Anonimleştirilmiş demo evrakı",
+        "redactions": [],
+    }
+
+
+def mock_history_response(case_id, item):
+    return {"case_id": case_id, "resolved": False, "resolved_by": [], "similar_cases": []}
+
+def mock_abuse_response(case_id, item):
+    return {
+        "case_id": case_id, "label": "clear", "confidence": 0.0, "risk_score": 0.0,
+        "flagged": False, "detected_signals": [], "override_flagged": None,
+        "override_reason": None, "effective_flagged": False,
+        "analyzed_at": "2026-01-01T00:00:00Z", "override_at": None,
+    }
+
+
+def mock_attachments_response(case_id, item):
+    return {"case_id": case_id, "state": "draft_prepared", "request_type_id": item["documentType"], "missing_required_types": [], "attachments": [], "relations": [], "suggestions": []}
 
 
 def tracing(payload):
@@ -217,9 +257,74 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def do_GET(self):
+        if SERVICE == "workflow" and self.path.split("?", 1)[0] == "/personnel-dashboard":
+            if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}}); return
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            scope = query.get("scope", ["system"])[0]; period = query.get("period_days", ["30"])[0]
+            if scope not in {"unit", "system"} or period not in {"7", "30", "90"} or (scope == "unit" and not query.get("unit_id")):
+                self.send_json(400, {"error": {"code": "QUERY_INVALID", "message": "invalid dashboard query"}}); return
+            self.send_json(200, {"scope": scope, "unit_id": query.get("unit_id", [None])[0] if scope == "unit" else None, "period_days": int(period), "metrics": {"active_personnel": 3, "open_assignments": 2, "completed_cases": 5, "throughput": 5 / int(period), "average_resolution_hours": None}}); return
+        if SERVICE == "workflow" and self.path.split("?", 1)[0] == "/cases":
+            if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}}); return
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            try:
+                limit = max(1, min(100, int(query.get("limit", [25])[0])))
+                offset = max(0, int(query.get("offset", [0])[0]))
+            except (TypeError, ValueError):
+                self.send_json(400, {"error": {"code": "QUERY_INVALID", "message": "invalid pagination query"}}); return
+            state_filter = query.get("state", [""])[0]
+            search = query.get("q", [""])[0].casefold()
+            labels = {
+                "petition": "Dilekçe", "application": "Başvuru", "complaint": "Şikâyet",
+                "information_request": "Bilgi edinme", "official_letter": "Resmî yazı",
+                "invoice": "Fatura", "unsupported": "Desteklenmeyen evrak",
+            }
+            rows = []
+            for item in SCENARIOS:
+                state, validation_status, steps = mock_case_state(item)
+                row = {
+                    "case_id": "case-" + item["id"], "case_revision": 1, "state": state,
+                    "completed_steps": steps, "last_error_code": None,
+                    "updated_at": "2026-01-01T00:00:00Z", "validation_status": validation_status,
+                    "routing_status": "routed" if item["classification"] == "processable" else "not_routed",
+                    "document_id": "doc-" + item["id"], "request_type_id": item["documentType"],
+                    "request_type_label": labels.get(item["documentType"], item["documentType"]),
+                    "department_id": item["department"], "department_label": item["department"],
+                    "unit_id": "demo-unit-" + item["department"], "unit_label": "Demo " + item["department"],
+                    "classification_status": "classified" if item["classification"] != "needs_review" else "needs_review",
+                    "classification_confidence": 0.91 if item["classification"] == "processable" else 0.42,
+                    "applicant_name": None, "title": item["title"], "channel": "citizen-portal",
+                    "language": "tr", "created_at": "2026-01-01T00:00:00Z",
+                    "classification_reason": "Golden senaryo sınıflandırma sonucu.",
+                }
+                haystack = " ".join(str(row.get(key) or "") for key in ("case_id", "document_id", "title", "applicant_name"))
+                if state_filter and state != state_filter: continue
+                if search and search not in haystack.casefold(): continue
+                rows.append(row)
+            self.send_json(200, {"total": len(rows), "limit": limit, "offset": offset, "cases": rows[offset:offset + limit]}); return
         if self.path in ("/health", "/ready"):
             self.send_json(200, {"status": "ready", "service": SERVICE, "implementation": "mock"})
         elif SERVICE == "workflow":
+            if self.path == "/moderation-trends":
+                if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                    self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}})
+                else:
+                    self.send_json(200, {"status": "no_data", "scope": "system", "period_days": 30, "points": []})
+                return
+            if self.path == "/routing-evaluation":
+                if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                    self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}})
+                else:
+                    self.send_json(200, {"aggregates": []})
+                return
+            if self.path == "/personnel-dashboard":
+                if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                    self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}})
+                else:
+                    self.send_json(200, {"scope": "system", "period_days": 30, "metrics": {"active": 0, "assigned": 0, "completed": 0, "throughput": 0, "average_resolution_hours": 0.0}})
+                return
             case_id, action, item = case_parts(self.path)
             if not item:
                 self.send_json(404, {"error": {"code": "CASE_NOT_FOUND", "message": "Mock case was not found"}})
@@ -232,6 +337,46 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}})
                 else:
                     self.send_json(200, mock_case_document_response(case_id, item))
+            elif action == "action-log":
+                if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                    self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+                else:
+                    self.send_json(200, mock_action_log_response(case_id, item))
+            elif action == "training-export":
+                if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                    self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+                else:
+                    self.send_json(200, mock_training_export_response(case_id, item))
+            elif action == "history":
+                if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                    self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+                else:
+                    self.send_json(200, mock_history_response(case_id, item))
+            elif action == "abuse":
+                if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                    self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "Moderator authorization is required"}})
+                else:
+                    self.send_json(200, mock_abuse_response(case_id, item))
+            elif action == "attachments":
+                if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                    self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+                else:
+                    self.send_json(200, mock_attachments_response(case_id, item))
+            elif action == "revisions":
+                if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                    self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+                else:
+                    self.send_json(200, {"case_id": case_id, "revisions": []})
+            elif action == "priority":
+                if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                    self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+                else:
+                    self.send_json(200, {"case_id": case_id, "level": "normal", "policy_version": "priority-policy-v1", "reason": "no qualifying urgency signal; default priority", "override_reason": None, "updated_at": None})
+            elif action == "routing-evaluation":
+                if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                    self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+                else:
+                    self.send_json(200, {"case_id": case_id, "feedback": None})
             elif action is None:
                 admin = self.headers.get("Authorization") == "Bearer f06-demo-admin-token"
                 self.send_json(200, mock_case_response(case_id, item, admin))
@@ -242,6 +387,31 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PATCH(self):
         case_id, action, item = case_parts(self.path)
+        if SERVICE == "workflow" and action == "edit" and item:
+            if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                self.send_json(401, {"error":{"code":"UNAUTHORIZED","message":"Bearer authorization is required"}}); return
+            if self.headers.get("If-Match") != '"1"':
+                self.send_json(412, {"error":{"code":"CASE_REVISION_CONFLICT","message":"If-Match does not match current case revision"}}); return
+            self.send_json(200, {"case_id":case_id,"case_revision":2,"parent_revision":1,"document_id":"doc-"+item["id"]+"-revision-2","state":mock_case_state(item)[0],"change_kind":"petition_edit"}, {"ETag":'"2"'})
+            return
+        if SERVICE == "workflow" and action == "priority-override" and item:
+            if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}}); return
+            try:
+                length = int(self.headers.get("Content-Length", "0")); body = json.loads(self.rfile.read(length))
+                if body.get("level") not in {"low", "normal", "high", "urgent"} or not str(body.get("reason", "")).strip(): raise ValueError
+            except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+                self.send_json(422, {"error": {"code": "PRIORITY_OVERRIDE_INVALID", "message": "level and non-empty reason are required"}}); return
+            self.send_json(200, {"case_id": case_id, "level": body["level"], "reason": body["reason"].strip(), "actor": "ADMIN"}); return
+        if SERVICE == "workflow" and action == "routing-feedback" and item:
+            if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}}); return
+            try:
+                length = int(self.headers.get("Content-Length", "0")); body = json.loads(self.rfile.read(length)); accepted = body["accepted_unit_id"]
+                if not isinstance(accepted, str) or not accepted.strip(): raise ValueError
+            except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+                self.send_json(400, {"error": {"code": "FEEDBACK_INVALID", "message": "accepted_unit_id is required"}}); return
+            self.send_json(200, {"case_id": case_id, "predicted_unit_id": "demo-unit", "accepted_unit_id": accepted, "confidence": 0.8, "confidence_threshold": 0.8, "needs_review": False, "routing_correct": accepted == "demo-unit", "training_eligible": False}); return
         if SERVICE != "validation" or action != "supplemental-information" or not item:
             self.send_json(404, {"error": {"code": "NOT_FOUND", "message": "Mock route was not found"}})
             return
@@ -263,6 +433,29 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(200, body, {"ETag": '"2"'})
 
     def do_POST(self):
+        if SERVICE == "workflow" and self.path == "/v1/normalize":
+            try:
+                length = int(self.headers.get("Content-Length", "0")); payload = json.loads(self.rfile.read(length))
+                text = payload["text"]
+                if payload.get("language", "tr") not in {"tr", "tur"}: self.send_json(200, {"status":"unsupported_language","original_text":text,"suggested_text":None,"changed":False}); return
+                if not isinstance(text, str) or not text.strip(): raise ValueError
+                normalized = " ".join(text.strip().split())
+                self.send_json(200, {"status":"ok","original_text":text,"suggested_text":normalized,"changed":normalized != text}); return
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self.send_json(422, {"error":"invalid_text"}); return
+        if SERVICE == "workflow" and self.path == "/v1/drafts":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length))
+                dtype = payload.get("document_type")
+                if dtype not in {"petition/request", "complaint", "information_request"}:
+                    raise ValueError("unsupported_document_type")
+                fields = payload.get("fields") or {}
+                missing = [k for k in ("subject", "body", "full_name", "contact") if not isinstance(fields.get(k), str) or not fields[k].strip()]
+                self.send_json(200, {"draft_id":"draft-mock","document_type":dtype,"template_version":"bx07-local-templates-v1","fields":fields,"text":"KONU: %s\n\n%s" % (fields.get("subject", ""), fields.get("body", payload.get("text", ""))),"missing_fields":missing,"temporary":True,"editable":True,"legal_finality":False})
+            except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+                self.send_json(422, {"error":"unsupported_document_type"})
+            return
         case_id, action, case_item = case_parts(self.path)
         if SERVICE == "workflow" and case_item and action == "correspondence":
             if case_item["classification"] != "processable":
@@ -273,6 +466,41 @@ class Handler(BaseHTTPRequestHandler):
         if SERVICE == "workflow" and case_item and action == "review-completion":
             CASE_STATE_OVERRIDES[case_id] = "completed"
             self.send_json(200, {"case_id": case_id, "case_revision": 1, "state": "completed"})
+            return
+        if SERVICE == "workflow" and case_item and action == "resolution-mark":
+            if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+            else:
+                self.send_json(200, {"case_id": case_id, "resolved": True, "actor": "USER", "marked_at": "2026-01-01T00:00:00Z"})
+            return
+        if SERVICE == "workflow" and case_item and action == "abuse-override":
+            if self.headers.get("Authorization") != "Bearer f06-demo-admin-token":
+                self.send_json(403, {"error": {"code": "FORBIDDEN", "message": "ADMIN authorization is required"}})
+            else:
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    body = json.loads(self.rfile.read(length))
+                    if set(body) != {"flagged", "reason"} or not isinstance(body["flagged"], bool) or not isinstance(body["reason"], str) or not body["reason"].strip():
+                        raise ValueError
+                except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+                    self.send_json(400, {"error": {"code": "REQUEST_BODY_INVALID", "message": "flagged and non-empty reason are required"}})
+                    return
+                self.send_json(200, {"case_id": case_id, "override_flagged": body["flagged"], "reason": body["reason"].strip(), "actor": "ADMIN", "overridden_at": "2026-01-01T00:00:00Z"})
+            return
+        if SERVICE == "workflow" and case_item and action == "attachments":
+            if self.headers.get("Authorization") not in {"Bearer f06-demo-user-token", "Bearer f06-demo-admin-token"}:
+                self.send_json(401, {"error": {"code": "UNAUTHORIZED", "message": "Bearer authorization is required"}})
+            else:
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    payload = json.loads(self.rfile.read(length))
+                    required = {"attachment_type", "filename", "content_type", "size_bytes", "storage_key"}
+                    if not isinstance(payload, dict) or not required <= set(payload):
+                        raise ValueError("invalid attachment")
+                except (ValueError, json.JSONDecodeError):
+                    self.send_json(400, {"error": {"code": "REQUEST_BODY_INVALID", "message": "invalid attachment"}})
+                else:
+                    self.send_json(200, {"case_id": case_id, "attachment": {"attachment_id": "00000000-0000-4000-8000-000000000001", "attachment_type": payload["attachment_type"], "filename": payload["filename"], "content_type": payload["content_type"], "size_bytes": payload["size_bytes"]}})
             return
         expected = MANIFEST[SERVICE]["path"]
         try:

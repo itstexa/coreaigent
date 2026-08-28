@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"case-priority-override-result","type":"object","additionalProperties":false,"required":["case_id","level","reason","actor"],"properties":{"case_id":{"type":"string","format":"uuid"},"level":{"enum":["low","normal","high","urgent"]},"reason":{"type":"string","minLength":1},"actor":{"const":"ADMIN"}}}

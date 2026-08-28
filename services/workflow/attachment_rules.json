@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "bx03a-attachment-rules-v1",
+  "rules": {
+    "fatura-islemi": ["invoice"],
+    "permit_application": ["permit"]
+  }
+}

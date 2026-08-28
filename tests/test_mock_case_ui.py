@@ -7,6 +7,10 @@ from jsonschema import Draft202012Validator
 from mocks.server import (
     BY_ID,
     mock_case_response,
+    mock_action_log_response,
+    mock_training_export_response,
+    mock_history_response,
+    mock_abuse_response,
     mock_correspondence_response,
     mock_routing_response,
 )
@@ -30,9 +34,17 @@ class MockCaseUiContractTests(unittest.TestCase):
         case = mock_case_response(case_id, item, admin=True)
         correspondence = mock_correspondence_response(case_id, item)
         routing = mock_routing_response(case_id, item)
+        action_log = mock_action_log_response(case_id, item)
+        training_export = mock_training_export_response(case_id, item)
+        history = mock_history_response(case_id, item)
+        abuse = mock_abuse_response(case_id, item)
         self.assert_contract("case-status-result", case)
         self.assert_contract("case-correspondence-result", correspondence)
         self.assert_contract("case-routing-result", routing)
+        self.assert_contract("case-action-log-result", action_log)
+        self.assert_contract("case-training-export", training_export)
+        self.assert_contract("case-history-result", history)
+        self.assert_contract("case-abuse-result", abuse)
         self.assertEqual(case["state"], "completed")
         self.assertEqual(case["routing_status"], "routed")
         self.assertIn("operational_context", case)

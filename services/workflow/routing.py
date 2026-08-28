@@ -11,10 +11,27 @@ FALLBACK_DEPARTMENT_ID = "diger"
 FALLBACK_UNIT_ID = "siniflandirilmamis"
 MAX_NOTIFICATION_TITLE_CHARACTERS = 200
 MAX_NOTIFICATION_BODY_CHARACTERS = 4000
+ROUTING_CONFIDENCE_THRESHOLD = 0.80
 
 
 class RoutingRejected(ValueError):
     """A machine-readable reason why no F-05 route may be created."""
+
+
+def evaluate_routing(predicted_unit_id, accepted_unit_id=None, confidence=0.0, threshold=ROUTING_CONFIDENCE_THRESHOLD):
+    """Pure BX-09 projection: confidence is an estimate, acceptance is truth."""
+    if not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
+        raise ValueError("confidence must be between 0 and 1")
+    if not isinstance(threshold, (int, float)) or not 0 <= threshold <= 1:
+        raise ValueError("threshold must be between 0 and 1")
+    return {
+        "predicted_unit_id": predicted_unit_id,
+        "confidence": float(confidence),
+        "confidence_threshold": float(threshold),
+        "needs_review": confidence < threshold,
+        "routing_correct": None if accepted_unit_id is None else predicted_unit_id == accepted_unit_id,
+        "accepted_unit_id": accepted_unit_id,
+    }
 
 
 def _by_id(items):

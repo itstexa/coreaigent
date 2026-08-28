@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"case-abuse-override-request","title":"Case abuse override request","type":"object","additionalProperties":false,"required":["flagged","reason"],"properties":{"flagged":{"type":"boolean"},"reason":{"type":"string","minLength":1,"maxLength":1000}}}

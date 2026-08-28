@@ -7,6 +7,251 @@
 ## Active Entry
 
 - **Status**: Approved
+- **Stage**: Solution Architecture
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: `docs/design/DESIGN_bd84424_rag_corpus.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_bd84424_rag_corpus.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - `workflow` owns a PostgreSQL-backed, CPU-only managed corpus; no Qdrant/RAG service is added.
+  - `ocr` gains multipart PDF/DOCX text extraction using PaddleOCR and DOCX parsing; existing text intake remains unchanged.
+  - RAG source publication is synchronous/revision-safe and hard-deletes source bytes/text/chunks; correspondence citation snapshots stay immutable.
+  - Case attachment binary upload is additive; ADMIN soft-delete is independent of RAG sources.
+  - Local named volumes hold source/attachment bytes; all public boundaries receive schemas, mock coverage, and real-overlay verification.
+- **Open Questions Resolved This Session**:
+  - AQ-115 — after OCR/BGE warm-up, the five-second retrieval target is measured on a modern four-core x86 CPU.
+  - AQ-116 — selected and offline-verified the CPU-only PP-OCRv5 detector and Turkish-capable Latin recognizer pins.
+- **Open Questions Still Open**:
+  - None.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+---
+
+## History
+
+### Requirement Analysis — BX-12–BX-14 managed RAG corpus
+
+- **Status**: Approved
+- **Stage**: Requirement Analysis
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_bd84424_rag_corpus.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - BX-12: separate ADMIN-managed RAG corpus surface; synchronous PDF/DOCX-to-text ingestion; hard delete for RAG sources.
+  - BX-13: separate case attachment and RAG source surfaces; case attachments never become RAG sources automatically.
+  - BX-14: CPU retrieval, 0 GB GPU VRAM, inexpensive embedding/vector storage, top-five retrieval within five seconds.
+  - Case attachment deletion is ADMIN-only soft delete; no citizen delete control.
+- **Open Questions Resolved This Session**:
+  - OQ-212…OQ-222.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-11 Turkish text improvement
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: `docs/design/DESIGN_bd84424_extensions.md` (BX-11); `docs/architecture/ARCHITECTURE_bd84424_bx11.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - BX-11: Turkish spelling/grammar/readability suggestions with protected spans, unsupported-language response, and BX-05 revision on post-submit acceptance.
+- **Open Questions Resolved This Session**:
+  - OQ-205…OQ-208.
+- **Open Questions Still Open**:
+  - None for BX-11 requirements.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-07 citizen document draft
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx07.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**: Deterministic local citizen templates, editable temporary output, mandatory-field reporting, and no signing/dispatch/export.
+- **Open Questions Resolved This Session**: OQ-186…OQ-190.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-05 case revision edit
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx05.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**: Immutable case revisions, state-gated edits, optimistic concurrency, classification protection, revision reads, and action logging.
+- **Open Questions Resolved This Session**: OQ-178…OQ-182.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-04A abuse trend dashboard
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx04a.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**: User/unit/system daily flagged-rate trends, 7/30/90 period selection, minimum-five privacy threshold, and `no_data` before BX-04 assessments.
+- **Open Questions Resolved This Session**: OQ-174…OQ-177.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-04 abuse review signals
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx04.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**: Deterministic bounded abuse score/flags, moderator override with reason, and no punitive citizen-facing decision.
+- **Open Questions Resolved This Session**: OQ-170…OQ-173, OQ-211.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-03A related attachments
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx03a.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**:
+  - Request-type rules, bounded file metadata, object-storage key, SQL relations, and submitted-state BX-05 handoff.
+- **Open Questions Resolved This Session**:
+  - OQ-166…OQ-169.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Solution Architecture — BX-03 case history and similar cases
+
+- **Status**: Approved
+- **Stage**: Solution Architecture
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; `docs/architecture/ARCHITECTURE_bd84424_bx03.md`
+- **Decisions / Scope Covered**:
+  - Workflow PostgreSQL projection, immutable reader marks, action-log viewers, and deterministic 30-day predicate; no new service or database.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Requirement Analysis — BX-03 case history and similar cases
+
+- **Status**: Approved
+- **Stage**: Requirement Analysis
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: `docs/design/DESIGN_bd84424_extensions.md`
+- **Decisions / Scope Covered**:
+  - Case readers see history, similar cases, resolution marks, and viewers; same classification and inclusive 30-day window.
+- **Open Questions Resolved This Session**:
+  - OQ-161…OQ-165.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-03 case history and similar cases
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx03.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**:
+  - Shared PostgreSQL case history; same-classification, inclusive 30-day similar-case projection with text/location/time signals.
+  - Any case reader may mark resolved; marks and existing view actors remain visible to case readers.
+- **Open Questions Resolved This Session**:
+  - OQ-161…OQ-165.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-02 least-open-case unit assignment
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx02.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**:
+  - Unit membership only; no active signal or extra role/skill filter.
+  - Open case count is load; random choice resolves equal minimums.
+  - One persisted assignment per case revision; no rebalancing.
+- **Open Questions Still Open**:
+  - OQ-160 — no-person, manual override, and reassignment behavior.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-01 irreversible DLP training export
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx01.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**:
+  - Names and T.C. Kimlik No are document-specific redaction classes.
+  - Replacement is irreversible; original remains operational-only.
+  - Case readers may export a case-scoped JSON projection; no bulk training pipeline.
+- **Open Questions Resolved This Session**:
+  - OQ-153, OQ-154, OQ-155.
+- **Open Questions Still Open**:
+  - OQ-156 — external destination and infrastructure remain unspecified; only API projection implemented.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-00 case action log
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx00.md`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Decisions / Scope Covered**:
+  - Existing case is the ticket; workflow owns immutable SQL action-log persistence and read projection.
+  - State, assignment, petition edit, attachment, spam, view, and download are the approved action taxonomy.
+  - Records are visible to case readers and have no automatic deletion.
+- **Open Questions Resolved This Session**:
+  - OQ-151, OQ-152, OQ-209, OQ-210.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — BX-06 F-03 validation preview
+
+- **Status**: Approved
+- **Stage**: Implementation
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; approved `docs/architecture/ARCHITECTURE_bd84424_bx06.md`; `frontend/src/petition.ts`; `frontend/src/PetitionForm.tsx`; `frontend/src/petition.test.ts`; `docs/implementation/IMPLEMENTATION_LOG.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - Implements BX-06 through a read-only F-03 validation preview projection.
+  - Preserves invalid attachment labels alongside missing fields; adds no endpoint, persistence, worker, model, or browser-side field inference.
+- **Open Questions Resolved This Session**:
+  - None.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Solution Architecture — BX-06 F-03 validation preview
+
+- **Status**: Approved
+- **Stage**: Solution Architecture
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: approved `docs/design/DESIGN_bd84424_extensions.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_bd84424_bx06.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - Defines BX-06 as a read-only `PetitionForm` projection of current F-03 `ValidationResultV3`.
+  - Reuses existing client state; adds no endpoint, persistence, worker, model, or browser-side field inference.
+- **Open Questions Resolved This Session**:
+  - None.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Requirement Analysis — BX-00…BX-11 operational extensions
+
+- **Status**: Approved
+- **Stage**: Requirement Analysis
+- **Session Started**: 2026-08-28
+- **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_bd84424_extensions.md`
+- **Requested By**: human operator
+- **Decisions / Scope Covered**:
+  - Records BX-00…BX-11 as a separate operational-extension backlog because the supplied F-labels collide with repository F-01…F-09.
+  - Defines minimal non-architectural candidates and one testable BX-06 preview behavior; all scope requiring policy, identity, lifecycle, or safety decisions is blocked rather than assumed.
+- **Open Questions Resolved This Session**:
+  - None.
+- **Approved By**: human operator
+- **Approval Date**: 2026-08-28
+
+### Implementation — US-113 F-09 contract atlas stabilization
+
+- **Status**: Approved
 - **Stage**: Implementation
 - **Session Started**: 2026-08-25
 - **Related Doc(s)**: `docs/design/DESIGN.md`; `docs/design/DESIGN_a18aacd_f09.md`; `docs/architecture/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE_a18aacd_f09.md`; `contracts/http/manifest.json`
@@ -19,10 +264,6 @@
   - None; implemented route semantics are already approved.
 - **Approved By**: Serda
 - **Approval Date**: 2026-08-25
-
----
-
-## History
 
 ### Implementation — US-111 F-06 durable orchestration and case state
 

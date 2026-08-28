@@ -22,6 +22,7 @@ import {
   supplementIssue,
   supplementValue,
   trDate,
+  validationPreview,
   validTckn,
   validTrPhone,
 } from "./petition";
@@ -158,6 +159,33 @@ describe("eksik bilgi yanıtları", () => {
     expect(supplementValue(phone, "0532 111 22 33")).toBe("05321112233");
     expect(supplementValue(date, "2026-08-20")).toBe("20.08.2026");
     expect(supplementValue(address, " Örnek Mahallesi   12. Sokak ")).toBe("Örnek Mahallesi 12. Sokak");
+  });
+});
+
+describe("BX-06 eksik bilgi ön izlemesi", () => {
+  it("geçersiz ek dahil doğrulama sonucundaki her alan etiketini korur", () => {
+    const preview = validationPreview({
+      schemaVersion: "3.0",
+      requestId: "req-1",
+      documentId: "doc-1",
+      caseId: "case-1",
+      workflowId: "workflow-1",
+      requestTypeId: "fatura-islemi",
+      schemaVersionUsed: "demo-belediyesi-fields-v1",
+      extractedFields: [],
+      missingRequiredFields: [{ id: "supplier-name", label: "Tedarikçi adı" }],
+      invalidFields: [{ id: "invoice-attachment", label: "Fatura eki", code: "attachment_missing" }],
+      completionStatus: "invalid_information",
+      userActionRequired: true,
+    });
+
+    expect(preview.availability).toBe("available");
+    expect(preview.fields.map((field) => field.label)).toEqual(["Tedarikçi adı", "Fatura eki"]);
+    expect(preview.fields.find((field) => field.id === "invoice-attachment")?.kind).toBe("attachment");
+  });
+
+  it("doğrulama yokken alan uydurmaz", () => {
+    expect(validationPreview(null)).toEqual({ availability: "unavailable", fields: [] });
   });
 });
 
