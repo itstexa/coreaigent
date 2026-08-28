@@ -169,7 +169,7 @@ def run() -> dict:
         per_case = []
         for case in cases:
             relevant = {_madde_key(e["kanun_no"], e["madde_no"]) for e in case["expected"]}
-            hits = engine.retrieve(case["query"], top_k=max(K_VALUES))
+            hits = engine.retrieve(case["query"], top_k=max(K_VALUES), actor="eval:run_pdf_diagnostic")
             retrieved = [_madde_key(hit.chunk.metadata.kanun_no, hit.chunk.metadata.madde_no) for hit in hits]
             row = {"query": case["query"], "expected": sorted(relevant), "top1_got": retrieved[0] if retrieved else None}
             for k in K_VALUES:

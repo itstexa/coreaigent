@@ -67,3 +67,13 @@ def test_engine_retrieve_writes_audit_entry():
             _, kwargs = mock_log.call_args
             assert mock_log.call_args[0][0] == "dilekçe hakkında soru"
             assert "citations" in kwargs
+            assert kwargs.get("actor") is None
+
+        with patch("mevzuat_rag.engine.audit_log.log_query") as mock_log:
+            engine.retrieve("dilekçe hakkında soru", top_k=3, actor="test:operator_1")
+            _, kwargs = mock_log.call_args
+            assert kwargs.get("actor") == "test:operator_1", (
+                "engine.retrieve()'e geçirilen actor, audit_log.log_query()'e "
+                "ulaşmıyor — erişim kontrolü denetiminde bulunan boşluk "
+                "(audit_log.actor hep None) yeniden açılmış olabilir."
+            )

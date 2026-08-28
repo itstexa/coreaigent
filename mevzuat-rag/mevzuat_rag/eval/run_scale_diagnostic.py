@@ -133,7 +133,7 @@ def run(text_specs: list[tuple[Path, str]]) -> dict:
         for case in cases:
             relevant = {_madde_key(case["kanun_no"], case["madde_no"])}
             t0 = time.perf_counter()
-            hits = engine.retrieve(case["query"], top_k=max(K_VALUES))
+            hits = engine.retrieve(case["query"], top_k=max(K_VALUES), actor="eval:run_scale_diagnostic")
             lat_ms = (time.perf_counter() - t0) * 1000
             retrieve_latencies.append(lat_ms)
             retrieved = [_madde_key(hit.chunk.metadata.kanun_no, hit.chunk.metadata.madde_no) for hit in hits]

@@ -48,7 +48,7 @@ def run(engine: RAGEngine | None = None) -> dict:
         relevant = {_madde_key(e["kanun_no"], e["madde_no"]) for e in case["expected"]}
 
         t0 = time.perf_counter()
-        hits = engine.retrieve(case["query"], top_k=max(K_VALUES))
+        hits = engine.retrieve(case["query"], top_k=max(K_VALUES), actor="eval:run_retrieval_eval")
         latency_ms = (time.perf_counter() - t0) * 1000
         latencies_ms.append(latency_ms)
 

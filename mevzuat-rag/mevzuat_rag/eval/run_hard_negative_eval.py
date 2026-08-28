@@ -68,7 +68,7 @@ def run(engine: RAGEngine | None = None) -> dict:
         correct_key = _madde_key(case["correct"]["kanun_no"], case["correct"]["madde_no"])
         wrong_key = _madde_key(case["hard_negative"]["kanun_no"], case["hard_negative"]["madde_no"])
 
-        hits = engine.retrieve(case["query"], top_k=50)
+        hits = engine.retrieve(case["query"], top_k=50, actor="eval:run_hard_negative_eval")
         scores = {_madde_key(hit.chunk.metadata.kanun_no, hit.chunk.metadata.madde_no): float(hit.score) for hit in hits}
 
         correct_score = scores.get(correct_key, 0.0)

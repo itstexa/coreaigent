@@ -1,17 +1,26 @@
 """Qdrant-backed storage for legislation chunks.
 
-Same collection shape as ``insangram/src/rag/embed.py``: a single unnamed
-dense cosine vector per point, no sparse/hybrid fusion (BM25 is a separate
-in-memory index, see pipeline/bm25_index.py). Supports either a remote
-Qdrant server (``QDRANT_URL``, used by ``compose.yaml``'s ``qdrant``
-service) or an embedded on-disk client (``QDRANT_LOCAL_PATH``, useful for the
-smoke test and local dev without Docker) — same fallback Insangram uses.
+Named dense ("dense", BGE-M3 cosine) + named sparse ("bm25", Modifier.IDF)
+vector per point — Qdrant IS the hybrid index now (bkz. pipeline/sparse_vector.py).
+Eskiden yalnızca unnamed dense vektör vardı ve BM25 ayrı, RAM'de tutulan bir
+``rank_bm25`` index'iydi (pipeline/bm25_index.py) — o index kendi
+docstring'inde "a few thousand chunks at most" diyordu, 1M-dosya hedefiyle
+çelişiyordu (denetim bulgusu, bkz. rag_config_panel.py madde 4). Supports
+either a remote Qdrant server (``QDRANT_URL``, used by ``compose.yaml``'s
+``qdrant`` service) or an embedded on-disk client (``QDRANT_LOCAL_PATH``,
+useful for the smoke test and local dev without Docker).
 
 Fail-fast on embedding mismatch: a small ``index_meta_{collection}.json``
 next to the local Qdrant data records which embedding model/dimension built
 the index. Opening an existing collection with a different model/dim raises
 immediately instead of silently returning wrong-dimension nonsense results
 later. See DEPLOY.md / MIGRATION.md.
+
+GERİYE DÖNÜK UYUMSUZ: bu named-vector şeması, migration öncesi (unnamed
+dense vektörlü) bir koleksiyonla uyumlu DEĞİL. Var olan bir koleksiyon
+açılırken "dense" adlı vektör bulunamazsa ``IndexMetadataMismatch``
+fırlatılır — eski koleksiyonu bu şemaya taşımak için ``scripts/reembed.py``
+kullanın (yeni koleksiyona geçiş, eskisine dokunmaz).
 """
 from __future__ import annotations
 
@@ -20,9 +29,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    Modifier,
+    PointStruct,
+    SparseVectorParams,
+    VectorParams,
+)
 
 from mevzuat_rag.models import ChunkMetadata, LegislationChunk, RetrievalResult
+from mevzuat_rag.pipeline.sparse_vector import text_to_sparse_vector
+
+_DENSE_VECTOR_NAME = "dense"
+_SPARSE_VECTOR_NAME = "bm25"
 
 
 class IndexMetadataMismatch(RuntimeError):
@@ -55,12 +77,30 @@ class QdrantStore:
         if self.collection not in names:
             self.client.create_collection(
                 collection_name=self.collection,
-                vectors_config=VectorParams(size=self.embedding_dim, distance=Distance.COSINE),
+                vectors_config={_DENSE_VECTOR_NAME: VectorParams(size=self.embedding_dim, distance=Distance.COSINE)},
+                sparse_vectors_config={_SPARSE_VECTOR_NAME: SparseVectorParams(modifier=Modifier.IDF)},
             )
+
+    def point_count(self) -> int:
+        """Koleksiyondaki toplam nokta (chunk) sayısı — dynamic_profile.py'nin
+        KÜÇÜK/ORTA/BÜYÜK korpus profili seçimi için. ``exact=False``: hızlı
+        yaklaşık sayım yeterli, her sorguda çağrılıyor (tam sayım gereksiz
+        maliyet)."""
+        return self.client.count(collection_name=self.collection, exact=False).count
 
     def _check_index_metadata(self) -> None:
         collection_info = self.client.get_collection(self.collection)
-        actual_dim = collection_info.config.params.vectors.size
+        dense_params = collection_info.config.params.vectors.get(_DENSE_VECTOR_NAME) if isinstance(collection_info.config.params.vectors, dict) else None
+        if dense_params is None:
+            raise IndexMetadataMismatch(
+                f"Koleksiyon '{self.collection}' bu paketin beklediği "
+                f"'{_DENSE_VECTOR_NAME}'/'{_SPARSE_VECTOR_NAME}' adlı named-vector "
+                f"şemasıyla uyuşmuyor (muhtemelen BM25-native-sparse migration'ından "
+                f"ÖNCE oluşturulmuş, unnamed-vector'lü eski bir koleksiyon). Bu "
+                f"koleksiyonu doğrudan açmak yerine scripts/reembed.py ile yeni "
+                f"şemalı bir koleksiyona taşıyın — bkz. MIGRATION.md."
+            )
+        actual_dim = dense_params.size
         if actual_dim != self.embedding_dim:
             raise IndexMetadataMismatch(
                 f"Koleksiyon '{self.collection}' {actual_dim} boyutlu vektörlerle kurulmuş, "
@@ -119,7 +159,10 @@ class QdrantStore:
         points = [
             PointStruct(
                 id=chunk.id,
-                vector=vector,
+                vector={
+                    _DENSE_VECTOR_NAME: vector,
+                    _SPARSE_VECTOR_NAME: text_to_sparse_vector(chunk.text),
+                },
                 payload={
                     "text": chunk.text,
                     "citation": chunk.citation,
@@ -215,7 +258,34 @@ class QdrantStore:
         return chunks
 
     def search(self, query_vector: list[float], top_k: int) -> list[RetrievalResult]:
-        hits = self.client.query_points(collection_name=self.collection, query=query_vector, limit=top_k, with_payload=True).points
+        hits = self.client.query_points(
+            collection_name=self.collection, query=query_vector, using=_DENSE_VECTOR_NAME, limit=top_k, with_payload=True
+        ).points
+        results = []
+        for hit in hits:
+            payload = hit.payload
+            metadata = ChunkMetadata(
+                kanun_no=payload["kanun_no"], kanun_adi=payload["kanun_adi"], madde_no=payload.get("madde_no"),
+                fikra_no=payload.get("fikra_no"), bent=payload.get("bent"), kaynak_url=payload.get("kaynak_url", ""),
+                source_hash=payload.get("source_hash", ""), durum=payload.get("durum", "yürürlükte"),
+                mevzuat_turu=payload.get("mevzuat_turu", "kanun"), contains_table=payload.get("contains_table", False),
+            )
+            chunk = LegislationChunk(id=str(hit.id), text=payload["text"], metadata=metadata, citation=payload["citation"])
+            results.append(RetrievalResult(chunk=chunk, score=hit.score))
+        return results
+
+    def search_sparse(self, query_text: str, top_k: int) -> list[RetrievalResult]:
+        """BM25-style native sparse arama — eski in-memory ``BM25Index``'in
+        yerini alır (bkz. pipeline/bm25_index.py). Sorgu boşsa/tokenize
+        edilemiyorsa (ör. yalnızca stopword) Qdrant'a hiç gitmeden boş liste
+        döner — boş sparse vektörle sorgu atmak anlamsız ve gereksiz bir
+        round-trip olurdu."""
+        query_vector = text_to_sparse_vector(query_text)
+        if not query_vector.indices:
+            return []
+        hits = self.client.query_points(
+            collection_name=self.collection, query=query_vector, using=_SPARSE_VECTOR_NAME, limit=top_k, with_payload=True
+        ).points
         results = []
         for hit in hits:
             payload = hit.payload

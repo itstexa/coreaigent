@@ -36,7 +36,7 @@ def main() -> None:
     print(f"ÜRETILEN (kasıtlı uydurma) CEVAP: {HALLUCINATED_ANSWER}\n")
 
     engine = RAGEngine()
-    hits = engine.retrieve(QUERY, top_k=3)
+    hits = engine.retrieve(QUERY, top_k=3, actor="demo:demo_hakem_agent")
     chunks = [{"citation": h.chunk.citation, "text": h.chunk.text} for h in hits]
     print(f"Gerçek indeksten çekilen {len(chunks)} kaynak parça:")
     for c in chunks:
