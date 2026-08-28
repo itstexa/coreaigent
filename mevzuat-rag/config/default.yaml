@@ -49,6 +49,11 @@ generation:
   temperature: 0.0
   max_tokens: 800
   timeout_s: 30
+  # response_format={"type":"json_object"} — router/multi_query/crag/
+  # post_hoc_verify JSON isteyen çağrılarında bunu koşullu ekler (DeepSeek
+  # destekliyor). Yerel bir OpenAI-uyumlu sunucu (ör. vLLM arkasında Jamba)
+  # structured output desteklemiyorsa bu profilde/override'da false yapın.
+  json_mode: true
   retry:
     attempts: 2
     backoff_base_s: 1.0

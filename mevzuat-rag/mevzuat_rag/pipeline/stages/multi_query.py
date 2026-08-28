@@ -15,7 +15,7 @@ import json
 import logging
 from pathlib import Path
 
-from mevzuat_rag.llm_client import get_client
+from mevzuat_rag.llm_client import create_chat_completion, get_client
 from mevzuat_rag.pipeline.context import PipelineContext
 from mevzuat_rag.retry import call_with_retry
 
@@ -31,8 +31,10 @@ def _parse_queries(raw_text: str, n: int) -> list[str]:
         text = text.strip("`")
         text = text.split("\n", 1)[1] if "\n" in text else text
     parsed = json.loads(text)
+    if isinstance(parsed, dict):
+        parsed = parsed.get("queries")
     if not isinstance(parsed, list) or not all(isinstance(q, str) for q in parsed):
-        raise ValueError("beklenen format: string listesi")
+        raise ValueError('beklenen format: string listesi ya da {"queries": [...]}')
     return [q.strip() for q in parsed if q.strip()][:n]
 
 
@@ -52,11 +54,14 @@ class MultiQueryStage:
         template = prompt_path.read_text(encoding="utf-8") if prompt_path.exists() else DEFAULT_PROMPT_PATH.read_text(encoding="utf-8")
         prompt = template.format(query=ctx.original_query, n=config.n_queries)
 
-        client = get_client()
+        client = get_client(api_key=gen_config.api_key, base_url=gen_config.base_url)
 
         def _call():
-            return client.chat.completions.create(
+            return create_chat_completion(
+                client,
                 model=gen_config.model,
+                json_mode=gen_config.json_mode,
+                base_url=gen_config.base_url,
                 temperature=0.7,
                 max_tokens=400,
                 timeout=gen_config.timeout_s,

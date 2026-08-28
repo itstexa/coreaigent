@@ -40,7 +40,7 @@ class HyDEStage:
             return ctx  # not short/ambiguous enough to trigger HyDE
 
         gen_config = ctx.engine.config.generation
-        client = get_client()
+        client = get_client(api_key=gen_config.api_key, base_url=gen_config.base_url)
 
         def _call():
             return client.chat.completions.create(

@@ -54,6 +54,40 @@ def _layered_yaml(profile: str) -> dict:
     return _deep_merge(default, override)
 
 
+# generation.provider -> hangi env var isimlerinden api_key/base_url/model
+# okunacağı + o provider'a özgü varsayılan. Yeni bir OpenAI-uyumlu backend
+# eklemek (yerel Jamba gibi) yalnızca bu tabloya bir satır eklemek demektir —
+# get_client() ya da hiçbir pipeline stage'i değişmez, hepsi zaten
+# RAGConfig.generation.api_key/base_url/model üzerinden çalışıyor.
+_PROVIDER_ENV: dict[str, dict[str, str]] = {
+    "deepseek": {
+        "api_key": "DEEPSEEK_API_KEY",
+        "base_url": "DEEPSEEK_BASE_URL",
+        "model": "DEEPSEEK_MODEL",
+        "default_base_url": "https://api.deepseek.com/v1",
+        "default_model": "deepseek-chat",
+    },
+    "jamba": {
+        "api_key": "JAMBA_API_KEY",
+        "base_url": "JAMBA_BASE_URL",
+        "model": "JAMBA_MODEL",
+        "default_base_url": "http://localhost:8000/v1",
+        "default_model": "ai21labs/AI21-Jamba2-3B",
+    },
+}
+_GENERIC_PROVIDER_ENV = {
+    "api_key": "LLM_API_KEY",
+    "base_url": "LLM_BASE_URL",
+    "model": "LLM_MODEL",
+    "default_base_url": "",
+    "default_model": "",
+}
+
+
+def _provider_env(provider: str) -> dict[str, str]:
+    return _PROVIDER_ENV.get(provider, _GENERIC_PROVIDER_ENV)
+
+
 def _resolve_data_path(raw: str, data_dir: Path) -> str:
     """Relative paths resolve against DATA_DIR, never against the process
     cwd — so behavior doesn't change depending on where a script happens to
@@ -205,11 +239,20 @@ class GenerationConfig:
     provider: str = "deepseek"
     model: str = "deepseek-chat"
     base_url: str = "https://api.deepseek.com/v1"
+    # Provider'a göre çözülür (bkz. _PROVIDER_ENV) — RAGConfig.load() dışında
+    # elle bir GenerationConfig kurulursa None kalır, get_client() o zaman
+    # kendi DEEPSEEK_API_KEY/LLM_API_KEY fallback'ine düşer.
+    api_key: str | None = None
     temperature: float = 0.0
     max_tokens: int = 800
     timeout_s: float = 30.0
     retry_attempts: int = 2
     retry_backoff_s: float = 1.0
+    # response_format={"type": "json_object"} — JSON bekleyen stage'ler
+    # (router/multi_query/crag/post_hoc_verify) bunu koşullu ekler. Yerel bir
+    # sunucu (ör. vLLM arkasında Jamba) structured output desteklemiyorsa
+    # profil YAML'ında false yapılmalı.
+    json_mode: bool = True
 
 
 @dataclass
@@ -279,6 +322,8 @@ class RAGConfig:
 
         gen = y.get("generation", {}) or {}
         gen_retry = gen.get("retry", {}) or {}
+        gen_provider = gen.get("provider", "deepseek")
+        penv = _provider_env(gen_provider)
         text_norm = y.get("text_norm", {}) or {}
 
         return cls(
@@ -307,21 +352,23 @@ class RAGConfig:
             post_hoc_verify=PostHocVerifyConfig(**(y.get("post_hoc_verify", {}) or {})),
             semantic_cache=SemanticCacheConfig(**(y.get("semantic_cache", {}) or {})),
             generation=GenerationConfig(
-                provider=gen.get("provider", "deepseek"),
-                model=os.environ.get("DEEPSEEK_MODEL") or gen.get("model", "deepseek-chat"),
-                base_url=os.environ.get("DEEPSEEK_BASE_URL") or gen.get("base_url", "https://api.deepseek.com/v1"),
+                provider=gen_provider,
+                model=os.environ.get(penv["model"]) or gen.get("model", penv["default_model"]),
+                base_url=os.environ.get(penv["base_url"]) or gen.get("base_url", penv["default_base_url"]),
+                api_key=os.environ.get(penv["api_key"]),
                 temperature=float(gen.get("temperature", 0.0)),
                 max_tokens=int(gen.get("max_tokens", 800)),
                 timeout_s=float(gen.get("timeout_s", 30)),
                 retry_attempts=int(gen_retry.get("attempts", 2)),
                 retry_backoff_s=float(gen_retry.get("backoff_base_s", 1.0)),
+                json_mode=bool(gen.get("json_mode", True)),
             ),
             debug=_bool_env("RAG_DEBUG", bool((y.get("observability", {}) or {}).get("debug", False))),
             embedding=EmbeddingConfig(
                 model=os.environ.get("RAG_EMBEDDING_MODEL") or embedding.get("model", "BAAI/bge-m3"),
                 dim=int(os.environ.get("RAG_EMBEDDING_DIM") or embedding.get("dim", 1024)),
                 device=os.environ.get("RAG_EMBEDDING_DEVICE") or device,
-                batch_size=int(embedding.get("batch_size", 32)),
+                batch_size=int(os.environ.get("RAG_EMBEDDING_BATCH_SIZE") or embedding.get("batch_size", 32)),
                 oom_retry=bool(embedding.get("oom_retry", True)),
                 on_overlong=embedding.get("on_overlong", "warn_truncate"),
                 max_retries=int(embedding.get("max_retries", 2)),

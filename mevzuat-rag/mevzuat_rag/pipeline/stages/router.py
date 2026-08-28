@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 
-from mevzuat_rag.llm_client import get_client
+from mevzuat_rag.llm_client import create_chat_completion, get_client
 from mevzuat_rag.pipeline.context import PipelineContext
 from mevzuat_rag.retry import call_with_retry
 
@@ -78,11 +78,14 @@ class RouterStage:
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
         gen_config = ctx.engine.config.generation
-        client = get_client()
+        client = get_client(api_key=gen_config.api_key, base_url=gen_config.base_url)
 
         def _call():
-            return client.chat.completions.create(
+            return create_chat_completion(
+                client,
                 model=ctx.engine.config.router.model,
+                json_mode=gen_config.json_mode,
+                base_url=gen_config.base_url,
                 temperature=0.0,
                 max_tokens=150,
                 timeout=gen_config.timeout_s,

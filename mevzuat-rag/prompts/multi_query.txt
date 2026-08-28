@@ -5,5 +5,5 @@ hukuki kavram, olası istisna/şart, karşıt durum vb.) hedeflemeli.
 
 Orijinal soru: {query}
 
-Yalnızca şu formatta bir JSON dizisi döndür, başka hiçbir açıklama ekleme:
-["sorgu 1", "sorgu 2", "sorgu 3", "sorgu 4"]
+Yalnızca şu formatta bir JSON nesnesi döndür, başka hiçbir açıklama ekleme:
+{{"queries": ["sorgu 1", "sorgu 2", "sorgu 3", "sorgu 4"]}}

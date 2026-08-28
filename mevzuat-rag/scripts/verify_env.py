@@ -86,11 +86,15 @@ def main() -> int:
         target = config.qdrant_url or config.qdrant_local_path
         _check("qdrant", False, f"Qdrant erişilemedi ({target}): {exc}. QDRANT_URL'i kontrol edin.")
 
-    if config.generation.provider == "deepseek":
-        import os
-
-        has_key = bool(os.environ.get("DEEPSEEK_API_KEY"))
-        _check("deepseek_api_key", has_key or None, "DEEPSEEK_API_KEY tanımlı" if has_key else "DEEPSEEK_API_KEY tanımlı değil — yalnızca retrieve() çalışır, ask() çalışmaz")
+    if config.generation.provider:
+        has_key = bool(config.generation.api_key)
+        _check(
+            "llm_api_key",
+            has_key or None,
+            f"{config.generation.provider}: API key tanımlı ({config.generation.base_url})"
+            if has_key
+            else f"{config.generation.provider}: API key tanımlı değil — yalnızca retrieve() çalışır, ask() çalışmaz",
+        )
 
     data_dir = Path(config.qdrant_local_path).parent
     data_dir.mkdir(parents=True, exist_ok=True)

@@ -17,7 +17,11 @@ and corrects when they don't:
 Hard-capped at ``config.crag.max_loops`` — cannot loop forever. Evaluator
 failures fail OPEN to SUFFICIENT (proceed with whatever is already
 retrieved; Generate's own grounding/refusal behavior is the real safety
-net, not this stage), logged as a WARNING.
+net, not this stage), logged as a WARNING **and** recorded on
+``ctx.crag_evaluator_failed`` — GenerateStage turns that into a visible
+"sonuç doğrulanamadı" warning in the returned answer, so this fallback is
+no longer silent to the end user (denetimde bulunan "CRAG fail-open
+onaysız" bulgusuna karşılık — bkz. rag_config_panel.py madde 3).
 
 Deliberately does NOT mutate ``ctx.engine.config`` to apply a strategy (that
 would leak into concurrent/future requests on the same shared RAGEngine) —
@@ -29,7 +33,7 @@ import json
 import logging
 
 from mevzuat_rag.embedding import embed_query
-from mevzuat_rag.llm_client import get_client
+from mevzuat_rag.llm_client import create_chat_completion, get_client
 from mevzuat_rag.models import RetrievalResult
 from mevzuat_rag.pipeline.candidate import Candidate
 from mevzuat_rag.pipeline.context import PipelineContext
@@ -92,11 +96,14 @@ class CRAGStage:
         gen_config = ctx.engine.config.generation
         context = "\n\n".join(f"({c.chunk.citation}) {wrap_source(c.text)}" for c in ctx.candidates) or "(hiç sonuç bulunamadı)"
         user_prompt = f"Soru: {ctx.original_query}\n\nGetirilen parçalar:\n{context}"
-        client = get_client()
+        client = get_client(api_key=gen_config.api_key, base_url=gen_config.base_url)
 
         def _call():
-            return client.chat.completions.create(
+            return create_chat_completion(
+                client,
                 model=gen_config.model,
+                json_mode=gen_config.json_mode,
+                base_url=gen_config.base_url,
                 temperature=0.0,
                 max_tokens=200,
                 timeout=gen_config.timeout_s,
@@ -111,6 +118,8 @@ class CRAGStage:
             return _parse_verdict(response.choices[0].message.content)
         except Exception as exc:
             logger.warning("CRAG değerlendirmesi başarısız (%s) — SUFFICIENT'e düşülüp mevcut sonuçla devam ediliyor.", exc)
+            ctx.crag_evaluator_failed = True
+            ctx.crag_failure_reason = str(exc)
             return {"verdict": "SUFFICIENT", "missing_aspect": "", "reason": f"evaluator failed: {exc}"}
 
     def _retrieve_for(self, ctx: PipelineContext, query_text: str, top_k: int) -> list[Candidate]:
@@ -129,7 +138,7 @@ class CRAGStage:
 
         if strategy == "force_hyde":
             gen_config = engine.config.generation
-            client = get_client()
+            client = get_client(api_key=gen_config.api_key, base_url=gen_config.base_url)
 
             def _call():
                 return client.chat.completions.create(

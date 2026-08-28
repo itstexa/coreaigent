@@ -120,7 +120,7 @@ class CompressionStage:
             f"yaklaşık {token_budget} token'ı geçmeyecek şekilde özetle. Hiçbir hukuki bilgiyi "
             f"uydurma, sadece verilenleri kısalt:\n\n{context}"
         )
-        client = get_client()
+        client = get_client(api_key=gen_config.api_key, base_url=gen_config.base_url)
 
         def _call():
             return client.chat.completions.create(

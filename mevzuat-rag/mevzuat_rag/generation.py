@@ -69,6 +69,8 @@ def generate_answer(
     timeout_s: float = 30.0,
     retry_attempts: int = 2,
     retry_backoff_s: float = 1.0,
+    api_key: str | None = None,
+    base_url: str | None = None,
     client: OpenAI | None = None,
 ) -> dict:
     """Returns {"answer": str, "citations": [chunk.citation, ...]}.
@@ -79,7 +81,7 @@ def generate_answer(
     if not chunks:
         return {"answer": "Verilen mevzuat parçalarında bu sorunun cevabı yok.", "citations": []}
 
-    client = client or get_client()
+    client = client or get_client(api_key=api_key, base_url=base_url)
     context = _build_context(chunks)
     user_prompt = f"Soru: {query}\n\nMevzuat parçaları:\n{context}\n\nYukarıdaki parçalara dayanarak soruyu cevapla."
 

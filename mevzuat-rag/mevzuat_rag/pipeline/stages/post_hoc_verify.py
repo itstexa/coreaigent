@@ -26,7 +26,7 @@ import json
 import logging
 import re
 
-from mevzuat_rag.llm_client import get_client
+from mevzuat_rag.llm_client import create_chat_completion, get_client
 from mevzuat_rag.pipeline.context import PipelineContext
 from mevzuat_rag.prompt_safety import INJECTION_DEFENSE_NOTE, wrap_source
 from mevzuat_rag.retry import call_with_retry
@@ -75,6 +75,9 @@ def verify_answer(
     retrieved_chunks: list[dict],
     model: str = "deepseek-chat",
     client=None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    json_mode: bool = True,
     timeout_s: float = 30.0,
     retry_attempts: int = 2,
     retry_backoff_s: float = 1.0,
@@ -96,11 +99,14 @@ def verify_answer(
         f"[{i}] {wrap_source(c.get('text', ''))}" for i, c in enumerate(retrieved_chunks, start=1)
     )
     user_prompt = f"Üretilen cevap:\n{generated_answer}\n\nBağlam (kanun maddeleri):\n{source_block}"
-    client = client or get_client()
+    client = client or get_client(api_key=api_key, base_url=base_url)
 
     def _call():
-        return client.chat.completions.create(
+        return create_chat_completion(
+            client,
             model=model,
+            json_mode=json_mode,
+            base_url=base_url,
             temperature=0.0,
             max_tokens=200,
             timeout=timeout_s,
@@ -155,7 +161,11 @@ class PostHocVerifyStage:
             return ctx
 
         try:
-            verdict = verify_answer(answer_text, sources, model=config.model)
+            gen_config = ctx.engine.config.generation
+            verdict = verify_answer(
+                answer_text, sources, model=config.model,
+                api_key=gen_config.api_key, base_url=gen_config.base_url, json_mode=gen_config.json_mode,
+            )
         except Exception as exc:
             logger.warning("Hakem Ajan denetimi başarısız (%s) — orijinal cevap korunuyor (fails open).", exc)
             ctx.answer["post_hoc_verdict"] = "EVALUATOR_FAILED_OPEN"
