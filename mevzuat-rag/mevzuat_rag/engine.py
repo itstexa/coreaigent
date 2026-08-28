@@ -13,6 +13,7 @@ import threading
 
 from mevzuat_rag import audit_log, metrics
 from mevzuat_rag.config import RAGConfig
+from mevzuat_rag.dynamic_profile import apply_dynamic_profile
 from mevzuat_rag.embedding import embed_texts_with_config, get_embedder
 from mevzuat_rag.errors import RAGError
 from mevzuat_rag.models import LegislationChunk, RetrievalResult
@@ -155,16 +156,26 @@ class RAGEngine:
 
         return {"embedded": embedded, "skipped_unchanged": skipped, "failed": failed}
 
-    def _build_pipeline(self, want_answer: bool) -> Pipeline:
+    def _corpus_point_count(self) -> int:
+        """[Dinamik VRAM Profili] Hedef koleksiyondaki chunk sayısı —
+        dynamic_profile.resolve_profile_name() için. Koleksiyon henüz yoksa/
+        store hazır değilse (ör. ilk çalıştırma, boş korpus) 0 döner — bu da
+        güvenli varsayılan olan KÜÇÜK profile düşer, hata fırlatmaz."""
+        try:
+            return self.store.point_count()
+        except Exception:
+            return 0
+
+    def _build_pipeline(self, want_answer: bool, effective_config: RAGConfig) -> Pipeline:
         stages = [
             RouterStage(enabled=self.config.router.enabled),
-            MultiQueryStage(enabled=self.config.multi_query.enabled),
-            HyDEStage(enabled=self.config.hyde.enabled),
+            MultiQueryStage(enabled=effective_config.multi_query.enabled),
+            HyDEStage(enabled=effective_config.hyde.enabled),
             HybridRetrieveStage(enabled=True),
-            RerankStage(enabled=self.config.rerank.enabled),
-            ParentDocStage(enabled=self.config.parent_doc.enabled),
+            RerankStage(enabled=effective_config.rerank.enabled),
+            ParentDocStage(enabled=effective_config.parent_doc.enabled),
             CitationExpansionStage(enabled=self.config.citation_expansion.enabled),
-            CRAGStage(enabled=self.config.crag.enabled),
+            CRAGStage(enabled=effective_config.crag.enabled),
             CompressionStage(enabled=self.config.compression.enabled),
         ]
         if want_answer:
@@ -181,20 +192,38 @@ class RAGEngine:
         return Pipeline(stages)
 
     def _run(self, query: str, top_k: int, want_answer: bool) -> PipelineContext:
+        # [Dinamik VRAM Profili] Yalnızca config.dynamic_resource_profile
+        # açıkken devrede — kapalıyken (varsayılan) effective_config ==
+        # self.config, davranış dynamic_profile.py eklenmeden ÖNCEKİYLE
+        # birebir aynıdır (bkz. RAGConfig.dynamic_resource_profile yorumu,
+        # test_smoke_pipeline.py'nin manuel-config beklentisini bu yüzden
+        # bozmaz). Açıkken bu TEK istek için, engine.config'ten mutate
+        # etmeden türetilmiş bir kopya kullanılır — eşzamanlı farklı
+        # isteklerin birbirinin config'ini ezmemesi için ctx.engine.config
+        # değil ctx.resolved_config okunur (hybrid/rerank/multi_query/hyde/
+        # parent_doc/crag stage'lerinde).
+        if self.config.dynamic_resource_profile:
+            point_count = self._corpus_point_count()
+            effective_config, profile_name = apply_dynamic_profile(self.config, point_count, query)
+        else:
+            effective_config, profile_name = self.config, None
+
         ctx = PipelineContext(original_query=query, engine=self, top_k=top_k, debug=self.config.debug)
-        pipeline = self._build_pipeline(want_answer=want_answer)
+        ctx.effective_config = effective_config
+        ctx.dynamic_profile = profile_name
+        pipeline = self._build_pipeline(want_answer=want_answer, effective_config=effective_config)
         return pipeline.run(ctx)
 
-    def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievalResult]:
+    def retrieve(self, query: str, top_k: int | None = None, actor: str | None = None) -> list[RetrievalResult]:
         if not query:
             raise RAGError("query is required", category="validation")
         top_k = top_k or self.config.retrieval_top_k
         ctx = self._run(query, top_k, want_answer=False)
         results = [candidate.to_result() for candidate in ctx.candidates]
-        audit_log.log_query(query, citations=[r.chunk.citation for r in results])
+        audit_log.log_query(query, citations=[r.chunk.citation for r in results], actor=actor)
         return results
 
-    def ask(self, query: str, top_k: int | None = None) -> dict:
+    def ask(self, query: str, top_k: int | None = None, actor: str | None = None) -> dict:
         """retrieve() + DeepSeek-generated grounded answer. See generation.py.
 
         If ``config.debug`` (or ``RAG_DEBUG=true``) is set, the returned
@@ -202,20 +231,35 @@ class RAGEngine:
         actually ran, with its input/output candidate count and duration in
         ms (see pipeline/context.py:TraceEntry) — so you can see which
         stages fired and what each one changed for this specific query.
+
+        ``actor`` should be threaded from the real caller's identity — the
+        authenticated principal at the HTTP/service boundary, or the OS user
+        for CLI invocations (see ask.py/repl.py). Never leave it at its
+        ``None`` default in a real deployment: audit_log.log_query records
+        exactly what's passed here, and this is the only accountability
+        trail this system has for "who asked what" (see docs/IMPROVEMENT_IDEAS.md,
+        Güvenlik #3, and MEMORY note on the access-control audit finding).
         """
         if not query:
             raise RAGError("query is required", category="validation")
         top_k = top_k or self.config.retrieval_top_k
         ctx = self._run(query, top_k, want_answer=True)
         answer = ctx.answer
+        answer["dynamic_profile"] = ctx.dynamic_profile
         if self.config.debug:
             answer["trace"] = [
                 {"stage": t.stage, "input_count": t.input_count, "output_count": t.output_count, "duration_ms": t.duration_ms}
                 for t in ctx.trace
             ]
+        verdict_parts = []
+        if answer.get("crag_status"):
+            verdict_parts.append(f"crag={answer['crag_status']}")
+        if answer.get("post_hoc_verdict"):
+            verdict_parts.append(f"post_hoc={answer['post_hoc_verdict']}")
         audit_log.log_query(
             query,
             citations=list(answer.get("citations") or []),
-            answer_verdict=answer.get("post_hoc_verdict"),
+            answer_verdict="; ".join(verdict_parts) or None,
+            actor=actor,
         )
         return answer

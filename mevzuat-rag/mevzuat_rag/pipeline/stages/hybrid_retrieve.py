@@ -47,7 +47,7 @@ class HybridRetrieveStage:
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
         engine = ctx.engine
-        hybrid = engine.config.hybrid
+        hybrid = ctx.resolved_config.hybrid
         variants = _query_variants(ctx)
 
         if len(variants) == 1 and not hybrid.enabled:
@@ -133,7 +133,7 @@ class HybridRetrieveStage:
             candidate.metadata["bm25_score"] = bm25_scores.get(chunk_id)
             candidates.append(candidate)
 
-        if not engine.config.rerank.enabled:
+        if not ctx.resolved_config.rerank.enabled:
             candidates = candidates[: ctx.top_k]
         ctx.candidates = candidates
         return ctx

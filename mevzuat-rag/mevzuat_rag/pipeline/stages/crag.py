@@ -129,7 +129,7 @@ class CRAGStage:
         return [Candidate.from_result(hit, source="crag_refine") for hit in hits]
 
     def _apply_insufficient_strategy(self, ctx: PipelineContext) -> None:
-        strategy = ctx.engine.config.crag.insufficient_strategy
+        strategy = ctx.resolved_config.crag.insufficient_strategy
         engine = ctx.engine
 
         if strategy == "refuse":
@@ -161,7 +161,7 @@ class CRAGStage:
             if not hyde_answer:
                 return
             ctx.hyde_answer = hyde_answer
-            top_k = engine.config.hybrid.dense_top_k if engine.config.hybrid.enabled else ctx.top_k
+            top_k = ctx.resolved_config.hybrid.dense_top_k if ctx.resolved_config.hybrid.enabled else ctx.top_k
             vector = embed_query(engine.model, normalize_text(hyde_answer, profile="embedding"))
             hits = engine.store.search(vector, top_k=top_k)
             new_candidates = [Candidate.from_result(hit, source="crag_hyde") for hit in hits]
@@ -170,7 +170,7 @@ class CRAGStage:
 
         if strategy == "shift_to_bm25":
             try:
-                bm25_hits = engine.bm25_index.search(ctx.original_query, top_k=engine.config.hybrid.bm25_top_k, store=engine.store)
+                bm25_hits = engine.bm25_index.search(ctx.original_query, top_k=ctx.resolved_config.hybrid.bm25_top_k, store=engine.store)
             except Exception as exc:
                 logger.warning("CRAG shift_to_bm25 başarısız (%s).", exc)
                 return
@@ -181,7 +181,7 @@ class CRAGStage:
             ctx.candidates = _merge(ctx.candidates, new_candidates)
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
-        config = ctx.engine.config.crag
+        config = ctx.resolved_config.crag
 
         for _ in range(config.max_loops):
             verdict = self._evaluate(ctx)
@@ -202,9 +202,9 @@ class CRAGStage:
             else:
                 return ctx  # PARTIAL without a usable missing_aspect — nothing more to correct
 
-            if ctx.engine.config.rerank.enabled:
+            if ctx.resolved_config.rerank.enabled:
                 ctx = RerankStage(enabled=True).run(ctx)
-            if ctx.engine.config.parent_doc.enabled:
+            if ctx.resolved_config.parent_doc.enabled:
                 ctx = ParentDocStage(enabled=True).run(ctx)
 
         return ctx

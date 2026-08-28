@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from mevzuat_rag.config import RAGConfig
 from mevzuat_rag.pipeline.candidate import Candidate
 
 if TYPE_CHECKING:
@@ -29,6 +30,24 @@ class PipelineContext:
     top_k: int
     debug: bool = False
 
+    # [Dinamik VRAM Profili] Bu İSTEĞE ÖZEL, salt-okunur RAGConfig kopyası —
+    # dynamic_profile.apply_dynamic_profile() tarafından RAGEngine.config'ten
+    # MUTATE ETMEDEN üretilir (bkz. dynamic_profile.py modül docstring'i:
+    # aynı RAGEngine'i eşzamanlı sorgulayan farklı isteklerin birbirinin
+    # config'ini ezmemesi için). hybrid/rerank/multi_query/hyde/parent_doc/
+    # crag stage'leri ctx.engine.config yerine ctx.effective_config okur.
+    # None kalamaz — RAGEngine._run() her zaman set eder.
+    effective_config: RAGConfig | None = None
+    dynamic_profile: str | None = None
+
+    @property
+    def resolved_config(self) -> RAGConfig:
+        """``effective_config`` set edilmemişse (ör. testlerde doğrudan
+        ``PipelineContext(...)`` kurulumu, RAGEngine._run() dışından
+        çağrılan eski kod yolları) ``engine.config``'e güvenle geri düşer —
+        eski (dinamik profil öncesi) davranışla birebir aynı sonucu verir."""
+        return self.effective_config or self.engine.config
+
     # [0] Self-RAG router decision: {"decision": ..., "confidence": ..., "reason": ...}
     decision: dict | None = None
     # [1] Multi-Query / HyDE outputs
@@ -39,6 +58,14 @@ class PipelineContext:
     # [5] CRAG loop state
     crag_verdict: str | None = None  # "SUFFICIENT" | "PARTIAL" | "INSUFFICIENT"
     crag_loop_count: int = 0
+    # True iff the CRAG evaluator LLM call itself raised (network/auth/timeout/
+    # malformed JSON) at least once — CRAG fails OPEN in that case (proceeds
+    # with whatever candidates it already has), so this is the only signal
+    # that the "SUFFICIENT" verdict wasn't actually judged by anything. See
+    # GenerateStage, which surfaces this to the caller instead of staying
+    # silent about it (bkz. denetim bulgusu: "CRAG fail-open onaysız").
+    crag_evaluator_failed: bool = False
+    crag_failure_reason: str | None = None
     # [7] Generate output: {"answer": str, "citations": [...], "sources": [...]}
     answer: dict | None = None
     # [10] Semantic Cache: True iff SemanticCacheCheckStage populated ``answer``

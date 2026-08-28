@@ -52,3 +52,12 @@ router:
 
 post_hoc_verify:
   model: ai21labs/AI21-Jamba2-3B
+
+# [Dinamik RAG ve VRAM Optimizasyon Yönergesi, 2026-08-28] Kullanıcı talebi:
+# "sistemde başka uygulamalar da çalıştığı için VRAM kullanımı kesinlikle
+# optimize edilmeli". Jamba/4090 dağıtımı VRAM'i DeepSeek (bulut API,
+# VRAM paylaşmaz) profilinden farklı olarak GPU'yu embedding+reranker'la
+# PAYLAŞIYOR — bu yüzden yalnızca bu profilde açık. Varsayılan (default.yaml,
+# DeepSeek) davranışı DEĞİŞMEDİ. Ayrıntı: mevzuat_rag/dynamic_profile.py.
+dynamic_resource_profile:
+  enabled: true

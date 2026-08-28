@@ -35,7 +35,7 @@ class HyDEStage:
         self.enabled = enabled
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
-        config = ctx.engine.config.hyde
+        config = ctx.resolved_config.hyde
         if estimate_tokens(ctx.original_query) > config.trigger_max_tokens:
             return ctx  # not short/ambiguous enough to trigger HyDE
 

@@ -76,25 +76,39 @@ class RerankStage:
         self.enabled = enabled
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
-        config = ctx.engine.config.rerank
+        config = ctx.resolved_config.rerank
         if not ctx.candidates:
             return ctx
 
+        # [Dinamik VRAM Profili] Cross-encoder'a SKORLATILMADAN önce kes —
+        # ctx.candidates zaten hybrid_retrieve'in RRF skoruna göre sıralı
+        # geldiği için ilk max_candidates zaten en alakalı adaylar. Gerçek
+        # 4090 ölçümünde (bkz. docs/PERFORMANCE_REPORT_4090_240pg.md) bu
+        # kesim olmadan 47-91 aday reranker'dan geçiyordu.
+        candidates = ctx.candidates
+        # `isinstance(..., int)` — MagicMock tabanlı testlerde (ör.
+        # test_adaptive_topn.py) dokunulmayan bir attribute auto-vivify olup
+        # varsayılan olarak truthy bir MagicMock döner; bare `if` bunu yanlışça
+        # True sayıp listeyi 1 elemana keserdi. Aynı savunma deseni burada da
+        # (bkz. aşağıdaki `adaptive_cutoff is True` yorumu).
+        if isinstance(config.max_candidates, int) and config.max_candidates > 0:
+            candidates = candidates[: config.max_candidates]
+
         try:
             model = _get_cross_encoder(config.model, ctx.engine.config.device)
-            pairs = [(ctx.original_query, candidate.text) for candidate in ctx.candidates]
+            pairs = [(ctx.original_query, candidate.text) for candidate in candidates]
             scores = model.predict(pairs)
         except Exception as exc:
             logger.warning("Reranker kullanılamıyor (%s) — hybrid skorlarıyla devam ediliyor.", exc)
             ctx.candidates = ctx.candidates[: ctx.top_k]
             return ctx
 
-        for candidate, score in zip(ctx.candidates, scores):
+        for candidate, score in zip(candidates, scores):
             candidate.metadata["rerank_score"] = float(score)
             candidate.score = float(score)
             candidate.source = "reranked"
 
-        ranked = sorted(ctx.candidates, key=lambda c: c.score, reverse=True)
+        ranked = sorted(candidates, key=lambda c: c.score, reverse=True)
         filtered = [c for c in ranked if c.score >= config.min_score]
 
         # `is True` (yalnızca gerçek bool True) — MagicMock tabanlı testlerde

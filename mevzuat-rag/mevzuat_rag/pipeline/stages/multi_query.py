@@ -45,7 +45,7 @@ class MultiQueryStage:
         self.enabled = enabled
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
-        config = ctx.engine.config.multi_query
+        config = ctx.resolved_config.multi_query
         gen_config = ctx.engine.config.generation
 
         prompt_path = Path(config.prompt_path)

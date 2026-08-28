@@ -138,6 +138,14 @@ class RerankConfig(StageToggle):
     # adaptive_cutoff=True iken kullanılır: ardışık skorların oranı
     # (curr/prev) bu eşiğin altına düşünce kesim yapılır.
     adaptive_drop_ratio: float = 0.5
+    # [Dinamik VRAM Profili] Cross-encoder'a skorlatılacak aday sayısının
+    # ÜST SINIRI — hybrid_retrieve'in ürettiği (RRF skoruna göre zaten
+    # sıralı) füzyon listesi bu sayıya kesilir, SONRA model.predict()
+    # çağrılır (rerank.py). 0 = sınırsız (eski davranış, değişmedi).
+    # Gerçek 4090 ölçümünde (2026-08-28) tek bir sorguda 47-91 aday
+    # reranker'a gidiyordu — bkz. docs/PERFORMANCE_REPORT_4090_240pg.md.
+    # dynamic_profile.py bunu KÜÇÜK=10 / ORTA=15 / BÜYÜK=15 olarak set eder.
+    max_candidates: int = 0
 
 
 @dataclass
@@ -275,6 +283,18 @@ class RAGConfig:
     device: str = "cpu"
     profile: str = "default"
 
+    # [Dinamik RAG ve VRAM Optimizasyon Yönergesi, 2026-08-28] Varsayılan
+    # KAPALI — açıldığında RAGEngine._run() her istekte hedef korpusun chunk
+    # sayısına bakıp KÜÇÜK/ORTA/BÜYÜK profillerinden birini SEÇER ve
+    # multi_query/hyde/hybrid.rrf_k/rerank/parent_doc/crag.max_loops'u o
+    # profile göre İSTEĞE ÖZEL geçersiz kılar (bkz. dynamic_profile.py).
+    # Kapalıyken (varsayılan) davranış eskisiyle BİREBİR aynıdır — mevcut
+    # testler (ör. test_smoke_pipeline.py'nin "tüm stage'ler manuel config
+    # ile açıldığında tetiklenmeli" beklentisi) bu yüzden bozulmaz. Sadece
+    # VRAM'in paylaşılan bir kaynak olduğu, çok kullanıcılı gerçek dağıtım
+    # profillerinde (config/jamba.yaml, config/rtx4090.yaml) açılır.
+    dynamic_resource_profile: bool = False
+
     # --- stage toggles (all default to disabled; flipped on per checkpoint) ---
     router: RouterConfig = field(default_factory=RouterConfig)
     hybrid: HybridConfig = field(default_factory=HybridConfig)
@@ -340,6 +360,10 @@ class RAGConfig:
             jina_reader_base_url=os.environ.get("AGENT_REACH_JINA_READER_BASE_URL") or ingestion.get("jina_reader_base_url", "https://r.jina.ai"),
             device=device,
             profile=profile,
+            dynamic_resource_profile=_bool_env(
+                "RAG_DYNAMIC_RESOURCE_PROFILE",
+                bool((y.get("dynamic_resource_profile", {}) or {}).get("enabled", False)),
+            ),
             router=RouterConfig(**(y.get("router", {}) or {})),
             hybrid=HybridConfig(**(y.get("hybrid", {}) or {})),
             rerank=RerankConfig(**(y.get("rerank", {}) or {})),

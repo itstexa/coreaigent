@@ -33,7 +33,7 @@ class ParentDocStage:
         self.enabled = enabled
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
-        config = ctx.engine.config.parent_doc
+        config = ctx.resolved_config.parent_doc
         store = ctx.engine.store
 
         best_score_by_parent: dict[tuple[str, int], float] = {}
