@@ -5,11 +5,12 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from auth import verify_api_key
 from model_loader import get_model_and_tokenizer
 from pipeline import run_pipeline
 
@@ -98,10 +99,10 @@ async def ready():
     raise HTTPException(status_code=503, detail="Model not loaded")
 
 
-def _execute(document_input: dict, workflow_id: str) -> dict:
+def _execute(document_input: dict, workflow_id: str, actor: str) -> dict:
     _log(workflow_id, "pipeline_start")
     try:
-        result = run_pipeline(document_input, workflow_id, model, tokenizer)
+        result = run_pipeline(document_input, workflow_id, model, tokenizer, actor=actor)
     except Exception as exc:
         _log(workflow_id, "pipeline_crashed", error=str(exc))
         result = {
@@ -121,26 +122,26 @@ def _execute(document_input: dict, workflow_id: str) -> dict:
 
 
 @app.post("/v1/workflows/document", response_model=WorkflowResult)
-async def workflow_document(request: DocumentInput):
+async def workflow_document(request: DocumentInput, actor: str = Depends(verify_api_key)):
     workflow_id = request.requestId
-    result = _execute(request.model_dump(), workflow_id)
+    result = _execute(request.model_dump(), workflow_id, actor)
     return result
 
 
 @app.post("/upload")
-async def upload(request: DocumentInput):
+async def upload(request: DocumentInput, actor: str = Depends(verify_api_key)):
     workflow_id = str(uuid.uuid4())
     JOBS[workflow_id] = {"status": "processing", "result": None}
     _log(workflow_id, "upload_received")
 
-    result = _execute(request.model_dump(), workflow_id)
+    result = _execute(request.model_dump(), workflow_id, actor)
     JOBS[workflow_id] = {"status": "completed", "result": result}
 
     return {"workflowId": workflow_id, "status": "completed"}
 
 
 @app.get("/status/{workflow_id}")
-async def status(workflow_id: str):
+async def status(workflow_id: str, actor: str = Depends(verify_api_key)):
     job = JOBS.get(workflow_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Bilinmeyen workflowId")
@@ -148,7 +149,7 @@ async def status(workflow_id: str):
 
 
 @app.get("/result/{workflow_id}", response_model=WorkflowResult)
-async def result(workflow_id: str):
+async def result(workflow_id: str, actor: str = Depends(verify_api_key)):
     job = JOBS.get(workflow_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Bilinmeyen workflowId")

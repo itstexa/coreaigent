@@ -31,9 +31,10 @@ from mevzuat_rag.engine import RAGEngine
 
 query = sys.argv[1]
 top_k = int(sys.argv[2])
+actor = sys.argv[3] if len(sys.argv) > 3 else None
 
 engine = RAGEngine(RAGConfig.from_env())
-results = engine.retrieve(query, top_k=top_k)
+results = engine.retrieve(query, top_k=top_k, actor=actor)
 
 out = []
 for r in results:
@@ -47,13 +48,13 @@ print(json.dumps({"results": out}))
 """
 
 
-def get_rag_context(query: str, top_k: int = 5) -> dict:
+def get_rag_context(query: str, top_k: int = 5, actor: str = "anonymous") -> dict:
     if not query or not query.strip():
         return {"results": [], "context_snippets": []}
 
     try:
         proc = subprocess.run(
-            [PYTHON_BIN, "-c", _RETRIEVE_SCRIPT, query, str(top_k)],
+            [PYTHON_BIN, "-c", _RETRIEVE_SCRIPT, query, str(top_k), actor],
             cwd=RAG_DIR,
             capture_output=True,
             text=True,

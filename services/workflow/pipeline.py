@@ -39,7 +39,7 @@ def _log(correlation_id: str, step: str, message: str, level: str = "info"):
     getattr(logger, level)(payload)
 
 
-def run_pipeline(document_input: dict, workflow_id: str, model, tokenizer) -> dict:
+def run_pipeline(document_input: dict, workflow_id: str, model, tokenizer, actor: str = "anonymous") -> dict:
     request_id = document_input["requestId"]
     document_id = document_input["documentId"]
     content_type = document_input["contentType"]
@@ -142,7 +142,7 @@ def run_pipeline(document_input: dict, workflow_id: str, model, tokenizer) -> di
     context_snippets = []
     if document_type in DRAFT_ELIGIBLE_TYPES:
         try:
-            rag_result = rag_connector.get_rag_context(text[:500])
+            rag_result = rag_connector.get_rag_context(text[:500], actor=actor)
             context_snippets = rag_result.get("context_snippets", [])
             record("rag", "completed" if context_snippets else "skipped")
             _log(workflow_id, "rag", f"{len(context_snippets)} kaynak bulundu")

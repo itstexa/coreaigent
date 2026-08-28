@@ -3,10 +3,11 @@ import logging
 import time
 from typing import List, Literal, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from auth import verify_api_key
 from model_loader import get_model_and_tokenizer
 from router import route_document
 from draft import generate_draft, summarize
@@ -80,7 +81,7 @@ async def startup_event():
 
 
 @app.post("/v1/generate", response_model=LLMResponse)
-async def generate(request: LLMRequest):
+async def generate(request: LLMRequest, actor: str = Depends(verify_api_key)):
     if model is None or tokenizer is None:
         log_event(request.requestId, request.documentId, request.workflowId, request.task, "model_not_loaded")
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -94,7 +95,7 @@ async def generate(request: LLMRequest):
             context = request.context
             if not context:
                 try:
-                    rag_result = rag_connector.get_rag_context(request.prompt)
+                    rag_result = rag_connector.get_rag_context(request.prompt, actor=actor)
                     context = rag_result.get("context_snippets", [])
                 except Exception as e:
                     log_event(request.requestId, request.documentId, request.workflowId, request.task, f"rag_failed: {str(e)}")
